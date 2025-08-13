@@ -18,10 +18,20 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: false,
       },
+      "/citas": {
+        target: "http://localhost:3005",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/usuarios": {
+        target: "http://localhost:3005",
+        changeOrigin: true,
+        secure: false,
+      }
       // si más adelante agregas módulos (/usuarios, /citas…), regístralos aquí
     },
   },
-  plugins: [ react() ],
+  plugins: [react()],
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
