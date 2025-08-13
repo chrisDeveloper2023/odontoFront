@@ -27,7 +27,12 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:3005",
         changeOrigin: true,
         secure: false,
-      }
+      },
+      "/consultorios": {
+        target: "http://localhost:3005",
+        changeOrigin: true,
+        secure: false,
+      },
       // si más adelante agregas módulos (/usuarios, /citas…), regístralos aquí
     },
   },
