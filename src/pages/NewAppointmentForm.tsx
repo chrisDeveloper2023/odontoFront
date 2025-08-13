@@ -27,15 +27,21 @@ interface Paciente {
 }
 
 interface Doctor {
-  id_usuario: number;
+  id: number;
   nombres: string;
   apellidos: string;
+  rol: {
+    id_rol: number;
+    nombre: string;
+  };
 }
 
 interface Consultorio {
   id_consultorio: number;
   nombre: string;
 }
+
+const ODONTOLOGO_ROLE_ID = 1; // ajusta si tu rol de odontólogo tuviese otro id
 
 const NewAppointmentForm = () => {
   const navigate = useNavigate();
@@ -49,7 +55,6 @@ const NewAppointmentForm = () => {
     hora: "",
     observaciones: "",
   });
-
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
@@ -58,20 +63,43 @@ const NewAppointmentForm = () => {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [pacRes, docRes, conRes] = await Promise.all([
-          fetch(`/pacientes`),
-          fetch(`/usuarios?rol=ODONTOLOGO`),
-          fetch(`/consultorios`),
+        const [pacRes, usersRes, conRes] = await Promise.all([
+          fetch("/pacientes"),
+          fetch("/usuarios"),       // trae usuarios con rol gracias al eager
+          fetch("/consultorios"),
+        ]);
+        const [pacData, usersData, conData] = await Promise.all([
+          pacRes.json(),
+          usersRes.json(),
+          conRes.json(),
         ]);
 
-        const pacData = await pacRes.json();
+        // Pacientes
         setPacientes(Array.isArray(pacData) ? pacData : pacData.data || []);
 
-        const docData = await docRes.json();
-        setDoctores(Array.isArray(docData) ? docData : docData.data || []);
+        // Consultorios
+        setConsultorios(
+          Array.isArray(conData) ? conData : conData.data || []
+        );
 
-        const conData = await conRes.json();
-        setConsultorios(Array.isArray(conData) ? conData : conData.data || []);
+        // Usuarios => odontólogos
+        const usersArray = Array.isArray(usersData)
+          ? usersData
+          : usersData.data || usersData.usuarios || [];
+        const odontologos: Doctor[] = (usersArray as any[])
+          .filter(
+            (u) =>
+              u.rol &&
+              Number(u.rol.id_rol) === ODONTOLOGO_ROLE_ID
+          )
+          .map((u) => ({
+            id: u.id,
+            nombres: u.nombres,
+            apellidos: u.apellidos,
+            rol: u.rol,
+          }));
+
+        setDoctores(odontologos);
       } catch (err) {
         console.error("Error cargando listas:", err);
       } finally {
@@ -81,34 +109,35 @@ const NewAppointmentForm = () => {
     fetchData();
   }, []);
 
-  const handleSelectChange = (field: string, value: string) => {
+  const handleSelectChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const fechaHoraISO = `${formData.fecha}T${formData.hora}:00`;
+      const payload = {
+        id_paciente: Number(formData.id_paciente),
+        id_odontologo: Number(formData.id_odontologo),
+        id_consultorio: Number(formData.id_consultorio),
+        id_clinica: formData.id_clinica
+          ? Number(formData.id_clinica)
+          : null,
+        fecha_hora: `${formData.fecha}T${formData.hora}:00`,
+        observaciones: formData.observaciones || null,
+        estado: "AGENDADA",
+      };
 
-      const res = await fetch(`/citas`, {
+      const res = await fetch("/citas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id_paciente: Number(formData.id_paciente),
-          id_odontologo: Number(formData.id_odontologo),
-          id_consultorio: Number(formData.id_consultorio),
-          id_clinica: Number(formData.id_clinica) || null,
-          fecha_hora: fechaHoraISO,
-          observaciones: formData.observaciones || null,
-          estado: "AGENDADA",
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.mensaje || "Error al agendar cita");
       }
-
       navigate("/appointments");
     } catch (err) {
       console.error("Error creando cita:", err);
@@ -145,6 +174,7 @@ const NewAppointmentForm = () => {
               Completa los datos para agendar una nueva cita.
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Paciente */}
@@ -152,16 +182,17 @@ const NewAppointmentForm = () => {
                 <Label>Paciente</Label>
                 <Select
                   value={formData.id_paciente}
-                  onValueChange={(value) =>
-                    handleSelectChange("id_paciente", value)
+                  onValueChange={(v) =>
+                    handleSelectChange("id_paciente", v)
                   }
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_paciente
                       ? (() => {
                           const p = pacientes.find(
-                            (p) =>
-                              String(p.id_paciente) === formData.id_paciente
+                            (x) =>
+                              String(x.id_paciente) ===
+                              formData.id_paciente
                           );
                           return p
                             ? `${p.nombres} ${p.apellidos}`
@@ -187,16 +218,17 @@ const NewAppointmentForm = () => {
                 <Label>Médico</Label>
                 <Select
                   value={formData.id_odontologo}
-                  onValueChange={(value) =>
-                    handleSelectChange("id_odontologo", value)
+                  onValueChange={(v) =>
+                    handleSelectChange("id_odontologo", v)
                   }
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_odontologo
                       ? (() => {
                           const d = doctores.find(
-                            (d) =>
-                              String(d.id_usuario) === formData.id_odontologo
+                            (x) =>
+                              String(x.id) ===
+                              formData.id_odontologo
                           );
                           return d
                             ? `${d.nombres} ${d.apellidos}`
@@ -206,10 +238,7 @@ const NewAppointmentForm = () => {
                   </SelectTrigger>
                   <SelectContent>
                     {doctores.map((d) => (
-                      <SelectItem
-                        key={d.id_usuario}
-                        value={String(d.id_usuario)}
-                      >
+                      <SelectItem key={d.id} value={String(d.id)}>
                         {d.nombres} {d.apellidos}
                       </SelectItem>
                     ))}
@@ -222,19 +251,21 @@ const NewAppointmentForm = () => {
                 <Label>Consultorio</Label>
                 <Select
                   value={formData.id_consultorio}
-                  onValueChange={(value) =>
-                    handleSelectChange("id_consultorio", value)
+                  onValueChange={(v) =>
+                    handleSelectChange("id_consultorio", v)
                   }
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_consultorio
                       ? (() => {
                           const c = consultorios.find(
-                            (c) =>
-                              String(c.id_consultorio) ===
+                            (x) =>
+                              String(x.id_consultorio) ===
                               formData.id_consultorio
                           );
-                          return c ? c.nombre : "Seleccionar consultorio";
+                          return c
+                            ? c.nombre
+                            : "Seleccionar consultorio";
                         })()
                       : "Seleccionar consultorio"}
                   </SelectTrigger>
