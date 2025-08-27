@@ -11,14 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, User } from "lucide-react";
+
+// Servicio para disponibilidad
+import { getDisponibilidad } from "@/servicios/citas";
+import { getOdontologos } from "@/servicios/usuarios";
+
 
 interface Paciente {
   id_paciente: number;
@@ -40,6 +40,30 @@ interface Consultorio {
   id_consultorio: number;
   nombre: string;
 }
+// Convierte "YYYY-MM-DD", "HH:mm" a "YYYY-MM-DDTHH:mm:00±HH:MM"
+function buildISOWithOffset(fecha: string, hora: string): string {
+  const [y, m, d] = fecha.split("-").map(Number);
+  const [hh, mm] = hora.split(":").map(Number);
+
+  // Construye fecha local del navegador (sin convertir a UTC)
+  const local = new Date(y, (m - 1), d, hh, mm, 0);
+
+  // Offset en minutos respecto a UTC (Ecuador -> 300)
+  const offsetMin = local.getTimezoneOffset();        // ej. 300
+  const sign = offsetMin > 0 ? "-" : "+";             // 300 -> "-"
+  const abs = Math.abs(offsetMin);
+  const offHH = String(Math.floor(abs / 60)).padStart(2, "0");
+  const offMM = String(abs % 60).padStart(2, "0");
+
+  const YYYY = String(y).padStart(4, "0");
+  const MM = String(m).padStart(2, "0");
+  const DD = String(d).padStart(2, "0");
+  const HH = String(hh).padStart(2, "0");
+  const MI = String(mm).padStart(2, "0");
+
+  return `${YYYY}-${MM}-${DD}T${HH}:${MI}:00${sign}${offHH}:${offMM}`;
+}
+
 
 const ODONTOLOGO_ROLE_ID = 1; // ajusta si tu rol de odontólogo tuviese otro id
 
@@ -55,6 +79,12 @@ const NewAppointmentForm = () => {
     hora: "",
     observaciones: "",
   });
+
+  const [duracion, setDuracion] = useState<number>(30);
+  const [slots, setSlots] = useState<string[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState<boolean>(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
@@ -62,44 +92,26 @@ const NewAppointmentForm = () => {
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
       try {
-        const [pacRes, usersRes, conRes] = await Promise.all([
+        // 1) Pacientes y consultorios (igual que antes)
+        const [pacRes, conRes] = await Promise.all([
           fetch("/pacientes"),
-          fetch("/usuarios"),       // trae usuarios con rol gracias al eager
           fetch("/consultorios"),
         ]);
-        const [pacData, usersData, conData] = await Promise.all([
+
+        const [pacData, conData] = await Promise.all([
           pacRes.json(),
-          usersRes.json(),
           conRes.json(),
         ]);
 
-        // Pacientes
         setPacientes(Array.isArray(pacData) ? pacData : pacData.data || []);
+        setConsultorios(Array.isArray(conData) ? conData : conData.data || []);
 
-        // Consultorios
-        setConsultorios(
-          Array.isArray(conData) ? conData : conData.data || []
-        );
-
-        // Usuarios => odontólogos
-        const usersArray = Array.isArray(usersData)
-          ? usersData
-          : usersData.data || usersData.usuarios || [];
-        const odontologos: Doctor[] = (usersArray as any[])
-          .filter(
-            (u) =>
-              u.rol &&
-              Number(u.rol.id_rol) === ODONTOLOGO_ROLE_ID
-          )
-          .map((u) => ({
-            id: u.id,
-            nombres: u.nombres,
-            apellidos: u.apellidos,
-            rol: u.rol,
-          }));
-
-        setDoctores(odontologos);
+        // 2) MÉDICOS (Odontólogos) — ahora vienen del servicio
+        const docs = await getOdontologos();
+        setDoctores(docs);
+        console.debug("Odontólogos detectados:", docs);
       } catch (err) {
         console.error("Error cargando listas:", err);
       } finally {
@@ -108,6 +120,39 @@ const NewAppointmentForm = () => {
     }
     fetchData();
   }, []);
+
+
+  // Helper: sacar "HH:mm" de un ISO (evita corrimientos por zona horaria)
+  const isoToHHmm = (iso: string) => iso.slice(11, 16);
+
+  // Cargar disponibilidad cuando hay consultorio + fecha + duración
+  useEffect(() => {
+    const { id_consultorio, fecha } = formData;
+    // Al cambiar filtros, limpia hora seleccionada para evitar inconsistencias
+    setFormData((prev) => ({ ...prev, hora: "" }));
+
+    if (!id_consultorio || !fecha || !duracion) {
+      setSlots([]);
+      setSlotsError(null);
+      return;
+    }
+
+    (async () => {
+      setSlotsLoading(true);
+      setSlotsError(null);
+      try {
+        const data = await getDisponibilidad(Number(id_consultorio), fecha, duracion);
+        const list = Array.isArray(data.disponibles) ? data.disponibles : [];
+        setSlots(list);
+      } catch (e) {
+        setSlots([]);
+        setSlotsError((e as Error).message || "No se pudo cargar disponibilidad");
+      } finally {
+        setSlotsLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.id_consultorio, formData.fecha, duracion]);
 
   const handleSelectChange = (field: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -120,10 +165,9 @@ const NewAppointmentForm = () => {
         id_paciente: Number(formData.id_paciente),
         id_odontologo: Number(formData.id_odontologo),
         id_consultorio: Number(formData.id_consultorio),
-        id_clinica: formData.id_clinica
-          ? Number(formData.id_clinica)
-          : null,
-        fecha_hora: `${formData.fecha}T${formData.hora}:00`,
+        id_clinica: formData.id_clinica ? Number(formData.id_clinica) : null,
+        fecha_hora: buildISOWithOffset(formData.fecha, formData.hora),
+
         observaciones: formData.observaciones || null,
         estado: "AGENDADA",
       };
@@ -135,7 +179,7 @@ const NewAppointmentForm = () => {
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         throw new Error(errData.mensaje || "Error al agendar cita");
       }
       navigate("/appointments");
@@ -144,6 +188,13 @@ const NewAppointmentForm = () => {
       alert((err as Error).message);
     }
   };
+
+  const submitDisabled =
+    !formData.id_paciente ||
+    !formData.id_odontologo ||
+    !formData.id_consultorio ||
+    !formData.fecha ||
+    !formData.hora;
 
   if (loading) return <div className="p-4">Cargando datos...</div>;
 
@@ -156,9 +207,7 @@ const NewAppointmentForm = () => {
           Volver
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Agendar Cita Médica
-          </h1>
+          <h1 className="text-3xl font-bold text-foreground">Agendar Cita Médica</h1>
           <p className="text-muted-foreground">Registra una nueva cita.</p>
         </div>
       </div>
@@ -182,30 +231,21 @@ const NewAppointmentForm = () => {
                 <Label>Paciente</Label>
                 <Select
                   value={formData.id_paciente}
-                  onValueChange={(v) =>
-                    handleSelectChange("id_paciente", v)
-                  }
+                  onValueChange={(v) => handleSelectChange("id_paciente", v)}
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_paciente
                       ? (() => {
-                          const p = pacientes.find(
-                            (x) =>
-                              String(x.id_paciente) ===
-                              formData.id_paciente
-                          );
-                          return p
-                            ? `${p.nombres} ${p.apellidos}`
-                            : "Seleccionar paciente";
-                        })()
+                        const p = pacientes.find(
+                          (x) => String(x.id_paciente) === formData.id_paciente
+                        );
+                        return p ? `${p.nombres} ${p.apellidos}` : "Seleccionar paciente";
+                      })()
                       : "Seleccionar paciente"}
                   </SelectTrigger>
                   <SelectContent>
                     {pacientes.map((p) => (
-                      <SelectItem
-                        key={p.id_paciente}
-                        value={String(p.id_paciente)}
-                      >
+                      <SelectItem key={p.id_paciente} value={String(p.id_paciente)}>
                         {p.nombres} {p.apellidos}
                       </SelectItem>
                     ))}
@@ -218,22 +258,14 @@ const NewAppointmentForm = () => {
                 <Label>Médico</Label>
                 <Select
                   value={formData.id_odontologo}
-                  onValueChange={(v) =>
-                    handleSelectChange("id_odontologo", v)
-                  }
+                  onValueChange={(v) => handleSelectChange("id_odontologo", v)}
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_odontologo
                       ? (() => {
-                          const d = doctores.find(
-                            (x) =>
-                              String(x.id) ===
-                              formData.id_odontologo
-                          );
-                          return d
-                            ? `${d.nombres} ${d.apellidos}`
-                            : "Seleccionar médico";
-                        })()
+                        const d = doctores.find((x) => String(x.id) === formData.id_odontologo);
+                        return d ? `${d.nombres} ${d.apellidos}` : "Seleccionar médico";
+                      })()
                       : "Seleccionar médico"}
                   </SelectTrigger>
                   <SelectContent>
@@ -251,30 +283,21 @@ const NewAppointmentForm = () => {
                 <Label>Consultorio</Label>
                 <Select
                   value={formData.id_consultorio}
-                  onValueChange={(v) =>
-                    handleSelectChange("id_consultorio", v)
-                  }
+                  onValueChange={(v) => handleSelectChange("id_consultorio", v)}
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_consultorio
                       ? (() => {
-                          const c = consultorios.find(
-                            (x) =>
-                              String(x.id_consultorio) ===
-                              formData.id_consultorio
-                          );
-                          return c
-                            ? c.nombre
-                            : "Seleccionar consultorio";
-                        })()
+                        const c = consultorios.find(
+                          (x) => String(x.id_consultorio) === formData.id_consultorio
+                        );
+                        return c ? c.nombre : "Seleccionar consultorio";
+                      })()
                       : "Seleccionar consultorio"}
                   </SelectTrigger>
                   <SelectContent>
                     {consultorios.map((c) => (
-                      <SelectItem
-                        key={c.id_consultorio}
-                        value={String(c.id_consultorio)}
-                      >
+                      <SelectItem key={c.id_consultorio} value={String(c.id_consultorio)}>
                         {c.nombre}
                       </SelectItem>
                     ))}
@@ -288,22 +311,72 @@ const NewAppointmentForm = () => {
                 <Input
                   type="date"
                   value={formData.fecha}
-                  onChange={(e) =>
-                    handleSelectChange("fecha", e.target.value)
-                  }
+                  onChange={(e) => handleSelectChange("fecha", e.target.value)}
                   required
                 />
               </div>
 
-              {/* Hora */}
+              {/* Duración */}
               <div>
-                <Label>Hora</Label>
+                <Label>Duración (min)</Label>
+                <Select value={String(duracion)} onValueChange={(v) => setDuracion(Number(v))}>
+                  <SelectTrigger className="w-full">
+                    {duracion ? `${duracion} minutos` : "Seleccionar"}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[15, 20, 30, 45, 60].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} minutos
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Horarios disponibles */}
+              <div className="md:col-span-2">
+                <Label>Horarios disponibles</Label>
+                <Select
+                  value={formData.hora}
+                  onValueChange={(v) => handleSelectChange("hora", v)}
+                  disabled={slotsLoading || slots.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    {formData.hora
+                      ? formData.hora
+                      : slotsLoading
+                        ? "Cargando disponibilidad…"
+                        : slots.length
+                          ? "Seleccionar horario"
+                          : slotsError
+                            ? "Error al cargar horarios"
+                            : "No hay horarios para los filtros seleccionados"}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {slots.map((iso) => {
+                      const hhmm = isoToHHmm(iso);
+                      return (
+                        <SelectItem key={iso} value={hhmm}>
+                          {hhmm}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                {slotsError && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {slotsError}. Intenta cambiar fecha, consultorio o duración.
+                  </p>
+                )}
+              </div>
+
+              {/* Hora manual (override) */}
+              <div>
+                <Label>Hora (manual / override)</Label>
                 <Input
                   type="time"
                   value={formData.hora}
-                  onChange={(e) =>
-                    handleSelectChange("hora", e.target.value)
-                  }
+                  onChange={(e) => handleSelectChange("hora", e.target.value)}
                   required
                 />
               </div>
@@ -313,9 +386,7 @@ const NewAppointmentForm = () => {
                 <Label>Observaciones</Label>
                 <Textarea
                   value={formData.observaciones}
-                  onChange={(e) =>
-                    handleSelectChange("observaciones", e.target.value)
-                  }
+                  onChange={(e) => handleSelectChange("observaciones", e.target.value)}
                 />
               </div>
             </div>
@@ -338,7 +409,9 @@ const NewAppointmentForm = () => {
               >
                 Limpiar
               </Button>
-              <Button type="submit">Agendar Cita</Button>
+              <Button type="submit" disabled={submitDisabled}>
+                Agendar Cita
+              </Button>
             </div>
           </CardContent>
         </Card>
