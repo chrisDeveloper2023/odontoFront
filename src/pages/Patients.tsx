@@ -38,15 +38,19 @@ const Patients: React.FC = () => {
   const [page, setPage] = useState(1);
   const limit = 10;
   const [totalPages, setTotalPages] = useState(1);
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     async function fetchPacientes() {
       setLoading(true);
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes?page=${page}&limit=${limit}`);
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/pacientes?page=${page}&limit=${limit}&activo=${mostrarInactivos ? "false" : "true"}`
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        // Extraer listado
+
         const list = Array.isArray(json.data)
           ? json.data
           : Array.isArray(json.pacientes)
@@ -54,7 +58,9 @@ const Patients: React.FC = () => {
             : Array.isArray(json)
               ? json
               : [];
-        // Mapear a Patient
+
+        setTotal(json.total || 0);
+
         const mapped: Patient[] = list.map((r: any) => ({
           id: String(r.id_paciente || r.id),
           name: `${r.nombres || r.name} ${r.apellidos || ''}`.trim(),
@@ -66,6 +72,7 @@ const Patients: React.FC = () => {
           status: r.activo ? "Activo" : "Inactivo",
           medicalRecords: r.medicalRecords ?? 0,
         }));
+
         setPatients(mapped);
         setTotalPages(json.totalPages || 1);
         setError(null);
@@ -77,7 +84,7 @@ const Patients: React.FC = () => {
       }
     }
     fetchPacientes();
-  }, [page]);
+  }, [page, mostrarInactivos]);
 
   const term = searchTerm.toLowerCase();
   const filtered = patients.filter(p =>
@@ -126,15 +133,19 @@ const Patients: React.FC = () => {
             <CardTitle className="text-sm font-medium">Total Pacientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{patients.length}</div>
+            <div className="text-2xl font-bold text-primary">{total}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Pacientes Activos</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pacientes {mostrarInactivos ? "Inactivos" : "Activos"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-accent">{patients.filter(p => p.status === "Activo").length}</div>
+            <div className="text-2xl font-bold text-accent">
+              {mostrarInactivos ? total : total}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -142,9 +153,24 @@ const Patients: React.FC = () => {
             <CardTitle className="text-sm font-medium">Historias Clínicas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-medical-green">{patients.reduce((sum, p) => sum + p.medicalRecords, 0)}</div>
+            <div className="text-2xl font-bold text-medical-green">
+              {patients.reduce((sum, p) => sum + p.medicalRecords, 0)}
+            </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Toggle Button */}
+      <div className="flex justify-end">
+        <Button
+          variant={mostrarInactivos ? "default" : "secondary"}
+          onClick={() => {
+            setPage(1);
+            setMostrarInactivos(v => !v);
+          }}
+        >
+          {mostrarInactivos ? "👁️ Ver Activos" : "🗂️ Ver Inactivos"}
+        </Button>
       </div>
 
       {/* Patients List */}
@@ -195,12 +221,17 @@ const Patients: React.FC = () => {
                     🗑️
                   </Button>
                 </div>
-
               </div>
             </CardContent>
           </Card>
         ))}
-        {filtered.length === 0 && <Card><CardContent className="pt-6 text-center"><p className="text-muted-foreground">No se encontraron pacientes.</p></CardContent></Card>}
+        {filtered.length === 0 && (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="text-muted-foreground">No se encontraron pacientes.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Pagination */}
