@@ -12,7 +12,7 @@ function normalizeUsersPayload(raw: any): any[] {
 
 export async function getOdontologos(): Promise<Doctor[]> {
   // Ruta preferida que en tu entorno SÍ devuelve datos JSON
-  const res = await fetch("/usuarios?rol=ODONTOLOGO");
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/usuarios?rol=ODONTOLOGO`);
   if (!res.ok) throw new Error("No se pudo obtener usuarios por rol ODONTOLOGO");
 
   const json = await res.json();

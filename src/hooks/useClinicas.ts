@@ -7,7 +7,7 @@ export function useClinicas() {
   const [error, setError] = useState<null | string>(null);
 
   useEffect(() => {
-    axios.get("http://optimus:3005/clinicas")
+    axios.get("/api/clinicas")
       .then((response) => {
         setDatos(response.data);
         setCargando(false);

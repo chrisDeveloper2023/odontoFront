@@ -49,7 +49,7 @@ export default function AppointmentDetail() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/citas/${id}`)
+    fetch(`${import.meta.env.VITE_API_URL}/citas/${id}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();

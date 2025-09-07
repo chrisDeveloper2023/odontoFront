@@ -6,7 +6,7 @@ function AppClinicas() {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    axios.get("http://optimus:3005/clinicas")
+    axios.get("/api/clinicas")
       .then((response) => {
         setDatos(response.data);
         setCargando(false);

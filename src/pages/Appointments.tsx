@@ -24,7 +24,7 @@ const Appointments = () => {
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const res = await fetch(`/citas`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/citas`);
         const data = await res.json();
         //const res = await axios.get<Appointment[]>("http://localhost:3000/api/citas");
         setAppointments(data);

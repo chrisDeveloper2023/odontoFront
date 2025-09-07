@@ -27,7 +27,7 @@ const Dashboard = () => {
     async function fetchStats() {
       try {
         // Obtener todos los pacientes con límite alto para evitar paginación por defecto
-        const res = await fetch("/pacientes?page=1&limit=1000");
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes?page=1&limit=1000`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         // Extraer array de datos

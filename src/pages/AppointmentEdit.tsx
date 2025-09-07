@@ -132,7 +132,7 @@ export default function AppointmentEdit() {
         observaciones: formData.observaciones || null,
         estado: "AGENDADA",
       };
-      const res = await fetch(`/citas/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/citas/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

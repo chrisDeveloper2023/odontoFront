@@ -96,8 +96,8 @@ const NewAppointmentForm = () => {
       try {
         // 1) Pacientes y consultorios (igual que antes)
         const [pacRes, conRes] = await Promise.all([
-          fetch("/pacientes"),
-          fetch("/consultorios"),
+          fetch(`${import.meta.env.VITE_API_URL}/pacientes`),
+          fetch(`${import.meta.env.VITE_API_URL}/consultorios`),
         ]);
 
         const [pacData, conData] = await Promise.all([
@@ -172,7 +172,7 @@ const NewAppointmentForm = () => {
         estado: "AGENDADA",
       };
 
-      const res = await fetch("/citas", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/citas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

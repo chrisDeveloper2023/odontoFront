@@ -47,7 +47,7 @@ const NewPatient: React.FC = () => {
     if (!isEdit) return;
     (async () => {
       try {
-        const res = await fetch(`/pacientes/${id}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${id}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const raw = await res.json();
         setFormData({
@@ -81,7 +81,7 @@ const NewPatient: React.FC = () => {
       return;
     }
     try {
-      const url = isEdit ? `/pacientes/${id}` : "/pacientes";
+      const url = isEdit ? `${import.meta.env.VITE_API_URL}/pacientes/${id}` : `${import.meta.env.VITE_API_URL}/pacientes`;
       const method = isEdit ? "PUT" : "POST";
       const payload = {
         id_clinica: 1,

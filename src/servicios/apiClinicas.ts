@@ -28,7 +28,7 @@ export function useClinicas(page = 1, limit = 0) {
   useEffect(() => {
     setCargando(true);
     axios
-      .get<PaginatedResponse>(`/clinicas?page=${page}&limit=${limit}`)
+      .get<PaginatedResponse>(`${import.meta.env.VITE_API_URL}/clinicas?page=${page}&limit=${limit}`)
       .then(res => {
         // Puede venir en res.data.data (paginado)
         // o en res.data directamente (array sin paginar)

@@ -14,7 +14,7 @@ import { ArrowLeft, Save, User, FileText, Stethoscope, Pill, Heart } from "lucid
 const NewMedicalRecord = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const patientId = searchParams.get("patientId");
+  const patientId = searchParams.get("/patientId");
 
   const [formData, setFormData] = useState({
     patientId: patientId || "",

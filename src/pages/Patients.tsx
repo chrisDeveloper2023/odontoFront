@@ -43,7 +43,7 @@ const Patients: React.FC = () => {
     async function fetchPacientes() {
       setLoading(true);
       try {
-        const res = await fetch(`/pacientes?page=${page}&limit=${limit}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes?page=${page}&limit=${limit}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         // Extraer listado
