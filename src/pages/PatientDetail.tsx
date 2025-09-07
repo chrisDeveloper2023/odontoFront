@@ -1,4 +1,3 @@
-// src/pages/PatientDetail.tsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +59,6 @@ const PatientDetail: React.FC = () => {
         return res.json();
       })
       .then((raw: RawPaciente) => {
-        // API devuelve directamente el objeto RawPaciente
         const mapped: PatientDetail = {
           id: String(raw.id_paciente),
           name: `${raw.nombres} ${raw.apellidos}`,
@@ -80,6 +78,24 @@ const PatientDetail: React.FC = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const handleDelete = async () => {
+    if (!patient) return;
+    if (!window.confirm("¿Estás seguro de eliminar este paciente?")) return;
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patient.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      alert("Paciente eliminado correctamente");
+      navigate("/patients");
+    } catch (err) {
+      console.error(err);
+      alert("Error al eliminar paciente");
+    }
+  };
+
   if (loading) return <div className="p-4">Cargando detalle…</div>;
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
   if (!patient) return <div className="p-4">Paciente no encontrado</div>;
@@ -89,6 +105,7 @@ const PatientDetail: React.FC = () => {
       <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
         <ChevronLeft className="mr-2" /> Volver
       </Button>
+
       <Card>
         <CardHeader className="flex justify-between items-center">
           <CardTitle className="text-xl font-bold">{patient.name}</CardTitle>
@@ -106,6 +123,7 @@ const PatientDetail: React.FC = () => {
           <div><strong>Observaciones:</strong> {patient.observations}</div>
         </CardContent>
       </Card>
+
       <div className="mt-4 flex gap-2">
         <Link to={`/patients/${patient.id}/edit`}>
           <Button>Editar</Button>
@@ -113,6 +131,9 @@ const PatientDetail: React.FC = () => {
         <Link to={`/medical-records/new?patientId=${patient.id}`}>
           <Button>Historia</Button>
         </Link>
+        <Button variant="destructive" onClick={handleDelete}>
+          Eliminar
+        </Button>
       </div>
     </div>
   );

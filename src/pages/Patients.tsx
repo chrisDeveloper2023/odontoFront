@@ -25,7 +25,7 @@ const calculateAge = (dob: string): number => {
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;  
+    age--;
   }
   return age;
 };
@@ -50,10 +50,10 @@ const Patients: React.FC = () => {
         const list = Array.isArray(json.data)
           ? json.data
           : Array.isArray(json.pacientes)
-          ? json.pacientes
-          : Array.isArray(json)
-          ? json
-          : [];
+            ? json.pacientes
+            : Array.isArray(json)
+              ? json
+              : [];
         // Mapear a Patient
         const mapped: Patient[] = list.map((r: any) => ({
           id: String(r.id_paciente || r.id),
@@ -173,7 +173,29 @@ const Patients: React.FC = () => {
                   <Link to={`/patients/${patient.id}`}><Button variant="outline" size="sm"><Eye /></Button></Link>
                   <Link to={`/patients/${patient.id}/edit`}><Button variant="outline" size="sm"><Edit /></Button></Link>
                   <Link to={`/medical-records/new?patientId=${patient.id}`}><Button size="sm"><FileText /></Button></Link>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      if (window.confirm("¿Estás seguro de eliminar este paciente?")) {
+                        try {
+                          const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patient.id}`, {
+                            method: "DELETE"
+                          });
+                          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                          alert("Paciente eliminado correctamente");
+                          setPatients(p => p.filter(x => x.id !== patient.id));
+                        } catch (err) {
+                          alert("Error al eliminar paciente");
+                          console.error(err);
+                        }
+                      }
+                    }}
+                  >
+                    🗑️
+                  </Button>
                 </div>
+
               </div>
             </CardContent>
           </Card>
