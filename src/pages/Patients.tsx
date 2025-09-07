@@ -20,14 +20,13 @@ interface Patient {
 }
 
 const calculateAge = (dob: string): number => {
+  if (!dob) return 0;
   const birth = new Date(dob);
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return isNaN(age) ? 0 : age;
 };
 
 const Patients: React.FC = () => {
@@ -39,42 +38,61 @@ const Patients: React.FC = () => {
   const limit = 10;
   const [totalPages, setTotalPages] = useState(1);
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
-  const [total, setTotal] = useState(0);
+
+  // Totales provenientes del backend (universo de la consulta actual)
+  const [totalBackend, setTotalBackend] = useState(0);
 
   useEffect(() => {
     async function fetchPacientes() {
       setLoading(true);
       try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/pacientes?page=${page}&limit=${limit}&activo=${mostrarInactivos ? "false" : "true"}`
-        );
+        const base = import.meta.env.VITE_API_URL || "";
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(limit),
+        });
+
+        // 🔑 Inactivos: pedir ya filtrados por el backend
+        if (mostrarInactivos) {
+          params.set("withDeleted", "true");
+          params.set("onlyInactive", "true");
+        }
+        // Activos (default): no mandamos nada extra; el backend devuelve solo activos.
+
+        const url = `${base}/pacientes?${params.toString()}`;
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
+
+        // Guardar total global reportado por el backend (no es el tamaño de la página)
+        setTotalBackend(json.total || 0);
+        setTotalPages(json.totalPages || 1);
 
         const list = Array.isArray(json.data)
           ? json.data
           : Array.isArray(json.pacientes)
-            ? json.pacientes
-            : Array.isArray(json)
-              ? json
-              : [];
-
-        setTotal(json.total || 0);
+          ? json.pacientes
+          : Array.isArray(json)
+          ? json
+          : [];
 
         const mapped: Patient[] = list.map((r: any) => ({
           id: String(r.id_paciente || r.id),
-          name: `${r.nombres || r.name} ${r.apellidos || ''}`.trim(),
-          age: calculateAge(r.fecha_nacimiento || r.lastVisit),
-          gender: (r.sexo || r.gender || '').toString().toLowerCase().replace(/^./, str => str.toUpperCase()),
-          phone: r.telefono || r.phone,
-          email: r.correo || r.email,
-          lastVisit: r.fecha_nacimiento || r.lastVisit,
+          name: `${r.nombres || r.name || ""} ${r.apellidos || ""}`.trim(),
+          age: calculateAge(r.fecha_nacimiento || ""),
+          gender: (r.sexo || r.gender || "")
+            .toString()
+            .toLowerCase()
+            .replace(/^./, (s: string) => s.toUpperCase()),
+          phone: r.telefono || r.phone || "",
+          email: r.correo || r.email || "",
+          lastVisit: r.fecha_nacimiento || r.lastVisit || "",
           status: r.activo ? "Activo" : "Inactivo",
           medicalRecords: r.medicalRecords ?? 0,
         }));
 
+        // 👇 Ya NO filtramos por estado en el cliente; viene listo desde el backend
         setPatients(mapped);
-        setTotalPages(json.totalPages || 1);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -86,11 +104,13 @@ const Patients: React.FC = () => {
     fetchPacientes();
   }, [page, mostrarInactivos]);
 
+  // Búsqueda por texto (filtra lo que se muestra, NO afecta el total del backend)
   const term = searchTerm.toLowerCase();
-  const filtered = patients.filter(p =>
-    p.name.toLowerCase().includes(term) ||
-    p.phone.toLowerCase().includes(term) ||
-    p.email.toLowerCase().includes(term)
+  const filtered = patients.filter(
+    (p) =>
+      p.name.toLowerCase().includes(term) ||
+      p.phone.toLowerCase().includes(term) ||
+      p.email.toLowerCase().includes(term)
   );
 
   if (loading) return <div className="p-4">Cargando pacientes…</div>;
@@ -102,7 +122,9 @@ const Patients: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Pacientes</h1>
-          <p className="text-muted-foreground">Gestiona los registros de todos los pacientes</p>
+          <p className="text-muted-foreground">
+            Gestiona los registros de todos los pacientes
+          </p>
         </div>
         <Link to="/patients/new">
           <Button className="flex items-center gap-2">
@@ -119,7 +141,7 @@ const Patients: React.FC = () => {
             <Input
               placeholder="Buscar pacientes por nombre, teléfono o email..."
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -130,31 +152,36 @@ const Patients: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Pacientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{total}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">
-              Pacientes {mostrarInactivos ? "Inactivos" : "Activos"}
+              Total Pacientes {mostrarInactivos ? "(inactivos)" : "(activos)"}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-accent">
-              {mostrarInactivos ? total : total}
-            </div>
+            {/* 🔢 Total global reportado por el backend para esta consulta */}
+            <div className="text-2xl font-bold text-primary">{totalBackend}</div>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Historias Clínicas</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              En esta página (post-búsqueda)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-accent">{filtered.length}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">
+              Historias Clínicas (página)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-medical-green">
-              {patients.reduce((sum, p) => sum + p.medicalRecords, 0)}
+              {filtered.reduce((sum, p) => sum + p.medicalRecords, 0)}
             </div>
           </CardContent>
         </Card>
@@ -166,7 +193,7 @@ const Patients: React.FC = () => {
           variant={mostrarInactivos ? "default" : "secondary"}
           onClick={() => {
             setPage(1);
-            setMostrarInactivos(v => !v);
+            setMostrarInactivos((v) => !v);
           }}
         >
           {mostrarInactivos ? "👁️ Ver Activos" : "🗂️ Ver Inactivos"}
@@ -175,14 +202,16 @@ const Patients: React.FC = () => {
 
       {/* Patients List */}
       <div className="grid gap-4">
-        {filtered.map(patient => (
+        {filtered.map((patient) => (
           <Card key={patient.id} className="hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-3">
                     <h3 className="text-lg font-semibold">{patient.name}</h3>
-                    <Badge variant={patient.status === "Activo" ? "default" : "secondary"}>{patient.status}</Badge>
+                    <Badge variant={patient.status === "Activo" ? "default" : "secondary"}>
+                      {patient.status}
+                    </Badge>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-muted-foreground">
                     <div><strong>Edad:</strong> {patient.age} años</div>
@@ -195,36 +224,67 @@ const Patients: React.FC = () => {
                     <div><strong>Historias clínicas:</strong> {patient.medicalRecords}</div>
                   </div>
                 </div>
+
                 <div className="flex gap-2">
-                  <Link to={`/patients/${patient.id}`}><Button variant="outline" size="sm"><Eye /></Button></Link>
-                  <Link to={`/patients/${patient.id}/edit`}><Button variant="outline" size="sm"><Edit /></Button></Link>
-                  <Link to={`/medical-records/new?patientId=${patient.id}`}><Button size="sm"><FileText /></Button></Link>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={async () => {
-                      if (window.confirm("¿Estás seguro de eliminar este paciente?")) {
-                        try {
-                          const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patient.id}`, {
-                            method: "DELETE"
-                          });
-                          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                          alert("Paciente eliminado correctamente");
-                          setPatients(p => p.filter(x => x.id !== patient.id));
-                        } catch (err) {
-                          alert("Error al eliminar paciente");
-                          console.error(err);
+                  <Link to={`/patients/${patient.id}`}>
+                    <Button variant="outline" size="sm"><Eye /></Button>
+                  </Link>
+                  <Link to={`/patients/${patient.id}/edit`}>
+                    <Button variant="outline" size="sm"><Edit /></Button>
+                  </Link>
+                  <Link to={`/medical-records/new?patientId=${patient.id}`}>
+                    <Button size="sm"><FileText /></Button>
+                  </Link>
+
+                  {/* Eliminar (soft-delete ya implementado en backend) */}
+                  {!mostrarInactivos && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={async () => {
+                        if (window.confirm("¿Estás seguro de eliminar este paciente?")) {
+                          try {
+                            const base = import.meta.env.VITE_API_URL || "";
+                            const res = await fetch(`${base}/pacientes/${patient.id}`, { method: "DELETE" });
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            // Saca de la UI actual
+                            // (No tocamos totalBackend; lo recalculará en el próximo fetch si cambias de página o recargas)
+                            setPatients((p) => p.filter((x) => x.id !== patient.id));
+                          } catch (err) {
+                            alert("Error al eliminar paciente");
+                            console.error(err);
+                          }
                         }
-                      }
-                    }}
-                  >
-                    🗑️
-                  </Button>
+                      }}
+                    >
+                      🗑️
+                    </Button>
+                  )}
+
+                  {/* Restaurar (si habilitas PUT /pacientes/:id/restore) */}
+                  {/*
+                  {mostrarInactivos && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        const base = import.meta.env.VITE_API_URL || "";
+                        const res = await fetch(`${base}/pacientes/${patient.id}/restore`, { method: "PUT" });
+                        if (!res.ok) return alert("No se pudo restaurar");
+                        // Quita el restaurado de la lista de inactivos
+                        setPatients((prev) => prev.filter((x) => x.id !== patient.id));
+                      }}
+                    >
+                      Restaurar
+                    </Button>
+                  )}
+                  */}
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
+
         {filtered.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
@@ -236,12 +296,19 @@ const Patients: React.FC = () => {
 
       {/* Pagination */}
       <div className="flex justify-center items-center space-x-4 mt-6">
-        <Button onClick={() => setPage(p => Math.max(p - 1, 1))} disabled={page === 1}>Anterior</Button>
-        <span className="text-sm">Página {page} de {totalPages}</span>
-        <Button onClick={() => setPage(p => Math.min(p + 1, totalPages))} disabled={page === totalPages}>Siguiente</Button>
+        <Button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1}>
+          Anterior
+        </Button>
+        <span className="text-sm">
+          Página {page} de {totalPages}
+        </span>
+        <Button onClick={() => setPage((p) => Math.min(p + 1, totalPages))} disabled={page === totalPages}>
+          Siguiente
+        </Button>
       </div>
     </div>
   );
 };
 
 export default Patients;
+  
