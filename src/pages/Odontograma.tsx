@@ -21,12 +21,12 @@ type Superficie = {
   id_superficie: number;
   id_pieza: number;
   superficie:
-    | "OCUSAL_INCISAL"
-    | "MESIAL"
-    | "DISTAL"
-    | "VESTIBULAR_BUCAL"
-    | "PALATINO_LINGUAL"
-    | string;
+  | "OCUSAL_INCISAL"
+  | "MESIAL"
+  | "DISTAL"
+  | "VESTIBULAR_BUCAL"
+  | "PALATINO_LINGUAL"
+  | string;
   hallazgo?: string | null;
   detalle?: string | null;
   id_tratamiento_sugerido?: number | null;
@@ -38,6 +38,77 @@ type OdontogramaResponse = {
   piezas: Pieza[];
   superficies: Superficie[];
 };
+
+
+// --- Mini SVG de diente con 5 superficies --------------------------------
+type SurfaceCode =
+  | "OCUSAL_INCISAL"
+  | "MESIAL"
+  | "DISTAL"
+  | "VESTIBULAR_BUCAL"
+  | "PALATINO_LINGUAL";
+
+function DentalToothSVG({
+  size = 64,
+  present = true,
+  surfaces,
+  onToggleSurface,
+}: {
+  size?: number;
+  present?: boolean;
+  surfaces: Partial<Record<SurfaceCode, boolean>>; // true = hay hallazgo
+  onToggleSurface?: (s: SurfaceCode) => void;
+}) {
+  const s = size;
+  const g = s / 3; // grilla 3x3
+  const stroke = 1.5;
+
+  const cell = (x: number, y: number, code: SurfaceCode) => {
+    const active = !!surfaces[code];
+    return (
+      <rect
+        key={code}
+        x={x}
+        y={y}
+        width={g}
+        height={g}
+        rx={4}
+        ry={4}
+        className={active ? "fill-amber-300" : "fill-white"}
+        stroke="currentColor"
+        strokeWidth={stroke}
+        onClick={() => onToggleSurface?.(code)}
+        style={{ cursor: "pointer" }}
+      />
+    );
+  };
+
+  // Layout (vista simplificada):
+  // [MESIAL][OCUSAL_INCISAL][DISTAL]
+  // [VESTIBULAR_BUCAL]   (vacío)   [PALATINO_LINGUAL]
+
+  if (!present) {
+    // pieza ausente: muestra cruz
+    return (
+      <svg width={s} height={s} className="text-red-500">
+        <rect x={0} y={0} width={s} height={s} rx={10} ry={10} className="fill-red-50" />
+        <line x1={6} y1={6} x2={s - 6} y2={s - 6} stroke="currentColor" strokeWidth={3} />
+        <line x1={s - 6} y1={6} x2={6} y2={s - 6} stroke="currentColor" strokeWidth={3} />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width={s} height={s} className="text-slate-500">
+      <rect x={0} y={0} width={s} height={s} rx={10} ry={10} className="fill-slate-50" />
+      {cell(0, 0, "MESIAL")}
+      {cell(g, 0, "OCUSAL_INCISAL")}
+      {cell(2 * g, 0, "DISTAL")}
+      {cell(0, g, "VESTIBULAR_BUCAL")}
+      {cell(2 * g, g, "PALATINO_LINGUAL")}
+    </svg>
+  );
+}
 
 // --- Helpers -------------------------------------------------------------
 
@@ -79,34 +150,66 @@ function colorEstado(estado?: string, presente?: boolean) {
 function ToothTile({ pieza, superfs }: { pieza?: Pieza; superfs: Superficie[] }) {
   const etiqueta = pieza?.numero_fdi ?? "?";
   const estado = pieza?.estado_general;
-  const presente = pieza?.esta_presente;
-  const clasesColor = colorEstado(estado, presente);
+  const presente = pieza?.esta_presente !== false; // por defecto presente
 
-  // Conteo simple de superficies con hallazgo
-  const hallazgos = superfs.filter((s) => s.hallazgo && String(s.hallazgo).trim() !== "");
+  // Mapear superficies -> boolean (hay hallazgo) para iniciar el estado local
+  const initial = useMemo(() => {
+    const m: Partial<Record<SurfaceCode, boolean>> = {};
+    for (const s of superfs) {
+      if (!s?.superficie) continue;
+      const code = s.superficie as SurfaceCode;
+      const activo = !!(s.hallazgo && String(s.hallazgo).trim() !== "");
+      m[code] = m[code] || activo;
+    }
+    return m;
+  }, [superfs]);
+
+  const [activeSurfaces, setActiveSurfaces] =
+    useState<Partial<Record<SurfaceCode, boolean>>>(initial);
+
+  useEffect(() => setActiveSurfaces(initial), [initial]);
+
+  const toggleSurface = (code: SurfaceCode) => {
+    setActiveSurfaces((prev) => ({ ...prev, [code]: !prev[code] }));
+    // Aquí luego haremos PATCH para persistir en BD
+  };
+
+  const clasesColor =
+    !presente || estado === "AUSENTE"
+      ? "bg-red-100 text-red-700 border-red-300"
+      : estado === "SANO"
+        ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+        : "bg-amber-100 text-amber-700 border-amber-300";
+
+  const hallCount = Object.values(activeSurfaces).filter(Boolean).length;
 
   return (
     <div
-      className={`border rounded-xl p-2 text-center text-sm shadow-sm ${clasesColor} flex flex-col items-center justify-between min-h-[84px]`}
+      className={`border rounded-xl p-2 text-center text-sm shadow-sm ${clasesColor} flex flex-col items-center justify-between min-h-[120px]`}
       title={pieza?.notas || ""}
     >
       <div className="text-xs opacity-70">FDI</div>
       <div className="text-xl font-semibold leading-none">{etiqueta}</div>
+
+      {/* SVG interactivo */}
+      <div className="my-2">
+        <DentalToothSVG
+          present={presente}
+          surfaces={activeSurfaces}
+          onToggleSurface={toggleSurface}
+          size={70}
+        />
+      </div>
+
       <div className="mt-1">
         {estado && <Badge variant="secondary" className="text-[10px]">{estado}</Badge>}
         {!estado && <span className="text-[10px] opacity-60">sin datos</span>}
+        {hallCount > 0 && <span className="ml-2 text-[10px]">· {hallCount} hallazgos</span>}
       </div>
-      {hallazgos.length > 0 && (
-        <div className="mt-1 text-[10px] leading-tight">
-          {hallazgos.slice(0, 3).map((h) => (
-            <div key={h.id_superficie}>{h.superficie}: {h.hallazgo}</div>
-          ))}
-          {hallazgos.length > 3 && (<div>+{hallazgos.length - 3} más…</div>)}
-        </div>
-      )}
     </div>
   );
 }
+
 
 // --- Página --------------------------------------------------------------
 
