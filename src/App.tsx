@@ -19,6 +19,7 @@ import NewClinicForm from "./pages/NewClinicaForm";
 import ListaClinicas from "./pages/ListaClinicas";
 import AppointmentDetail from "./pages/AppointmentDetail";
 import AppointmentEdit from "./pages/AppointmentEdit";
+import OdontogramPage from "./pages/Odontograma";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/ListaClinicas" element={<Layout><ListaClinicas /></Layout>} />
           <Route path="appointments/:id" element={<AppointmentDetail />} />
           <Route path="appointments/:id/edit" element={<AppointmentEdit />} />
+          <Route path="odontograma" element={<OdontogramPage />} />
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>

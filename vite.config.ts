@@ -12,7 +12,8 @@ export default defineConfig(() => ({
         target: "http://127.0.0.1:3005",
         changeOrigin: true,
         secure: false,
-        // rewrite: (p) => p.replace(/^\/api/, ""), // <- dejar comentado
+        //rewrite: (p) => p.replace(/^\/api/, ""), // <- dejar comentado
+        //rewrite: p => p.replace(/^\/api/, ""), 
       },
     },
   },
