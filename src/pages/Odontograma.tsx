@@ -21,12 +21,12 @@ type Superficie = {
   id_superficie: number;
   id_pieza: number;
   superficie:
-  | "OCUSAL_INCISAL"
-  | "MESIAL"
-  | "DISTAL"
-  | "VESTIBULAR_BUCAL"
-  | "PALATINO_LINGUAL"
-  | string;
+    | "OCUSAL_INCISAL"
+    | "MESIAL"
+    | "DISTAL"
+    | "VESTIBULAR_BUCAL"
+    | "PALATINO_LINGUAL"
+    | string;
   hallazgo?: string | null;
   detalle?: string | null;
   id_tratamiento_sugerido?: number | null;
@@ -39,8 +39,43 @@ type OdontogramaResponse = {
   superficies: Superficie[];
 };
 
+// --- Helpers -------------------------------------------------------------
 
-// --- Mini SVG de diente con 5 superficies --------------------------------
+// Base: usa VITE_API_URL si existe; si no, cae a "/api" (proxy de Vite).
+const API_BASE = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+
+function useQuery() {
+  const { search } = useLocation();
+  return useMemo(() => new URLSearchParams(search), [search]);
+}
+
+function ordenarFila(nums: number[]) {
+  // Devuelve los números ordenados de derecha a izquierda como se ve en un odontograma
+  return [...nums].sort((a, b) => b - a);
+}
+
+const filasPermanentes = {
+  supDerecha: ordenarFila([11, 12, 13, 14, 15, 16, 17, 18]),
+  supIzquierda: [21, 22, 23, 24, 25, 26, 27, 28],
+  infDerecha: ordenarFila([41, 42, 43, 44, 45, 46, 47, 48]),
+  infIzquierda: [31, 32, 33, 34, 35, 36, 37, 38],
+};
+
+const filasTemporales = {
+  supDerecha: ordenarFila([51, 52, 53, 54, 55]),
+  supIzquierda: [61, 62, 63, 64, 65],
+  infDerecha: ordenarFila([81, 82, 83, 84, 85]),
+  infIzquierda: [71, 72, 73, 74, 75],
+};
+
+function colorEstado(estado?: string, presente?: boolean) {
+  if (presente === false || estado === "AUSENTE") return "bg-red-100 text-red-700 border-red-300";
+  if (estado === "SANO") return "bg-emerald-100 text-emerald-700 border-emerald-300";
+  return "bg-amber-100 text-amber-700 border-amber-300"; // cualquier otro estado
+}
+
+// --- Mini SVG de diente con 5 superficies (interactivo) ------------------
+
 type SurfaceCode =
   | "OCUSAL_INCISAL"
   | "MESIAL"
@@ -110,42 +145,7 @@ function DentalToothSVG({
   );
 }
 
-// --- Helpers -------------------------------------------------------------
-
-// Usa VITE_API_URL si existe; si no, cae al proxy /api (Vite).
-const API_BASE = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
-
-function useQuery() {
-  const { search } = useLocation();
-  return useMemo(() => new URLSearchParams(search), [search]);
-}
-
-function ordenarFila(nums: number[]) {
-  // Orden de derecha a izquierda como se ve en un odontograma
-  return [...nums].sort((a, b) => b - a);
-}
-
-const filasPermanentes = {
-  supDerecha: ordenarFila([11, 12, 13, 14, 15, 16, 17, 18]),
-  supIzquierda: [21, 22, 23, 24, 25, 26, 27, 28],
-  infDerecha: ordenarFila([41, 42, 43, 44, 45, 46, 47, 48]),
-  infIzquierda: [31, 32, 33, 34, 35, 36, 37, 38],
-};
-
-const filasTemporales = {
-  supDerecha: ordenarFila([51, 52, 53, 54, 55]),
-  supIzquierda: [61, 62, 63, 64, 65],
-  infDerecha: ordenarFila([81, 82, 83, 84, 85]),
-  infIzquierda: [71, 72, 73, 74, 75],
-};
-
-function colorEstado(estado?: string, presente?: boolean) {
-  if (presente === false || estado === "AUSENTE") return "bg-red-100 text-red-700 border-red-300";
-  if (estado === "SANO") return "bg-emerald-100 text-emerald-700 border-emerald-300";
-  return "bg-amber-100 text-amber-700 border-amber-300"; // cualquier otro estado
-}
-
-// --- UI de una pieza -----------------------------------------------------
+// --- UI de una pieza (Tile) ----------------------------------------------
 
 function ToothTile({ pieza, superfs }: { pieza?: Pieza; superfs: Superficie[] }) {
   const etiqueta = pieza?.numero_fdi ?? "?";
@@ -171,16 +171,10 @@ function ToothTile({ pieza, superfs }: { pieza?: Pieza; superfs: Superficie[] })
 
   const toggleSurface = (code: SurfaceCode) => {
     setActiveSurfaces((prev) => ({ ...prev, [code]: !prev[code] }));
-    // Aquí luego haremos PATCH para persistir en BD
+    // TODO: aquí luego haremos PATCH para persistir en BD
   };
 
-  const clasesColor =
-    !presente || estado === "AUSENTE"
-      ? "bg-red-100 text-red-700 border-red-300"
-      : estado === "SANO"
-        ? "bg-emerald-100 text-emerald-700 border-emerald-300"
-        : "bg-amber-100 text-amber-700 border-amber-300";
-
+  const clasesColor = colorEstado(estado, presente);
   const hallCount = Object.values(activeSurfaces).filter(Boolean).length;
 
   return (
@@ -210,6 +204,129 @@ function ToothTile({ pieza, superfs }: { pieza?: Pieza; superfs: Superficie[] })
   );
 }
 
+// --- Vista Fauces (arcos dentales con orofaringe) -------------------------
+
+function FaucesView({
+  piezasPorFDI,
+  superficiesPorPieza,
+  onSelect,
+}: {
+  piezasPorFDI: Map<number, Pieza>;
+  superficiesPorPieza: Map<number, Superficie[]>;
+  onSelect?: (fdi: number) => void;
+}) {
+  const arcoSuperior = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28];
+  const arcoInferior = [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
+
+  // --- Geometría con "aire" extra ---
+  const W = 900, H = 600;
+  const P = 48;                 // 👈 padding del viewBox
+  const cx = W / 2;
+  const cySup = 260;            // antes 230
+  const cyInf = 400;            // antes 370
+  const Rsup = 280;             // antes 300
+  const Rinf = 280;             // antes 300
+
+  const toXY = (r: number, angleDeg: number, cy: number) => {
+    const rad = (Math.PI / 180) * angleDeg;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  };
+
+  const angles = (start: number, end: number, n: number) => {
+    const step = (end - start) / (n - 1);
+    return Array.from({ length: n }, (_, i) => start + i * step);
+  };
+
+  const angSup = angles(-160, -20, arcoSuperior.length);
+  const angInf = angles(200, 340, arcoInferior.length);
+
+  const classByEstado = (p?: Pieza) => {
+    if (!p) return "fill-slate-100 stroke-slate-400";
+    if (p.esta_presente === false || p.estado_general === "AUSENTE")
+      return "fill-red-200 stroke-red-600";
+    if (p.estado_general === "SANO")
+      return "fill-emerald-200 stroke-emerald-600";
+    return "fill-amber-200 stroke-amber-600";
+  };
+
+  const hallCount = (fdi: number) =>
+    (superficiesPorPieza.get(fdi) || []).filter(
+      (s) => s.hallazgo && String(s.hallazgo).trim() !== ""
+    ).length;
+
+  const FaucesBackground = () => (
+    <g opacity={0.18}>
+      <ellipse cx={cx} cy={cySup + 10} rx={180} ry={40} className="fill-purple-700" />
+      <ellipse cx={cx} cy={cySup + 55} rx={14} ry={24} className="fill-purple-900" />
+      <path
+        d={`M ${cx-260},${cyInf-30} Q ${cx},${cyInf+80} ${cx+260},${cyInf-30} L ${cx+260},${cyInf+10} Q ${cx},${cyInf+120} ${cx-260},${cyInf+10} Z`}
+        className="fill-rose-400"
+      />
+    </g>
+  );
+
+  const Tooth = ({ fdi, x, y }: { fdi: number; x: number; y: number }) => {
+    const pieza = piezasPorFDI.get(fdi);
+    const klass = classByEstado(pieza);
+    const w = 34, h = 44, r = 8;
+
+    return (
+      <g
+        transform={`translate(${x - w / 2}, ${y - h / 2})`}
+        onClick={() => onSelect?.(fdi)}
+        style={{ cursor: "pointer" }}
+      >
+        <rect width={w} height={h} rx={r} ry={r} className={klass} strokeWidth={1.8} />
+        <text x={w / 2} y={h / 2 + 4} textAnchor="middle" className="fill-slate-800" fontSize={14} fontWeight={700}>
+          {fdi}
+        </text>
+        {hallCount(fdi) > 0 && (
+          <g transform={`translate(${w - 12}, -6)`}>
+            <circle r={10} className="fill-amber-500" />
+            <text x={0} y={4} textAnchor="middle" className="fill-white" fontSize={11} fontWeight={800}>
+              {hallCount(fdi)}
+            </text>
+          </g>
+        )}
+        <title>{`FDI ${fdi} · ${pieza?.estado_general ?? "sin datos"}${pieza?.esta_presente===false?" (ausente)":""}`}</title>
+      </g>
+    );
+  };
+
+  return (
+    <svg
+      viewBox={`${-P} ${-P} ${W + 2 * P} ${H + 2 * P}`}  // 👈 viewBox con padding
+      preserveAspectRatio="xMidYMid meet"
+      className="w-full h-auto overflow-visible"          // 👈 evita recortes por CSS
+    >
+      <FaucesBackground />
+
+      {/* Arcos guía */}
+      <path
+        d={`M ${cx - Rsup},${cySup} A ${Rsup},${Rsup} 0 0 1 ${cx + Rsup},${cySup}`}
+        className="fill-none stroke-slate-300"
+        strokeDasharray="6 8"
+      />
+      <path
+        d={`M ${cx - Rinf},${cyInf} A ${Rinf},${Rinf} 0 0 0 ${cx + Rinf},${cyInf}`}
+        className="fill-none stroke-slate-300"
+        strokeDasharray="6 8"
+      />
+
+      {/* Dientes superiores */}
+      {arcoSuperior.map((fdi, i) => {
+        const { x, y } = toXY(Rsup, angSup[i], cySup);
+        return <Tooth key={fdi} fdi={fdi} x={x} y={y} />;
+      })}
+
+      {/* Dientes inferiores */}
+      {arcoInferior.map((fdi, i) => {
+        const { x, y } = toXY(Rinf, angInf[i], cyInf);
+        return <Tooth key={fdi} fdi={fdi} x={x} y={y} />;
+      })}
+    </svg>
+  );
+}
 
 // --- Página --------------------------------------------------------------
 
@@ -223,12 +340,17 @@ export default function OdontogramPage() {
   const [data, setData] = useState<OdontogramaResponse | null>(null);
   const [showTemporales, setShowTemporales] = useState(false);
 
+  // Toggle de vistas
+  const [view, setView] = useState<"tablero" | "fauces">("tablero");
+  const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
+
   // Para diagnóstico: ver qué URLs probamos y qué devolvieron
   const [attempts, setAttempts] = useState<
     { url: string; status?: number; ok: boolean; err?: string }[]
   >([]);
 
   useEffect(() => {
+    // Si viene ?historia= en la URL, disparar carga inicial
     if (historiaId) void cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -252,18 +374,16 @@ export default function OdontogramPage() {
     setLoading(true);
     setError(null);
     setData(null);
-
     try {
-      // Posibles rutas (sin prefijo /api; lo añade API_BASE si aplica)
+      // PRIORIDAD: ya vimos que /historias/:id/odontograma devuelve 200
       const PATHS = [
+        `/historias/${historiaId}/odontograma`,
+        `/historia/${historiaId}/odontograma`,
         `/odontogramas/historia/${historiaId}`,
         `/odontograma/historia/${historiaId}`,
         `/odontogramas/${historiaId}`,
         `/odontograma/${historiaId}`,
-        `/historias/${historiaId}/odontograma`,
-        `/historia/${historiaId}/odontograma`,
       ];
-
       // Probar con base ("/api" o VITE_API_URL) y también en raíz
       const BASES = Array.from(new Set([API_BASE, ""]));
       const urls = BASES.flatMap((b) => PATHS.map((p) => `${b}${p}`));
@@ -272,7 +392,7 @@ export default function OdontogramPage() {
       setData(json);
 
       // Mantener ?historia= en la URL
-      const sp = new URLSearchParams(location.search);
+      const sp = new URLSearchParams(window.location.search);
       sp.set("historia", historiaId);
       navigate({ search: sp.toString() }, { replace: true });
     } catch (e: any) {
@@ -323,6 +443,16 @@ export default function OdontogramPage() {
         <Button onClick={cargar} disabled={loading || !historiaId}>
           {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />} Cargar
         </Button>
+
+        {/* Toggle de vistas */}
+        <div className="flex gap-2 ml-auto">
+          <Button variant={view === "tablero" ? "default" : "outline"} onClick={() => setView("tablero")}>
+            Tablero
+          </Button>
+          <Button variant={view === "fauces" ? "default" : "outline"} onClick={() => setView("fauces")}>
+            Fauces
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -337,7 +467,7 @@ export default function OdontogramPage() {
           <CardHeader>
             <CardTitle className="text-sm">Diagnóstico de rutas probadas</CardTitle>
           </CardHeader>
-          <CardContent className="text-xs space-y-1">
+        <CardContent className="text-xs space-y-1">
             {attempts.map((a, i) => (
               <div key={i} className={a.ok ? "text-emerald-700" : "text-amber-700"}>
                 {a.url} → {a.status ?? "ERR"} {a.err ? `· ${a.err}` : ""}
@@ -347,40 +477,57 @@ export default function OdontogramPage() {
         </Card>
       )}
 
-      <div className="grid gap-4">
+      {view === "tablero" ? (
+        <div className="grid gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Dentición permanente</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {renderFila(filasPermanentes.supDerecha)}
+              {renderFila(filasPermanentes.supIzquierda)}
+              <div className="h-1" />
+              {renderFila(filasPermanentes.infDerecha)}
+              {renderFila(filasPermanentes.infIzquierda)}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle className="text-base">
+                Dentición temporal (decidua)
+                <Button variant="secondary" size="sm" className="ml-2" onClick={() => setShowTemporales((v) => !v)}>
+                  {showTemporales ? "Ocultar" : "Mostrar"}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            {showTemporales && (
+              <CardContent className="space-y-3">
+                {renderFila(filasTemporales.supDerecha)}
+                {renderFila(filasTemporales.supIzquierda)}
+                <div className="h-1" />
+                {renderFila(filasTemporales.infDerecha)}
+                {renderFila(filasTemporales.infIzquierda)}
+              </CardContent>
+            )}
+          </Card>
+        </div>
+      ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Dentición permanente</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {renderFila(filasPermanentes.supDerecha)}
-            {renderFila(filasPermanentes.supIzquierda)}
-            <div className="h-1" />
-            {renderFila(filasPermanentes.infDerecha)}
-            {renderFila(filasPermanentes.infIzquierda)}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="text-base">
-              Dentición temporal (decidua)
-              <Button variant="secondary" size="sm" className="ml-2" onClick={() => setShowTemporales((v) => !v)}>
-                {showTemporales ? "Ocultar" : "Mostrar"}
-              </Button>
+              Vista con fauces {selectedFdi ? `· Seleccionado FDI ${selectedFdi}` : ""}
             </CardTitle>
           </CardHeader>
-          {showTemporales && (
-            <CardContent className="space-y-3">
-              {renderFila(filasTemporales.supDerecha)}
-              {renderFila(filasTemporales.supIzquierda)}
-              <div className="h-1" />
-              {renderFila(filasTemporales.infDerecha)}
-              {renderFila(filasTemporales.infIzquierda)}
-            </CardContent>
-          )}
+          <CardContent className="overflow-x-auto">
+            <FaucesView
+              piezasPorFDI={piezasPorFDI}
+              superficiesPorPieza={superficiesPorPieza}
+              onSelect={(fdi) => setSelectedFdi(fdi)}
+            />
+          </CardContent>
         </Card>
-      </div>
+      )}
 
       {data && (
         <div className="text-xs text-muted-foreground pt-2">
