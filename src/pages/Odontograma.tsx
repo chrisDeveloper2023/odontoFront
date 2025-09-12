@@ -8,25 +8,29 @@ import { Loader2, RefreshCw } from "lucide-react";
 import ToothTile from "@/components/ToothTile";
 import FaucesView from "@/components/FaucesView";
 import ToothSidePanel from "@/components/ToothSidePanel";
-
+import DraftBanner from "@/components/DraftBanner";
 import {
+  abrirDraftOdontograma,
   getOdontogramaByHistoria,
   superficiesPorFDI as mapSuperficiesPorFDI,
   OdontogramaResponse,
   Pieza,
+  Superficie,
+  withDraftRetry,
+  patchPiezaEstado,
 } from "@/lib/api/odontograma";
 
 const filasPermanentes = {
-  supDerecha: [18,17,16,15,14,13,12,11],
-  supIzquierda: [21,22,23,24,25,26,27,28],
-  infDerecha: [48,47,46,45,44,43,42,41],
-  infIzquierda: [31,32,33,34,35,36,37,38],
+  supDerecha: [18, 17, 16, 15, 14, 13, 12, 11],
+  supIzquierda: [21, 22, 23, 24, 25, 26, 27, 28],
+  infDerecha: [48, 47, 46, 45, 44, 43, 42, 41],
+  infIzquierda: [31, 32, 33, 34, 35, 36, 37, 38],
 };
 const filasTemporales = {
-  supDerecha: [55,54,53,52,51],
-  supIzquierda: [61,62,63,64,65],
-  infDerecha: [85,84,83,82,81],
-  infIzquierda: [71,72,73,74,75],
+  supDerecha: [55, 54, 53, 52, 51],
+  supIzquierda: [61, 62, 63, 64, 65],
+  infDerecha: [85, 84, 83, 82, 81],
+  infIzquierda: [71, 72, 73, 74, 75],
 };
 
 function useQuery() {
@@ -62,7 +66,8 @@ export default function OdontogramaPage() {
       setData(json);
       const sp = new URLSearchParams(window.location.search);
       sp.set("historia", historiaId);
-      if (citaId) sp.set("cita", citaId); else sp.delete("cita");
+      if (citaId) sp.set("cita", citaId);
+      else sp.delete("cita");
       navigate({ search: sp.toString() }, { replace: true });
     } catch (e: any) {
       setError(e?.message || "Error");
@@ -79,6 +84,19 @@ export default function OdontogramaPage() {
     return fromOg ?? fromQuery;
   })();
 
+  // Banner: visible si estás en consolidado y tienes cita+historia
+  const isConsolidado = Boolean(
+    data?.odontograma &&
+      (data.odontograma.is_draft === false || (data.odontograma as any).isDraft === false)
+  );
+  const canOpenDraft = Boolean(citaId && idHistoriaNum);
+  const showDraftBanner = isConsolidado && canOpenDraft;
+
+  async function handleOpenDraft() {
+    await abrirDraftOdontograma({ citaId, historiaId: idHistoriaNum, userId: 1 });
+    await cargar(); // refresca para que ya aparezca el DRAFT
+  }
+
   // Índices
   const piezasPorFDI = useMemo(() => {
     const m = new Map<number, Pieza>();
@@ -87,7 +105,7 @@ export default function OdontogramaPage() {
   }, [data]);
 
   const superficiesPorFDI = useMemo(() => {
-    if (!data) return new Map<number, any[]>();
+    if (!data) return new Map<number, Superficie[]>();
     return mapSuperficiesPorFDI(data.piezas, data.superficies);
   }, [data]);
 
@@ -118,22 +136,40 @@ export default function OdontogramaPage() {
       <div className="flex items-end gap-2 flex-wrap">
         <div className="grow max-w-[220px]">
           <label className="text-xs text-muted-foreground">ID de Historia</label>
-          <Input placeholder="Ej. 8" value={historiaId} onChange={(e) => setHistoriaId(e.target.value)} />
+          <Input
+            placeholder="Ej. 8"
+            value={historiaId}
+            onChange={(e) => setHistoriaId(e.target.value)}
+          />
         </div>
         <div className="grow max-w-[220px]">
           <label className="text-xs text-muted-foreground">ID de Cita</label>
-          <Input placeholder="Ej. 123" value={citaId} onChange={(e) => setCitaId(e.target.value)} />
+          <Input
+            placeholder="Ej. 123"
+            value={citaId}
+            onChange={(e) => setCitaId(e.target.value)}
+          />
         </div>
         <Button onClick={cargar} disabled={loading || !historiaId}>
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+          {loading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
           Cargar
         </Button>
 
         <div className="flex gap-2 ml-auto">
-          <Button variant={view === "tablero" ? "default" : "outline"} onClick={() => setView("tablero")}>
+          <Button
+            variant={view === "tablero" ? "default" : "outline"}
+            onClick={() => setView("tablero")}
+          >
             Tablero
           </Button>
-          <Button variant={view === "fauces" ? "default" : "outline"} onClick={() => setView("fauces")}>
+          <Button
+            variant={view === "fauces" ? "default" : "outline"}
+            onClick={() => setView("fauces")}
+          >
             Fauces
           </Button>
         </div>
@@ -148,10 +184,15 @@ export default function OdontogramaPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         {/* Columna principal */}
         <div className="space-y-4">
+          {/* 🔶 Banner para abrir draft si estás viendo consolidado */}
+          <DraftBanner visible={showDraftBanner} onOpenDraft={handleOpenDraft} />
+
           {view === "tablero" ? (
             <>
               <Card>
-                <CardHeader><CardTitle className="text-base">Dentición permanente</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-base">Dentición permanente</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {renderFila(filasPermanentes.supDerecha)}
                   {renderFila(filasPermanentes.supIzquierda)}
@@ -162,7 +203,9 @@ export default function OdontogramaPage() {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="text-base">Dentición temporal (decidua)</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-base">Dentición temporal (decidua)</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-3">
                   {renderFila(filasTemporales.supDerecha)}
                   {renderFila(filasTemporales.supIzquierda)}
@@ -174,15 +217,34 @@ export default function OdontogramaPage() {
             </>
           ) : (
             <Card>
-              <CardHeader><CardTitle className="text-base">Vista con fauces</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Vista con fauces</CardTitle>
+              </CardHeader>
               <CardContent className="overflow-x-auto">
                 <FaucesView
                   piezasPorFDI={piezasPorFDI}
                   superficiesPorPieza={superficiesPorFDI}
                   onSelect={setSelectedFdi}
                   onDoubleTogglePresence={async (fdi) => {
-                    // reutilizamos ToothSidePanel para guardar, o que el usuario lo haga desde tarjeta
-                    setSelectedFdi(fdi);
+                    if (!idOdonto) return;
+                    const pieza = piezasPorFDI.get(fdi);
+                    const nuevoPresente = !(pieza?.esta_presente !== false);
+                    const nuevoEstado = nuevoPresente ? "SANO" : "AUSENTE";
+                    try {
+                      await withDraftRetry(
+                        () =>
+                          patchPiezaEstado({
+                            idOdontograma: idOdonto,
+                            fdi,
+                            presente: nuevoPresente,
+                            estado: nuevoEstado,
+                          }),
+                        draftCtx
+                      );
+                      await cargar();
+                    } catch (e) {
+                      console.error("Error toggle presencia (fauces):", e);
+                    }
                   }}
                 />
               </CardContent>
@@ -191,7 +253,8 @@ export default function OdontogramaPage() {
 
           {data && (
             <div className="text-xs text-muted-foreground pt-2">
-              Odontograma #{idOdonto || "—"} · Historia #{idHistoriaNum || "—"} {data.odontograma?.is_draft ? "· DRAFT" : ""}
+              Odontograma #{idOdonto || "—"} · Historia #{idHistoriaNum || "—"}{" "}
+              {data.odontograma?.is_draft ? "· DRAFT" : ""}
             </div>
           )}
         </div>
@@ -206,9 +269,12 @@ export default function OdontogramaPage() {
           />
           {!selectedFdi && (
             <Card>
-              <CardHeader><CardTitle className="text-base">Selecciona una pieza</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">Selecciona una pieza</CardTitle>
+              </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                Clic sobre un diente para ver sus detalles, alternar presencia, cambiar estado y guardar.
+                Clic sobre un diente para ver sus detalles, alternar presencia, cambiar estado y
+                guardar.
               </CardContent>
             </Card>
           )}

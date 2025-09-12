@@ -51,12 +51,23 @@ async function httpJson(url: string, init?: RequestInit) {
   const res = await fetch(url, init);
   let json: any = null;
   try { json = await res.json(); } catch { /* puede no traer body */ }
-  if (!res.ok) {
+  /* if (!res.ok) {
     const err: any = new Error(json?.mensaje || json?.error || res.statusText);
     err.status = res.status;
     err.payload = json;
     throw err;
+  } */
+  if (!res.ok) {
+    const err: any = new Error(json?.mensaje || json?.error || res.statusText);
+    err.status = res.status;
+    err.payload = json;
+    err.url = url;                 //  ayuda a depurar
+    err.method = init?.method ?? "GET";
+    // log visible en consola del navegador
+    console.error(`[API ${res.status}] ${err.method} ${url}`, { body: init?.body, payload: json });
+    throw err;
   }
+
   return json;
 }
 
@@ -110,22 +121,40 @@ export async function patchSuperficie(params: {
   });
 }
 
-/** Ejecuta `op()` y si falla (400/404/409) intenta abrir draft con cita+historia y reintenta una vez. */
+/** Ejecuta `op()` y, si falla por consolidado u otros errores típicos, abre draft y reintenta una vez. */
 export async function withDraftRetry<T>(
   op: () => Promise<T>,
-  ctx?: { citaId?: string; historiaId?: number }
+  ctx?: { citaId?: string | number; historiaId?: number }
 ): Promise<T> {
   try {
     return await op();
   } catch (e: any) {
-    const retriable = e?.status === 400 || e?.status === 404 || e?.status === 409;
-    if (retriable && ctx?.citaId && ctx?.historiaId) {
-      await abrirDraftOdontograma({ citaId: ctx.citaId, historiaId: ctx.historiaId });
+    const status: number | undefined = e?.status;
+    const msg = String(e?.payload?.mensaje || e?.message || "").toLowerCase();
+
+    const looksConsolidated =
+      /consolidad/.test(msg) || /no se puede editar.*consolidado/.test(msg);
+
+    // Algunos backends mal mapeados devuelven 500 para casos de estado inválido.
+    const retriableStatus = status === 400 || status === 404 || status === 409 || (status === 500 && looksConsolidated);
+
+    const canOpen = Boolean(ctx?.citaId && ctx?.historiaId);
+
+    if (retriableStatus && canOpen) {
+      // Abre draft y reintenta una única vez
+      await abrirDraftOdontograma({
+        citaId: ctx!.citaId!,
+        historiaId: ctx!.historiaId!,
+        userId: 1, // si luego usas JWT, backend ignorará esto
+      });
       return op();
     }
+
+    // No es caso de consolidado o no tenemos datos para abrir draft
     throw e;
   }
 }
+
 
 /* ------------------------- helpers de UI --------------------------- */
 
