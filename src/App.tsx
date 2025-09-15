@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
-import PatientDetail from "./pages/PatientDetail";
 import NewPatient from "./pages/NewPatient";
 import MedicalRecords from "./pages/MedicalRecords";
 import NewMedicalRecord from "./pages/NewMedicalRecord";
@@ -32,9 +31,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Layout><Dashboard /></Layout>} />
           <Route path="/patients" element={<Layout><Patients /></Layout>} />
-          <Route path="/patients/:id" element={<Layout><PatientDetail /></Layout>} />
           <Route path="/patients/new" element={<Layout><NewPatient /></Layout>} />
-          <Route path="/patients/:id/edit" element={<Layout><NewPatient /></Layout>} />
           <Route path="/medical-records" element={<Layout><MedicalRecords /></Layout>} />
           <Route path="/medical-records/new" element={<Layout><NewMedicalRecord /></Layout>} />
           <Route path="/NuevosPacientes" element={<Layout><Patients /></Layout>} />
