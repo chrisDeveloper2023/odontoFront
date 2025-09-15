@@ -93,7 +93,7 @@ export default function OdontogramaPage() {
   const showDraftBanner = isConsolidado && canOpenDraft;
 
   async function handleOpenDraft() {
-    await abrirDraftOdontograma({ citaId, historiaId: idHistoriaNum, userId: 1 });
+    await abrirDraftOdontograma(idHistoriaNum);
     await cargar(); // refresca para que ya aparezca el DRAFT
   }
 

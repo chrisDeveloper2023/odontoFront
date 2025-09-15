@@ -1,98 +1,55 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Eye, Edit, Calendar, User } from "lucide-react";
 import { Link } from "react-router-dom";
+import OdontogramaView from "@/components/OdontogramaView";
+import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
+
+type HistoriaClinica = {
+  id_historia: number;
+  id_paciente: number;
+  detalles_generales?: string | null;
+  fecha_creacion?: string;
+  fecha_modificacion?: string;
+  [k: string]: any;
+};
 
 const MedicalRecords = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [historias, setHistorias] = useState<HistoriaClinica[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
-  // Datos de ejemplo de historias clínicas
-  const medicalRecords = [
-    {
-      id: "1",
-      patientName: "María González Pérez",
-      patientId: "1",
-      date: "2024-01-15",
-      type: "Consulta General",
-      diagnosis: "Hipertensión arterial leve",
-      doctor: "Dr. Roberto Méndez",
-      status: "Completado",
-      symptoms: "Dolor de cabeza, mareos ocasionales",
-      treatment: "Medicación antihipertensiva, cambios en dieta",
-    },
-    {
-      id: "2",
-      patientName: "Carlos Rodríguez López",
-      patientId: "2",
-      date: "2024-01-10",
-      type: "Consulta Especializada",
-      diagnosis: "Gastritis crónica",
-      doctor: "Dra. Ana Morales",
-      status: "En seguimiento",
-      symptoms: "Dolor abdominal, acidez estomacal",
-      treatment: "Omeprazol, dieta blanda",
-    },
-    {
-      id: "3",
-      patientName: "Ana Martínez Silva",
-      patientId: "3",
-      date: "2023-12-20",
-      type: "Control de Rutina",
-      diagnosis: "Diabetes tipo 2 controlada",
-      doctor: "Dr. Luis Castillo",
-      status: "Completado",
-      symptoms: "Control de glucosa",
-      treatment: "Metformina, ejercicio regular",
-    },
-    {
-      id: "4",
-      patientName: "Juan Pérez Morales",
-      patientId: "4",
-      date: "2024-01-12",
-      type: "Emergencia",
-      diagnosis: "Infarto agudo de miocardio",
-      doctor: "Dr. Patricia López",
-      status: "Crítico",
-      symptoms: "Dolor torácico intenso, dificultad respiratoria",
-      treatment: "Angioplastia, medicación cardiovascular",
-    },
-  ];
+  // Estado para odontograma embebido
+  const [selectedHistoriaId, setSelectedHistoriaId] = useState<string | null>(null);
+  const [ogData, setOgData] = useState<OdontogramaResponse | null>(null);
+  const [ogLoading, setOgLoading] = useState(false);
+  const [ogError, setOgError] = useState<string | null>(null);
 
-  const filteredRecords = medicalRecords.filter(record =>
-    record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.doctor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.type.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    const API = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+    setLoadingList(true);
+    setListError(null);
+    fetch(`${API}/historias-clinicas`)
+      .then(async (res) => {
+        const json = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(json?.mensaje || res.statusText);
+        return json as HistoriaClinica[];
+      })
+      .then((rows) => setHistorias(Array.isArray(rows) ? rows : []))
+      .catch((e: any) => setListError(e?.message || "Error cargando historias clínicas"))
+      .finally(() => setLoadingList(false));
+  }, []);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Completado":
-        return <Badge variant="default" className="bg-green-500">Completado</Badge>;
-      case "En seguimiento":
-        return <Badge variant="secondary">En seguimiento</Badge>;
-      case "Crítico":
-        return <Badge variant="destructive">Crítico</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
+  const filteredRecords = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return historias;
+    return historias.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
+  }, [historias, searchTerm]);
 
-  const getTypeBadge = (type: string) => {
-    switch (type) {
-      case "Emergencia":
-        return <Badge variant="destructive">{type}</Badge>;
-      case "Consulta Especializada":
-        return <Badge className="bg-blue-500">{type}</Badge>;
-      case "Control de Rutina":
-        return <Badge variant="secondary">{type}</Badge>;
-      default:
-        return <Badge variant="outline">{type}</Badge>;
-    }
-  };
+  // limpiado: helpers de badges ya no usados
 
   return (
     <div className="space-y-6">
@@ -118,7 +75,7 @@ const MedicalRecords = () => {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por paciente, diagnóstico, doctor o tipo de consulta..."
+              placeholder="Buscar por cualquier campo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -128,119 +85,149 @@ const MedicalRecords = () => {
       </Card>
 
       {/* Stats */}
+      {/* Stats básicos */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Total Historias</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{medicalRecords.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Completadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {medicalRecords.filter(r => r.status === "Completado").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">En Seguimiento</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {medicalRecords.filter(r => r.status === "En seguimiento").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Críticas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {medicalRecords.filter(r => r.status === "Crítico").length}
-            </div>
+            <div className="text-2xl font-bold text-primary">{filteredRecords.length}</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Medical Records List */}
+      {loadingList && (
+        <Card>
+          <CardContent className="pt-6">Cargando historias clínicas…</CardContent>
+        </Card>
+      )}
+      {listError && (
+        <Card className="border-red-300 bg-red-50">
+          <CardContent className="pt-6 text-red-700">{listError}</CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4">
         {filteredRecords.map((record) => (
-          <Card key={record.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="pt-6">
+          <Card key={record.id_historia} className="hover:shadow-md transition-shadow">
+            <CardContent className="pt-6 space-y-4">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {record.patientName}
-                    </h3>
-                    {getStatusBadge(record.status)}
-                    {getTypeBadge(record.type)}
+                    <h3 className="text-lg font-semibold text-foreground">Historia #{record.id_historia}</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span className="font-medium">Fecha:</span> {record.date}
+                      <span className="font-medium">Creación:</span> {record.fecha_creacion || "—"}
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <User className="h-4 w-4" />
-                      <span className="font-medium">Doctor:</span> {record.doctor}
+                      <span className="font-medium">Paciente:</span> #{record.id_paciente}
                     </div>
                     <div className="text-muted-foreground">
-                      <span className="font-medium">ID:</span> #{record.id}
+                      <span className="font-medium">Actualización:</span> {record.fecha_modificacion || "—"}
                     </div>
                   </div>
 
                   <div className="space-y-1">
                     <div className="text-sm">
-                      <span className="font-medium text-foreground">Diagnóstico:</span>
-                      <span className="text-muted-foreground ml-2">{record.diagnosis}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium text-foreground">Síntomas:</span>
-                      <span className="text-muted-foreground ml-2">{record.symptoms}</span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium text-foreground">Tratamiento:</span>
-                      <span className="text-muted-foreground ml-2">{record.treatment}</span>
+                      <span className="font-medium text-foreground">Detalles:</span>
+                      <span className="text-muted-foreground ml-2">{record.detalles_generales || "—"}</span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex gap-2">
-                  <Link to={`/medical-records/${record.id}`}>
+                  <Link to={`/medical-records/${record.id_historia}`}>
                     <Button variant="outline" size="sm">
                       <Eye className="h-4 w-4 mr-1" />
                       Ver
                     </Button>
                   </Link>
-                  <Link to={`/medical-records/${record.id}/edit`}>
+                  <Link to={`/medical-records/${record.id_historia}/edit`}>
                     <Button variant="outline" size="sm">
                       <Edit className="h-4 w-4 mr-1" />
                       Editar
                     </Button>
                   </Link>
-                  <Link to={`/patients/${record.patientId}`}>
+                  <Link to={`/patients/${record.id_paciente}`}>
                     <Button size="sm">
                       <User className="h-4 w-4 mr-1" />
                       Paciente
                     </Button>
                   </Link>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      setOgError(null);
+                      setOgLoading(true);
+                      try {
+                        const res: OdontogramaResponse = await abrirDraftOdontograma(Number(record.id_historia), "empty");
+                        setSelectedHistoriaId(String(record.id_historia));
+                        setOgData(res);
+                      } catch (e: any) {
+                        setOgError(e?.message || "Error al abrir odontograma");
+                      } finally {
+                        setOgLoading(false);
+                      }
+                    }}
+                  >
+                    Abrir Odontograma
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      setOgError(null);
+                      setOgLoading(true);
+                      try {
+                        const res: OdontogramaResponse = await abrirDraftOdontograma(Number(record.id_historia), "from_last");
+                        setSelectedHistoriaId(String(record.id_historia));
+                        setOgData(res);
+                      } catch (e: any) {
+                        setOgError(e?.message || "Error al abrir odontograma (desde último)");
+                      } finally {
+                        setOgLoading(false);
+                      }
+                    }}
+                  >
+                    Abrir desde último consolidado
+                  </Button>
                 </div>
               </div>
+              {/* Odontograma embebido para el registro seleccionado */}
+              {selectedHistoriaId === String(record.id_historia) && ogData && (
+                <div className="border-t pt-4">
+                  <OdontogramaView
+                    data={ogData}
+                    draftCtx={{ historiaId: Number(record.id_historia) }}
+                    onReload={async () => {
+                      try {
+                        const fresh = await getOdontogramaByHistoria(String(record.id_historia));
+                        setOgData(fresh);
+                      } catch (e) {
+                        /* noop */
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              {selectedHistoriaId === String(record.id_historia) && ogLoading && (
+                <div className="text-sm text-muted-foreground">Cargando odontograma…</div>
+              )}
+              {selectedHistoriaId === String(record.id_historia) && ogError && (
+                <div className="text-sm text-red-600">{ogError}</div>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {filteredRecords.length === 0 && (
+      {!loadingList && filteredRecords.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground">

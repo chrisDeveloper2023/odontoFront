@@ -14,9 +14,10 @@ import { ArrowLeft, Save, User, FileText, Stethoscope, Pill, Heart } from "lucid
 const NewMedicalRecord = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const patientId = searchParams.get("/patientId");
+  const patientId = searchParams.get("patientId");
 
   const [formData, setFormData] = useState({
+    citaId: "",
     patientId: patientId || "",
     date: new Date().toISOString().split('T')[0],
     time: new Date().toTimeString().slice(0, 5),
@@ -69,20 +70,29 @@ const NewMedicalRecord = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validación básica
-    if (!formData.patientId || !formData.chiefComplaint || !formData.diagnosis || !formData.doctorName) {
-      toast.error("Por favor completa los campos obligatorios");
+    // Validación: requerimos la cita para abrir la historia en backend
+    if (!formData.citaId) {
+      toast.error("Ingresa el ID de la Cita para abrir la historia clínica");
       return;
     }
 
-    // Aquí enviarías los datos al backend
-    console.log("Historia clínica:", formData);
-    
-    toast.success("Historia clínica creada exitosamente");
-    navigate("/medical-records");
+    try {
+      const API = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+      const res = await fetch(`${API}/citas/${formData.citaId}/historias-clinicas/abrir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.mensaje || res.statusText);
+      toast.success("Historia clínica abierta/creada correctamente");
+      navigate("/medical-records");
+    } catch (err: any) {
+      toast.error(err?.message || "Error al abrir historia clínica desde cita");
+    }
   };
 
   return (
@@ -115,6 +125,16 @@ const NewMedicalRecord = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="citaId">ID de Cita (para abrir historia) *</Label>
+                <Input
+                  id="citaId"
+                  placeholder="Ej. 1234"
+                  value={formData.citaId}
+                  onChange={(e) => handleInputChange("citaId", e.target.value)}
+                  required
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="patientId">Paciente *</Label>
                 <Select 

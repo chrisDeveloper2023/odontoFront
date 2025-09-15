@@ -74,16 +74,37 @@ async function httpJson(url: string, init?: RequestInit) {
 /* ------------------------------- API ------------------------------- */
 
 export async function getOdontogramaByHistoria(historiaId: string): Promise<OdontogramaResponse> {
-  // Tenemos ese endpoint OK
-  return httpJson(`${API}/historias/${historiaId}/odontograma`);
+  // Alineado a prefijo real de backend
+  return httpJson(`${API}/historias-clinicas/${historiaId}/odontograma`);
 }
 
+// Overloads para compatibilidad y nuevo endpoint solicitado
+export async function abrirDraftOdontograma(
+  idHistoria: number,
+  mode?: "empty" | "from_last"
+): Promise<any>;
 export async function abrirDraftOdontograma(params: {
   citaId: string | number;
   historiaId: number;
   userId?: number; // si usas JWT, puedes omitir
-}) {
-  const { citaId, historiaId, userId = 1 } = params;
+}): Promise<any>;
+export async function abrirDraftOdontograma(
+  a: number | { citaId: string | number; historiaId: number; userId?: number },
+  b: "empty" | "from_last" = "empty"
+) {
+  // Nueva firma solicitada: (idHistoria, mode)
+  if (typeof a === "number") {
+    const idHistoria = a;
+    const mode = b ?? "empty";
+    return httpJson(`${API}/historias-clinicas/${idHistoria}/odontograma/abrir`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  // Compatibilidad: firma previa con citaId + historiaId
+  const { citaId, historiaId, userId = 1 } = a;
   return httpJson(`${API}/citas/${citaId}/odontograma/abrir`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -142,11 +163,7 @@ export async function withDraftRetry<T>(
 
     if (retriableStatus && canOpen) {
       // Abre draft y reintenta una única vez
-      await abrirDraftOdontograma({
-        citaId: ctx!.citaId!,
-        historiaId: ctx!.historiaId!,
-        userId: 1, // si luego usas JWT, backend ignorará esto
-      });
+      await abrirDraftOdontograma(ctx!.historiaId!);
       return op();
     }
 
