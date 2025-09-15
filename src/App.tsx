@@ -10,6 +10,7 @@ import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
 import NewPatient from "./pages/NewPatient";
 import MedicalRecords from "./pages/MedicalRecords";
+import MedicalRecordDetail from "./pages/MedicalRecordDetail";
 import NewMedicalRecord from "./pages/NewMedicalRecord";
 import NotFound from "./pages/NotFound";
 import NewPaciente from "./pages/NuevosPacientes";
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/patients/:id/edit" element={<Layout><NewPatient /></Layout>} />
         <Route path="/medical-records" element={<Layout><MedicalRecords /></Layout>} />
         <Route path="/medical-records/new" element={<Layout><NewMedicalRecord /></Layout>} />
+        <Route path="/medical-records/:id" element={<Layout><MedicalRecordDetail /></Layout>} />
         <Route path="/NuevosPacientes" element={<Layout><Patients /></Layout>} />
         <Route path="/NuevosPacientes/new" element={<Layout><NewPaciente /></Layout>} />
         <Route path="/appointments" element={<Layout><Appointments /></Layout>} />
@@ -104,6 +106,15 @@ function AppRoutes() {
             element={
               <RouteModal title="Abrir/Crear Historia Clínica">
                 <NewMedicalRecord />
+              </RouteModal>
+            }
+          />
+          {/* Historias Clínicas: detalle/edición como modal */}
+          <Route
+            path="/medical-records/:id"
+            element={
+              <RouteModal title="Historia Clínica">
+                <MedicalRecordDetail />
               </RouteModal>
             }
           />
