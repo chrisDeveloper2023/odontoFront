@@ -25,9 +25,18 @@ const Appointments = () => {
     const fetchAppointments = async () => {
       try {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/citas`);
-        const data = await res.json();
-        //const res = await axios.get<Appointment[]>("http://localhost:3000/api/citas");
-        setAppointments(data);
+        const json = await res.json();
+        // Aceptar varias formas: array plano, { data: [] }, { citas: [] }
+        const list: Appointment[] = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.data)
+            ? json.data
+            : Array.isArray(json?.citas)
+              ? json.citas
+              : [];
+        // Ordenar descendente por fecha
+        list.sort((a, b) => new Date(b.fecha_hora).getTime() - new Date(a.fecha_hora).getTime());
+        setAppointments(list);
       } catch (err) {
         console.error("Error al cargar citas:", err);
       } finally {

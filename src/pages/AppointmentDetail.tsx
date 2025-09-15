@@ -1,6 +1,6 @@
 // src/pages/AppointmentDetail.tsx
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Card,
   CardHeader,
@@ -44,6 +44,7 @@ interface Appointment {
 export default function AppointmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [cita, setCita] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,14 +78,36 @@ export default function AppointmentDetail() {
       {/* Encabezado */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Cita #{cita.id_cita}</h1>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/appointments/${cita.id_cita}/edit`)}
-          className="flex items-center gap-1"
-        >
-          <Edit2 className="h-4 w-4" /> Editar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/citas/${cita.id_cita}/historias-clinicas/abrir`, { method: "POST" });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const hist = await res.json();
+                const idHistoria = hist?.id_historia || hist?.id || hist?.historia?.id_historia;
+                if (idHistoria) {
+                  navigate(`/medical-records/${idHistoria}`, { state: { background: location.state?.background ?? location } });
+                }
+              } catch (e) {
+                console.error("No se pudo abrir la historia clínica desde la cita:", e);
+                alert("No se pudo abrir la historia clínica");
+              }
+            }}
+          >
+            Abrir historia clínica
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(`/appointments/${cita.id_cita}/edit`)}
+            className="flex items-center gap-1"
+          >
+            <Edit2 className="h-4 w-4" /> Editar
+          </Button>
+        </div>
       </div>
 
       {/* Detalle */}
