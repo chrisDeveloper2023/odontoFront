@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Eye, Edit, Calendar, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import OdontogramaView from "@/components/OdontogramaView";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
 
@@ -51,6 +51,8 @@ const MedicalRecords = () => {
 
   // limpiado: helpers de badges ya no usados
 
+  const location = useLocation();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -61,7 +63,7 @@ const MedicalRecords = () => {
             Gestiona todas las historias clínicas y registros médicos
           </p>
         </div>
-        <Link to="/medical-records/new">
+        <Link to="/medical-records/new" state={{ background: location }}>
           <Button className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Nueva Historia Clínica

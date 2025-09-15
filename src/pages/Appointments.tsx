@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, CalendarPlus, Eye } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import axios from "axios";
 
 interface Appointment {
@@ -48,6 +48,8 @@ const Appointments = () => {
 
   if (loading) return <p>Cargando citas...</p>;
 
+  const location = useLocation();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -56,7 +58,7 @@ const Appointments = () => {
           <h1 className="text-3xl font-bold text-foreground">Citas Médicas</h1>
           <p className="text-muted-foreground">Listado de citas agendadas</p>
         </div>
-        <Link to="/appointments/new">
+        <Link to="/appointments/new" state={{ background: location }}>
           <Button className="flex items-center gap-2">
             <CalendarPlus className="h-4 w-4" />
             Nueva Cita
@@ -116,7 +118,7 @@ const Appointments = () => {
                     </div>
                   </div>
                   <div>
-                    <Link to={`/appointments/${appointment.id_cita}`}>
+                    <Link to={`/appointments/${appointment.id_cita}`} state={{ background: location }}>
                       <Button variant="outline" size="sm">
                         <Eye className="h-4 w-4 mr-1" />
                         Ver

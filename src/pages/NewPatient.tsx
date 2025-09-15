@@ -245,7 +245,7 @@ const NewPatient: React.FC = () => {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end space-x-4 sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4 mt-4">
           <Button variant="outline" onClick={() => navigate(-1)}>Cancelar</Button>
           <Button type="submit" className="flex items-center gap-2">
             <Save className="h-4 w-4" /> {isEdit ? "Actualizar" : "Guardar"}

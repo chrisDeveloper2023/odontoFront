@@ -500,7 +500,7 @@ const NewMedicalRecord = () => {
         </Card>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-end">
+        <div className="flex flex-col sm:flex-row gap-4 justify-end sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4 mt-4">
           <Button type="button" variant="outline" onClick={() => navigate(-1)}>
             Cancelar
           </Button>

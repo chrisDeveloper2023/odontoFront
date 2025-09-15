@@ -1,5 +1,6 @@
 // src/pages/Patients.tsx
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,6 +117,8 @@ const Patients: React.FC = () => {
   if (loading) return <div className="p-4">Cargando pacientes…</div>;
   if (error) return <div className="p-4 text-red-600">Error al cargar pacientes: {error}</div>;
 
+  const location = useLocation();
+
   return (
     <div className="space-y-6 p-4">
       {/* Header */}
@@ -126,7 +129,7 @@ const Patients: React.FC = () => {
             Gestiona los registros de todos los pacientes
           </p>
         </div>
-        <Link to="/patients/new">
+        <Link to="/patients/new" state={{ background: location }}>
           <Button className="flex items-center gap-2">
             <Plus className="h-4 w-4" /> Nuevo Paciente
           </Button>
@@ -226,13 +229,13 @@ const Patients: React.FC = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <Link to={`/patients/${patient.id}`}>
+                  <Link to={`/patients/${patient.id}`} state={{ background: location }}>
                     <Button variant="outline" size="sm"><Eye /></Button>
                   </Link>
-                  <Link to={`/patients/${patient.id}/edit`}>
+                  <Link to={`/patients/${patient.id}/edit`} state={{ background: location }}>
                     <Button variant="outline" size="sm"><Edit /></Button>
                   </Link>
-                  <Link to={`/medical-records/new?patientId=${patient.id}`}>
+                  <Link to={`/medical-records/new?patientId=${patient.id}`} state={{ background: location }}>
                     <Button size="sm"><FileText /></Button>
                   </Link>
 
