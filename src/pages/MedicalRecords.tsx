@@ -112,13 +112,23 @@ const MedicalRecords = () => {
       )}
 
       <div className="grid gap-4">
-        {filteredRecords.map((record) => (
-          <Card key={record.id_historia} className="hover:shadow-md transition-shadow">
+        {filteredRecords.map((record, idx) => {
+          const rid = Number(
+            (record as any)?.id_historia ??
+            (record as any)?.id ??
+            (record as any)?.historia?.id_historia ??
+            (record as any)?.idHistoria ??
+            (record as any)?.idHistoriaClinica ??
+            0
+          );
+          const ridStr = rid > 0 ? String(rid) : "";
+          return (
+          <Card key={`${rid || "row"}-${idx}`} className="hover:shadow-md transition-shadow">
             <CardContent className="pt-6 space-y-4">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="text-lg font-semibold text-foreground">Historia #{record.id_historia}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || "—"}</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
@@ -144,19 +154,33 @@ const MedicalRecords = () => {
                 </div>
                 
                 <div className="flex gap-2">
-                  <Link to={`/medical-records/${record.id_historia}`}>
-                    <Button variant="outline" size="sm">
+                  {rid > 0 ? (
+                    <Link to={`/medical-records/${ridStr}`} state={{ background: location }}>
+                      <Button variant="outline" size="sm">
+                        <Eye className="h-4 w-4 mr-1" />
+                        Ver
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button variant="outline" size="sm" disabled>
                       <Eye className="h-4 w-4 mr-1" />
                       Ver
                     </Button>
-                  </Link>
-                  <Link to={`/medical-records/${record.id_historia}/edit`}>
-                    <Button variant="outline" size="sm">
+                  )}
+                  {rid > 0 ? (
+                    <Link to={`/medical-records/${ridStr}`} state={{ background: location }}>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button variant="outline" size="sm" disabled>
                       <Edit className="h-4 w-4 mr-1" />
                       Editar
                     </Button>
-                  </Link>
-                  <Link to={`/patients/${record.id_paciente}`}>
+                  )}
+                  <Link to={`/patients/${record.id_paciente}`} state={{ background: location }}>
                     <Button size="sm">
                       <User className="h-4 w-4 mr-1" />
                       Paciente
@@ -168,8 +192,9 @@ const MedicalRecords = () => {
                       setOgError(null);
                       setOgLoading(true);
                       try {
-                        const res: OdontogramaResponse = await abrirDraftOdontograma(Number(record.id_historia), "empty");
-                        setSelectedHistoriaId(String(record.id_historia));
+                        if (!rid) throw new Error("ID de historia inválido");
+                        const res: OdontogramaResponse = await abrirDraftOdontograma(rid, "empty");
+                        setSelectedHistoriaId(String(rid));
                         setOgData(res);
                       } catch (e: any) {
                         setOgError(e?.message || "Error al abrir odontograma");
@@ -187,8 +212,9 @@ const MedicalRecords = () => {
                       setOgError(null);
                       setOgLoading(true);
                       try {
-                        const res: OdontogramaResponse = await abrirDraftOdontograma(Number(record.id_historia), "from_last");
-                        setSelectedHistoriaId(String(record.id_historia));
+                        if (!rid) throw new Error("ID de historia inválido");
+                        const res: OdontogramaResponse = await abrirDraftOdontograma(rid, "from_last");
+                        setSelectedHistoriaId(String(rid));
                         setOgData(res);
                       } catch (e: any) {
                         setOgError(e?.message || "Error al abrir odontograma (desde último)");
@@ -202,14 +228,15 @@ const MedicalRecords = () => {
                 </div>
               </div>
               {/* Odontograma embebido para el registro seleccionado */}
-              {selectedHistoriaId === String(record.id_historia) && ogData && (
+              {selectedHistoriaId === String(rid) && ogData && (
                 <div className="border-t pt-4">
                   <OdontogramaView
                     data={ogData}
-                    draftCtx={{ historiaId: Number(record.id_historia) }}
+                    draftCtx={{ historiaId: rid || undefined }}
                     onReload={async () => {
                       try {
-                        const fresh = await getOdontogramaByHistoria(String(record.id_historia));
+                        if (!rid) return;
+                        const fresh = await getOdontogramaByHistoria(String(rid));
                         setOgData(fresh);
                       } catch (e) {
                         /* noop */
@@ -218,15 +245,15 @@ const MedicalRecords = () => {
                   />
                 </div>
               )}
-              {selectedHistoriaId === String(record.id_historia) && ogLoading && (
+              {selectedHistoriaId === String(rid) && ogLoading && (
                 <div className="text-sm text-muted-foreground">Cargando odontograma…</div>
               )}
-              {selectedHistoriaId === String(record.id_historia) && ogError && (
+              {selectedHistoriaId === String(rid) && ogError && (
                 <div className="text-sm text-red-600">{ogError}</div>
               )}
             </CardContent>
           </Card>
-        ))}
+        )})}
       </div>
 
       {!loadingList && filteredRecords.length === 0 && (

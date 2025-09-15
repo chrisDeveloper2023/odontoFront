@@ -1,6 +1,6 @@
 // src/pages/MedicalRecordDetail.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { apiDelete, apiGet, apiPut } from "@/api/client";
 import VincularCitaModal from "@/components/Historias/VincularCitaModal";
 import OdontogramaView from "@/components/OdontogramaView";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
+import { toast } from "sonner";
 
 type Historia = {
   id_historia: number;
@@ -31,7 +32,10 @@ type Historia = {
 
 export default function MedicalRecordDetail() {
   const params = useParams();
-  const id = Number(params.id);
+  const rawId = params.id;
+  const id = Number(rawId);
+  const hasValidId = Number.isFinite(id) && id > 0;
+  const navigate = useNavigate();
   const [data, setData] = useState<Historia | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -49,7 +53,10 @@ export default function MedicalRecordDetail() {
   const [openCita, setOpenCita] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!hasValidId) {
+      setError("ID de historia inválido");
+      return;
+    }
     setLoading(true);
     setError(null);
     apiGet<Historia>(`/historias-clinicas/${id}`)
@@ -59,7 +66,7 @@ export default function MedicalRecordDetail() {
       })
       .catch((e: any) => setError(e?.message || "Error al cargar historia"))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [hasValidId, id]);
 
   const onChange = (k: keyof Historia, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
 
@@ -83,8 +90,12 @@ export default function MedicalRecordDetail() {
       };
       const res = await apiPut<Historia>(`/historias-clinicas/${id}`, body);
       setData(res);
+      toast.success("Historia clínica guardada correctamente");
+      // Si está en modal, volver cierra el modal (RouteModal usa navigate(-1))
+      navigate(-1);
     } catch (e: any) {
       setError(e?.message || "No se pudo guardar");
+      toast.error(e?.message || "No se pudo guardar");
     } finally {
       setSaving(false);
     }
@@ -127,7 +138,8 @@ export default function MedicalRecordDetail() {
 
   if (loading) return <div className="p-4">Cargando…</div>;
   if (error) return <div className="p-4 text-red-600">{error}</div>;
-  if (!data) return null;
+  if (!hasValidId) return <div className="p-4 text-red-600">ID de historia inválido</div>;
+  if (!data) return <div className="p-4">No se encontró la historia clínica</div>;
 
   const sections: Array<[keyof Historia, string]> = [
     ["detalles_generales", "Detalles Generales"],
@@ -200,4 +212,3 @@ export default function MedicalRecordDetail() {
     </div>
   );
 }
-

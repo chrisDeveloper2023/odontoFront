@@ -88,6 +88,10 @@ const NewAppointmentForm = () => {
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
+  const [clinicas, setClinicas] = useState<{ id: number; nombre: string }[]>([
+    { id: 1, nombre: "Sucursal 1" },
+    { id: 2, nombre: "Sucursal 2" },
+  ]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -112,6 +116,21 @@ const NewAppointmentForm = () => {
         const docs = await getOdontologos();
         setDoctores(docs);
         console.debug("Odontólogos detectados:", docs);
+
+        // 3) Clínicas (opcional): si existe endpoint, lo usamos; si falla, mantenemos 2 sucursales por defecto
+        try {
+          const clinRes = await fetch(`${import.meta.env.VITE_API_URL}/clinicas`).catch(() => null);
+          if (clinRes && clinRes.ok) {
+            const body = await clinRes.json();
+            const list = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
+            const mapped = list
+              .map((c: any) => ({ id: c.id ?? c.id_clinica ?? c.idClinica, nombre: c.nombre ?? c.nombre_clinica ?? c.name }))
+              .filter((c: any) => c.id);
+            if (mapped.length >= 2) setClinicas(mapped);
+          }
+        } catch (e) {
+          // mantener defaults
+        }
       } catch (err) {
         console.error("Error cargando listas:", err);
       } finally {
@@ -165,7 +184,7 @@ const NewAppointmentForm = () => {
         id_paciente: Number(formData.id_paciente),
         id_odontologo: Number(formData.id_odontologo),
         id_consultorio: Number(formData.id_consultorio),
-        id_clinica: formData.id_clinica ? Number(formData.id_clinica) : null,
+        id_clinica: Number(formData.id_clinica),
         fecha_hora: buildISOWithOffset(formData.fecha, formData.hora),
 
         observaciones: formData.observaciones || null,
@@ -193,6 +212,7 @@ const NewAppointmentForm = () => {
     !formData.id_paciente ||
     !formData.id_odontologo ||
     !formData.id_consultorio ||
+    !formData.id_clinica ||
     !formData.fecha ||
     !formData.hora;
 
@@ -226,6 +246,30 @@ const NewAppointmentForm = () => {
 
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Clínica (requerida) */}
+              <div className="md:col-span-2">
+                <Label>Clínica</Label>
+                <Select
+                  value={formData.id_clinica}
+                  onValueChange={(v) => handleSelectChange("id_clinica", v)}
+                >
+                  <SelectTrigger className="w-full h-11">
+                    {formData.id_clinica
+                      ? (() => {
+                          const c = clinicas.find((x) => String(x.id) === formData.id_clinica);
+                          return c ? c.nombre : "Seleccionar clínica";
+                        })()
+                      : "Seleccionar clínica"}
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {clinicas.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {/* Paciente */}
               <div>
                 <Label>Paciente</Label>
