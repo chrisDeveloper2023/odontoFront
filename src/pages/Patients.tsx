@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Eye, Edit, FileText } from "lucide-react";
+import { Search, Plus, Eye, Edit, FileText, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Patient {
@@ -235,8 +235,15 @@ const Patients: React.FC = () => {
                   <Link to={`/patients/${patient.id}/edit`} state={{ background: location }}>
                     <Button variant="outline" size="sm"><Edit /></Button>
                   </Link>
-                  <Link to={`/medical-records/new?patientId=${patient.id}`} state={{ background: location }}>
-                    <Button size="sm"><FileText /></Button>
+                  <Link to={`/medical-records?id_paciente=${patient.id}`}>
+                    <Button variant="outline" size="sm" title="Ver historias clínicas">
+                      <FileText className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link to={`/appointments?id_paciente=${patient.id}`}>
+                    <Button variant="outline" size="sm" title="Ver citas">
+                      <Calendar className="h-4 w-4" />
+                    </Button>
                   </Link>
 
                   {/* Eliminar (soft-delete ya implementado en backend) */}

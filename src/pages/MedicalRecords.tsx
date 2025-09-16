@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Eye, Edit, Calendar, User } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import OdontogramaView from "@/components/OdontogramaView";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
 
@@ -28,20 +28,51 @@ const MedicalRecords = () => {
   const [ogLoading, setOgLoading] = useState(false);
   const [ogError, setOgError] = useState<string | null>(null);
 
+  // Paginación
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBackend, setTotalBackend] = useState(0);
+  const [searchParams] = useSearchParams();
+  const idPacienteParam = searchParams.get("id_paciente") || "";
+
   useEffect(() => {
     const API = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
     setLoadingList(true);
     setListError(null);
-    fetch(`${API}/historias-clinicas`)
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    params.set("pageNumber", String(page));
+    params.set("page_size", String(limit));
+    params.set("pageSize", String(limit));
+    params.set("per_page", String(limit));
+    params.set("perPage", String(limit));
+    params.set("pagina", String(page));
+    if (idPacienteParam) params.set("id_paciente", idPacienteParam);
+    fetch(`${API}/historias-clinicas?${params.toString()}`)
       .then(async (res) => {
         const json = await res.json().catch(() => null);
         if (!res.ok) throw new Error(json?.mensaje || res.statusText);
-        return json as HistoriaClinica[];
+        // Totales si vienen del backend
+        setTotalBackend(Number(json?.total) || 0);
+        setTotalPages(Number(json?.totalPages) || 1);
+        // Lista en varias formas
+        const list = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.data)
+            ? json.data
+            : Array.isArray(json?.historias)
+              ? json.historias
+              : Array.isArray(json?.items)
+                ? json.items
+                : [];
+        return list as HistoriaClinica[];
       })
       .then((rows) => setHistorias(Array.isArray(rows) ? rows : []))
       .catch((e: any) => setListError(e?.message || "Error cargando historias clínicas"))
       .finally(() => setLoadingList(false));
-  }, []);
+  }, [page]);
 
   const filteredRecords = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -94,7 +125,7 @@ const MedicalRecords = () => {
             <CardTitle className="text-sm font-medium">Total Historias</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{filteredRecords.length}</div>
+            <div className="text-2xl font-bold text-primary">{totalBackend || filteredRecords.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -254,6 +285,17 @@ const MedicalRecords = () => {
             </CardContent>
           </Card>
         )})}
+      </div>
+
+      {/* Paginación */}
+      <div className="flex justify-center items-center space-x-4 mt-6">
+        <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+          Anterior
+        </Button>
+        <span className="text-sm">Página {page} de {totalPages}</span>
+        <Button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+          Siguiente
+        </Button>
       </div>
 
       {!loadingList && filteredRecords.length === 0 && (
