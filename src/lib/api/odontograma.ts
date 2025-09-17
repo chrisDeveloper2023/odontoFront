@@ -47,8 +47,13 @@ const API = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
 
 /* --------------------------- helpers HTTP --------------------------- */
 
+import { getTenantHeaders } from "@/lib/tenant";
+
 async function httpJson(url: string, init?: RequestInit) {
-  const res = await fetch(url, init);
+  const res = await fetch(url, {
+    ...(init || {}),
+    headers: { ...(init?.headers || {} as any), ...getTenantHeaders(), "Content-Type": "application/json", },
+  });
   let json: any = null;
   try { json = await res.json(); } catch { /* puede no traer body */ }
   /* if (!res.ok) {

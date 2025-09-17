@@ -22,8 +22,12 @@ import AppointmentDetail from "./pages/AppointmentDetail";
 import AppointmentEdit from "./pages/AppointmentEdit";
 import OdontogramPage from "./pages/Odontograma";
 import RouteModal from "@/components/RouteModal";
+import { initTenant } from "@/lib/tenant";
 
 const queryClient = new QueryClient();
+
+// Inicializa tenant (set default en dev, parche fetch, set header en axios)
+initTenant();
 
 function AppRoutes() {
   const location = useLocation();
