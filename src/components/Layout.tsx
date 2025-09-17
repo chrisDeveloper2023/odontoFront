@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Heart, Users, FileText, Calendar, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TenantSelector from "@/components/TenantSelector";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -32,12 +33,15 @@ const Layout = ({ children }: LayoutProps) => {
                 <p className="text-sm text-muted-foreground">Sistema de Historias Clínicas</p>
               </div>
             </div>
-            <Link to="/patients/new">
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Nuevo Paciente
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <TenantSelector />
+              <Link to="/patients/new">
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nuevo Paciente
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
