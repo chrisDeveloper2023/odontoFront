@@ -14,7 +14,8 @@ const Layout = ({ children }: LayoutProps) => {
     { name: "Dashboard", href: "/", icon: Heart },
     { name: "Pacientes", href: "/patients", icon: Users },
     { name: "Historias Clínicas", href: "/medical-records", icon: FileText },
-    { name: "Citas", href: "/Appointments", icon: Calendar },
+    { name: "Citas", href: "/appointments", icon: Calendar },
+    { name: "Calendario", href: "/calendar", icon: Calendar },
   ];
 
   return (

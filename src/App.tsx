@@ -21,6 +21,7 @@ import ListaClinicas from "./pages/ListaClinicas";
 import AppointmentDetail from "./pages/AppointmentDetail";
 import AppointmentEdit from "./pages/AppointmentEdit";
 import OdontogramPage from "./pages/Odontograma";
+import Calendar from "./pages/Calendar";
 import RouteModal from "@/components/RouteModal";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="/NuevosPacientes/new" element={<Layout><NewPaciente /></Layout>} />
         <Route path="/appointments" element={<Layout><Appointments /></Layout>} />
         <Route path="/appointments/new" element={<Layout><NewAppointmentForm /></Layout>} />
+        <Route path="/calendar" element={<Layout><Calendar /></Layout>} />
         <Route path="/clinics/new" element={<Layout><NewClinicForm /></Layout>} />
         <Route path="/ListaClinicas" element={<Layout><ListaClinicas /></Layout>} />
         <Route path="appointments/:id" element={<AppointmentDetail />} />

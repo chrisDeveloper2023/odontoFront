@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { validarDocumentoExistente } from "@/servicios/pacientes";
 
 interface FormData {
   documentType: string;
@@ -42,6 +43,11 @@ const NewPatient: React.FC = () => {
     allergies: "",
   });
 
+  // Estados para validación del documento
+  const [validandoDocumento, setValidandoDocumento] = useState(false);
+  const [documentoValido, setDocumentoValido] = useState<boolean | null>(null);
+  const [errorDocumento, setErrorDocumento] = useState<string>("");
+
   // Cargar datos en modo edición
   useEffect(() => {
     if (!isEdit) return;
@@ -71,6 +77,41 @@ const NewPatient: React.FC = () => {
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Limpiar validación cuando cambia el documento
+    if (field === "documentId" || field === "documentType") {
+      setDocumentoValido(null);
+      setErrorDocumento("");
+    }
+  };
+
+  const validarDocumento = async () => {
+    // Solo validar si no estamos en modo edición y el documento no está vacío
+    if (isEdit || !formData.documentId.trim() || !formData.documentType) {
+      return;
+    }
+
+    setValidandoDocumento(true);
+    setErrorDocumento("");
+
+    try {
+      const resultado = await validarDocumentoExistente(formData.documentId, formData.documentType);
+      
+      if (resultado.existe) {
+        setDocumentoValido(false);
+        setErrorDocumento(`El número de documento ${formData.documentId} ya está registrado en el sistema.`);
+        toast.error("Este número de documento ya existe");
+      } else {
+        setDocumentoValido(true);
+        setErrorDocumento("");
+      }
+    } catch (error) {
+      setDocumentoValido(false);
+      setErrorDocumento("Error al validar el documento. Intenta nuevamente.");
+      toast.error("Error al validar el documento");
+    } finally {
+      setValidandoDocumento(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,6 +119,12 @@ const NewPatient: React.FC = () => {
     // Validación
     if (!formData.documentId || !formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.phone) {
       toast.error("Completa los campos obligatorios");
+      return;
+    }
+
+    // Validar documento si no estamos en modo edición
+    if (!isEdit && documentoValido === false) {
+      toast.error("El número de documento ya existe en el sistema");
       return;
     }
     try {
@@ -144,11 +191,31 @@ const NewPatient: React.FC = () => {
             </div>
             <div>
               <Label>Número de Documento *</Label>
-              <Input
-                value={formData.documentId}
-                onChange={e => handleInputChange("documentId", e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  value={formData.documentId}
+                  onChange={e => handleInputChange("documentId", e.target.value)}
+                  onBlur={validarDocumento}
+                  required
+                  className={`${
+                    documentoValido === false 
+                      ? "border-red-500 focus:border-red-500" 
+                      : documentoValido === true 
+                      ? "border-green-500 focus:border-green-500" 
+                      : ""
+                  }`}
+                  disabled={validandoDocumento}
+                />
+                {validandoDocumento && (
+                  <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              {errorDocumento && (
+                <p className="text-sm text-red-500 mt-1">{errorDocumento}</p>
+              )}
+              {documentoValido === true && (
+                <p className="text-sm text-green-500 mt-1">✓ Documento disponible</p>
+              )}
             </div>
           </CardContent>
         </Card>
