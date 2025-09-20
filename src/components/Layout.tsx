@@ -26,11 +26,11 @@ const Layout = ({ children }: LayoutProps) => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
               <div className="bg-primary p-2 rounded-lg">
-                <Heart className="h-6 w-6 text-primary-foreground" />
+              <Heart className="h-6 w-6 text-primary-foreground animate-heartbeat" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">ClinicSoft</h1>
-                <p className="text-sm text-muted-foreground">Sistema de Historias Clínicas</p>
+              <h1 className="text-xl font-bold animate-text-wave">ClinicSoft</h1>
+              <p className="text-sm text-muted-foreground">Sistema de Historias Clínicas</p>
               </div>
             </div>
             <Link to="/patients/new">

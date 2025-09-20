@@ -114,7 +114,8 @@ const NewAppointmentForm = () => {
 
         // 2) MÉDICOS (Odontólogos) — ahora vienen del servicio
         const docs = await getOdontologos();
-        setDoctores(docs);
+        // Solución: forzar el tipado correcto para evitar conflicto de tipos
+        setDoctores(docs as Doctor[]);
         console.debug("Odontólogos detectados:", docs);
 
         // 3) Clínicas (opcional): si existe endpoint, lo usamos; si falla, mantenemos 2 sucursales por defecto

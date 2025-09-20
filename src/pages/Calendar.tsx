@@ -669,13 +669,17 @@ const Calendar: React.FC = () => {
                             }}
                           >
                             <div className="flex items-center space-x-2 mb-1">
-                              <span className="text-lg">{cita.icono}</span>
-                              <span className="font-semibold text-lg">{formatearHora(cita.horaInicio)}</span>
+                              <span className="font-semibold text-lg">{cita.icono} {cita.paciente}</span>
+                              <span className="text-lg font-medium  text-sm" > {cita.descripcion} : {cita.tipo}
+                              - {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
+                              </span>
+                              <span className="font-semibold text-lg"></span>
                             </div>
-                            <div className="font-bold text-base mb-1">{cita.paciente}</div>
-                            <div className="text-sm opacity-90">{cita.descripcion}</div>
+                            <div className="font-bold text-base mb-1">
+                            </div>
+                            <div className="text-sm opacity-90"></div>
                             <div className="text-xs opacity-75 mt-1">
-                              {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
+                              
                             </div>
                           </div>
                         );
