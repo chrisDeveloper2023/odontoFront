@@ -11,10 +11,64 @@ import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } 
 type HistoriaClinica = {
   id_historia: number;
   id_paciente: number;
+  id_clinica?: number | null;
+  id_cita?: number | null;
   detalles_generales?: string | null;
-  fecha_creacion?: string;
-  fecha_modificacion?: string;
+  motivo_consulta?: string | null;
+  fecha_creacion?: string | null;
+  fecha_modificacion?: string | null;
   [k: string]: any;
+};
+
+const normalizeHistoria = (raw: any): HistoriaClinica => {
+  const historia: HistoriaClinica = {
+    ...raw,
+    id_historia: Number(raw?.id_historia ?? raw?.id ?? raw?.idHistoria ?? 0),
+    id_paciente: Number(
+      raw?.id_paciente ??
+        raw?.paciente?.id_paciente ??
+        raw?.pacienteId ??
+        raw?.idPaciente ??
+        0
+    ),
+    id_clinica: Number(
+      raw?.id_clinica ??
+        raw?.clinica?.id_clinica ??
+        raw?.clinicaId ??
+        raw?.idClinica ??
+        0
+    ) || null,
+    id_cita:
+      raw?.id_cita ??
+      raw?.cita?.id_cita ??
+      raw?.citaId ??
+      raw?.idCita ??
+      null,
+    detalles_generales:
+      raw?.detalles_generales ??
+      raw?.detallesGenerales ??
+      raw?.detalles ??
+      null,
+    motivo_consulta:
+      raw?.motivo_consulta ??
+      raw?.motivoConsulta ??
+      raw?.motivo ??
+      null,
+    fecha_creacion:
+      raw?.fecha_creacion ??
+      raw?.fechaCreacion ??
+      raw?.created_at ??
+      raw?.createdAt ??
+      null,
+    fecha_modificacion:
+      raw?.fecha_modificacion ??
+      raw?.fechaModificacion ??
+      raw?.updated_at ??
+      raw?.updatedAt ??
+      null,
+  };
+
+  return historia;
 };
 
 const MedicalRecords = () => {
@@ -70,10 +124,12 @@ const MedicalRecords = () => {
                 : [];
         return list as HistoriaClinica[];
       })
-      .then((rows) => setHistorias(Array.isArray(rows) ? rows : []))
+      .then((rows) =>
+        setHistorias(Array.isArray(rows) ? rows.map((row) => normalizeHistoria(row)) : [])
+      )
       .catch((e: any) => setListError(e?.message || "Error cargando historias clinicas"))
       .finally(() => setLoadingList(false));
-  }, [page]);
+  }, [idPacienteParam, page]);
 
   const filteredRecords = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -145,14 +201,7 @@ const MedicalRecords = () => {
 
       <div className="grid gap-4">
         {filteredRecords.map((record, idx) => {
-          const rid = Number(
-            (record as any)?.id_historia ??
-            (record as any)?.id ??
-            (record as any)?.historia?.id_historia ??
-            (record as any)?.idHistoria ??
-            (record as any)?.idHistoriaClinica ??
-            0
-          );
+          const rid = Number(record?.id_historia ?? 0);
           const ridStr = rid > 0 ? String(rid) : "";
           return (
           <Card key={`${rid || "row"}-${idx}`} className="hover:shadow-md transition-shadow">

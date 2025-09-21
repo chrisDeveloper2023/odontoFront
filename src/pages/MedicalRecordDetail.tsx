@@ -56,15 +56,17 @@ type Historia = {
   observaciones?: string | null;
 };
 
-const RESPUESTA_BINARIA_OPTIONS: Array<{ value: "" | RespuestaBinaria; label: string }> = [
-  { value: "", label: "Sin dato" },
+const EMPTY_OPTION_VALUE = "__none__";
+
+const RESPUESTA_BINARIA_OPTIONS: Array<{ value: typeof EMPTY_OPTION_VALUE | RespuestaBinaria; label: string }> = [
+  { value: EMPTY_OPTION_VALUE, label: "Sin dato" },
   { value: "SI", label: "SI" },
   { value: "NO", label: "NO" },
   { value: "DESCONOCE", label: "Desconoce" },
 ];
 
-const ALTERACION_PRESION_OPTIONS: Array<{ value: "" | AlteracionPresion; label: string }> = [
-  { value: "", label: "Sin dato" },
+const ALTERACION_PRESION_OPTIONS: Array<{ value: typeof EMPTY_OPTION_VALUE | AlteracionPresion; label: string }> = [
+  { value: EMPTY_OPTION_VALUE, label: "Sin dato" },
   { value: "ALTA", label: "Alta" },
   { value: "BAJA", label: "Baja" },
   { value: "NORMAL", label: "Normal" },
@@ -266,7 +268,7 @@ export default function MedicalRecordDetail() {
   if (!data) return <div className="p-4">No se encontro la historia clinica</div>;
 
   const textValue = (key: keyof Historia) => (form[key] ?? "") as string;
-  const selectValue = (key: keyof Historia) => (form[key] ?? "") as string;
+const selectValue = (key: keyof Historia) => (form[key] ?? EMPTY_OPTION_VALUE) as string;
 
   return (
     <div className="space-y-4 p-2">
@@ -308,26 +310,36 @@ export default function MedicalRecordDetail() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Antecedentes cardiacos</Label>
-              <Select value={selectValue("antecedentes_cardiacos")} onValueChange={(value) => setField("antecedentes_cardiacos", value || null)}>
+              <Select
+                value={selectValue("antecedentes_cardiacos")}
+                onValueChange={(value) =>
+                  setField("antecedentes_cardiacos", value === EMPTY_OPTION_VALUE ? null : value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona" />
                 </SelectTrigger>
                 <SelectContent>
                   {RESPUESTA_BINARIA_OPTIONS.map((opt) => (
-                    <SelectItem key={`resp-${opt.value || "empty"}`} value={opt.value}>{opt.label}</SelectItem>
+                    <SelectItem key={`resp-${opt.value}`} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label>Presion arterial</Label>
-              <Select value={selectValue("alteracion_presion")} onValueChange={(value) => setField("alteracion_presion", value || null)}>
+              <Select
+                value={selectValue("alteracion_presion")}
+                onValueChange={(value) =>
+                  setField("alteracion_presion", value === EMPTY_OPTION_VALUE ? null : value)
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona" />
                 </SelectTrigger>
                 <SelectContent>
                   {ALTERACION_PRESION_OPTIONS.map((opt) => (
-                    <SelectItem key={`pres-${opt.value || "empty"}`} value={opt.value}>{opt.label}</SelectItem>
+                    <SelectItem key={`pres-${opt.value}`} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

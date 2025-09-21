@@ -11,7 +11,10 @@ export default function RouteModal({ title, children }: { title: string; childre
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) navigate(-1); setOpen(v); }}>
-      <DialogContent className="w-[96vw] sm:max-w-[960px] md:max-w-[1100px] max-h-[90vh] p-0 overflow-hidden">
+      <DialogContent
+        className="w-[96vw] sm:max-w-[960px] md:max-w-[1100px] max-h-[90vh] p-0 overflow-hidden"
+        aria-describedby={undefined}
+      >
         {title && (
           <DialogHeader className="px-6 pt-6 pb-3 border-b">
             <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>

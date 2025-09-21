@@ -9,15 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { apiGet, apiPost } from "@/api/client";
 
+const EMPTY_OPTION_VALUE = "__none__";
+
 const RESPUESTA_BINARIA_OPTIONS = [
-  { value: "", label: "Sin dato" },
+  { value: EMPTY_OPTION_VALUE, label: "Sin dato" },
   { value: "SI", label: "SI" },
   { value: "NO", label: "NO" },
   { value: "DESCONOCE", label: "Desconoce" },
 ] as const;
 
 const ALTERACION_PRESION_OPTIONS = [
-  { value: "", label: "Sin dato" },
+  { value: EMPTY_OPTION_VALUE, label: "Sin dato" },
   { value: "ALTA", label: "Alta" },
   { value: "BAJA", label: "Baja" },
   { value: "NORMAL", label: "Normal" },
@@ -27,15 +29,30 @@ const ALTERACION_PRESION_OPTIONS = [
 type Option = { id: number; nombre: string };
 type CitaOption = { id_cita: number; fecha_hora?: string; estado?: string };
 
-const initialForm = {
+type FormState = {
+  idPaciente: string;
+  idClinica: string;
+  idCita: string;
+  detallesGenerales: string;
+  motivoConsulta: string;
+  antecedentesCardiacos: string | null;
+  antecedentesCardiacosDetalle: string;
+  alteracionPresion: string | null;
+  presionDetalle: string;
+  alergias: string;
+  medicamentosActuales: string;
+  observaciones: string;
+};
+
+const initialForm: FormState = {
   idPaciente: "",
   idClinica: "",
   idCita: "",
   detallesGenerales: "",
   motivoConsulta: "",
-  antecedentesCardiacos: "",
+  antecedentesCardiacos: null,
   antecedentesCardiacosDetalle: "",
-  alteracionPresion: "",
+  alteracionPresion: null,
   presionDetalle: "",
   alergias: "",
   medicamentosActuales: "",
@@ -60,7 +77,7 @@ const NewMedicalRecord = () => {
   const [loading, setLoading] = useState(true);
   const [loadingCitas, setLoadingCitas] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ ...initialForm, idPaciente: preselectedPatient });
+  const [form, setForm] = useState<FormState>({ ...initialForm, idPaciente: preselectedPatient });
 
   useEffect(() => {
     const loadBasics = async () => {
@@ -127,9 +144,13 @@ const NewMedicalRecord = () => {
   }, [form.idPaciente]);
 
   const updateField = (field: keyof typeof form, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    const normalizedValue =
+      field === 'idCita' && value === EMPTY_OPTION_VALUE
+        ? ''
+        : value;
+    setForm((prev) => ({ ...prev, [field]: normalizedValue }));
     if (field === 'idPaciente') {
-      setForm((prev) => ({ ...prev, idPaciente: value, idCita: '' }));
+      setForm((prev) => ({ ...prev, idPaciente: normalizedValue, idCita: '' }));
     }
   };
 
@@ -192,7 +213,7 @@ const NewMedicalRecord = () => {
             <div>
               <Label>Paciente *</Label>
               <Select
-                value={form.idPaciente}
+                value={form.idPaciente || undefined}
                 onValueChange={(value) => updateField('idPaciente', value)}
                 disabled={loading}
               >
@@ -211,7 +232,7 @@ const NewMedicalRecord = () => {
             <div>
               <Label>Cl?nica *</Label>
               <Select
-                value={form.idClinica}
+                value={form.idClinica || undefined}
                 onValueChange={(value) => updateField('idClinica', value)}
                 disabled={loading}
               >
@@ -230,7 +251,7 @@ const NewMedicalRecord = () => {
             <div className="md:col-span-2">
               <Label>Cita asociada (opcional)</Label>
               <Select
-                value={form.idCita}
+                value={form.idCita || undefined}
                 onValueChange={(value) => updateField('idCita', value)}
                 disabled={!form.idPaciente || loadingCitas || citasDisponibles.length === 0}
               >
@@ -248,7 +269,7 @@ const NewMedicalRecord = () => {
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sin cita</SelectItem>
+                  <SelectItem value={EMPTY_OPTION_VALUE}>Sin cita</SelectItem>
                   {citasDisponibles.map((cita) => (
                     <SelectItem key={cita.id_cita} value={String(cita.id_cita)}>
                       #{cita.id_cita} ? {cita.estado ?? 'AGENDADA'} ? {formatFecha(cita.fecha_hora)}
@@ -269,16 +290,21 @@ const NewMedicalRecord = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Antecedentes cardiacos</Label>
-                <Select
-                  value={form.antecedentesCardiacos}
-                  onValueChange={(value) => updateField('antecedentesCardiacos', value)}
-                >
+              <Select
+                value={form.antecedentesCardiacos ?? EMPTY_OPTION_VALUE}
+                onValueChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    antecedentesCardiacos: value === EMPTY_OPTION_VALUE ? null : value,
+                  }))
+                }
+              >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
                   <SelectContent>
                     {RESPUESTA_BINARIA_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value || 'empty'} value={opt.value}>
+                      <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
                     ))}
@@ -288,15 +314,20 @@ const NewMedicalRecord = () => {
               <div>
                 <Label>Alteraci?n de presi?n</Label>
                 <Select
-                  value={form.alteracionPresion}
-                  onValueChange={(value) => updateField('alteracionPresion', value)}
+                  value={form.alteracionPresion ?? EMPTY_OPTION_VALUE}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      alteracionPresion: value === EMPTY_OPTION_VALUE ? null : value,
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
                   <SelectContent>
                     {ALTERACION_PRESION_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value || 'empty'} value={opt.value}>
+                      <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
                     ))}
