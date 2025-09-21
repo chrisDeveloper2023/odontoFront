@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Tooth } from 'lucide-react';
+import { Loader2, Heart } from 'lucide-react';
 import { authService, LoginCredentials } from '@/services/auth';
 
 // Debug: Verificar que el componente se está renderizando
@@ -75,7 +75,7 @@ const Login = () => {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-blue-600 p-3 rounded-full">
-              <Tooth className="h-8 w-8 text-white" />
+              <Heart className="h-8 w-8 text-white" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
