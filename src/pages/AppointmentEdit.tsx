@@ -1,12 +1,12 @@
 // src/pages/AppointmentEdit.tsx
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -20,105 +20,258 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, User } from "lucide-react";
 import { API_BASE } from "@/lib/http";
+import { getDisponibilidad } from "@/servicios/citas";
+import { getOdontologos } from "@/servicios/usuarios";
 
-interface Paciente {
+type Paciente = {
   id_paciente: number;
   nombres: string;
   apellidos: string;
-}
+};
 
-interface Doctor {
+type Doctor = {
   id: number;
   nombres: string;
   apellidos: string;
-  rol: { id_rol: number; nombre_rol: string };
-}
+};
 
-interface Consultorio {
+type Consultorio = {
   id_consultorio: number;
   nombre: string;
+};
+
+type ClinicaOption = {
+  id: number;
+  nombre: string;
+};
+
+type FormState = {
+  id_paciente: string;
+  id_odontologo: string;
+  id_consultorio: string;
+  id_clinica: string;
+  fecha: string;
+  hora: string;
+  observaciones: string;
+  estado: string;
+};
+
+const initialForm: FormState = {
+  id_paciente: "",
+  id_odontologo: "",
+  id_consultorio: "",
+  id_clinica: "",
+  fecha: "",
+  hora: "",
+  observaciones: "",
+  estado: "AGENDADA",
+};
+
+function isoToHHmm(iso: string) {
+  try {
+    return new Date(iso).toISOString().slice(11, 16);
+  } catch {
+    return iso.slice(11, 16);
+  }
 }
 
-const ODONTOLOGO_ROLE_ID = 2; // el id de rol para odontologo
+function buildISOWithOffset(fecha: string, hora: string): string {
+  if (!fecha || !hora) return "";
+  const [y, m, d] = fecha.split("-").map(Number);
+  const [hh, mm] = hora.split(":").map(Number);
+  const local = new Date(y, m - 1, d, hh, mm, 0);
+  const offsetMin = local.getTimezoneOffset();
+  const sign = offsetMin > 0 ? "-" : "+";
+  const abs = Math.abs(offsetMin);
+  const offHH = String(Math.floor(abs / 60)).padStart(2, "0");
+  const offMM = String(abs % 60).padStart(2, "0");
+  const YYYY = String(y).padStart(4, "0");
+  const MM = String(m).padStart(2, "0");
+  const DD = String(d).padStart(2, "0");
+  const HH = String(hh).padStart(2, "0");
+  const MI = String(mm).padStart(2, "0");
+  return `${YYYY}-${MM}-${DD}T${HH}:${MI}:00${sign}${offHH}:${offMM}`;
+}
 
 export default function AppointmentEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    id_paciente: "",
-    id_odontologo: "",
-    id_consultorio: "",
-    fecha: "",
-    hora: "",
-    observaciones: "",
-  });
+  const [formData, setFormData] = useState<FormState>(initialForm);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
+  const [clinicas, setClinicas] = useState<ClinicaOption[]>([]);
+  const [duracion, setDuracion] = useState<number>(30);
+  const [slots, setSlots] = useState<string[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const horarioRef = useRef<string>("");
+  useEffect(() => {
+    horarioRef.current = formData.hora;
+  }, [formData.hora]);
+
+  const comboRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [rPac, rUsers, rCon, rCita] = await Promise.all([
+        setLoading(true);
+        const [pacRes, conRes, citaRes] = await Promise.all([
           fetch(`${API_BASE}/pacientes`),
-          fetch(`${API_BASE}/usuarios`),
           fetch(`${API_BASE}/consultorios`),
           fetch(`${API_BASE}/citas/${id}`),
         ]);
-        const [pacData, usersData, conData, citaData] = await Promise.all([
-          rPac.json(),
-          rUsers.json(),
-          rCon.json(),
-          rCita.json(),
+
+        if (!pacRes.ok) throw new Error("No se pudieron cargar pacientes");
+        if (!conRes.ok) throw new Error("No se pudieron cargar consultorios");
+        if (!citaRes.ok) throw new Error("No se pudo cargar la cita");
+
+        const [pacData, conData, citaData] = await Promise.all([
+          pacRes.json().catch(() => ({})),
+          conRes.json().catch(() => ({})),
+          citaRes.json().catch(() => ({})),
         ]);
 
-        // Pacientes
-        setPacientes(Array.isArray(pacData) ? pacData : pacData.data || []);
-
-        // Consultorios
-        setConsultorios(
-          Array.isArray(conData) ? conData : conData.data || []
+        setPacientes(
+          Array.isArray(pacData) ? pacData : Array.isArray(pacData?.data) ? pacData.data : []
         );
 
-        // Doctores: filtrar por rol.id_rol === ODONTOLOGO_ROLE_ID
-        const usersArray = Array.isArray(usersData)
-          ? usersData
-          : usersData.data || usersData.usuarios || [];
-        const odontologos = (usersArray as any[])
-          .filter((u) => u.rol?.id_rol === ODONTOLOGO_ROLE_ID)
-          .map((u) => ({
-            id: u.id,
-            nombres: u.nombres,
-            apellidos: u.apellidos,
-            rol: u.rol,
-          }));
-        setDoctores(odontologos);
+        setConsultorios(
+          Array.isArray(conData) ? conData : Array.isArray(conData?.data) ? conData.data : []
+        );
 
-        // Cita existente
-        const cita = Array.isArray(citaData) ? citaData[0] : citaData;
-        if (cita) {
-          const dt = new Date(cita.fecha_hora);
-          setFormData({
-            id_paciente: String(cita.id_paciente),
-            id_odontologo: String(cita.id_odontologo),
-            id_consultorio: String(cita.id_consultorio),
-            fecha: dt.toISOString().slice(0, 10),
-            hora: dt.toTimeString().slice(0, 5),
-            observaciones: cita.observaciones || "",
-          });
+        try {
+          const docs = await getOdontologos();
+          setDoctores(docs);
+        } catch (err) {
+          console.error("No se pudieron cargar odontologos:", err);
+          setDoctores([]);
+        }
+
+        const citaRaw = Array.isArray(citaData) ? citaData[0] : citaData;
+        if (citaRaw) {
+          const date = new Date(citaRaw.fecha_hora);
+          const fecha = date.toISOString().slice(0, 10);
+          const hora = date.toTimeString().slice(0, 5);
+          const clinicaIdNumeric = Number(
+            citaRaw.id_clinica ?? citaRaw.clinica?.id ?? citaRaw.clinica?.id_clinica ?? ""
+          );
+          const clinicaNombreText =
+            citaRaw.clinica?.nombre ??
+            citaRaw.clinica?.nombre_clinica ??
+            citaRaw.clinica?.alias ??
+            "";
+          const nextForm: FormState = {
+            id_paciente: String(
+              citaRaw.id_paciente ?? citaRaw.paciente?.id_paciente ?? ""
+            ),
+            id_odontologo: String(
+              citaRaw.id_odontologo ?? citaRaw.odontologo?.id ?? ""
+            ),
+            id_consultorio: String(
+              citaRaw.id_consultorio ?? citaRaw.consultorio?.id_consultorio ?? ""
+            ),
+            id_clinica: Number.isFinite(clinicaIdNumeric) && clinicaIdNumeric > 0 ? String(clinicaIdNumeric) : "",
+            fecha,
+            hora,
+            observaciones: citaRaw.observaciones ?? "",
+            estado: citaRaw.estado ?? "AGENDADA",
+          };
+          setFormData(nextForm);
+          horarioRef.current = nextForm.hora;
+          const estimatedDuracion = Number(
+            citaRaw.duracion_minutos ?? citaRaw.duracion ?? 30
+          );
+          if (Number.isFinite(estimatedDuracion) && estimatedDuracion > 0) {
+            setDuracion(estimatedDuracion);
+          }
+          if (Number.isFinite(clinicaIdNumeric) && clinicaIdNumeric > 0 && clinicaNombreText) {
+            setClinicas((prev) => {
+              if (prev.some((c) => c.id === clinicaIdNumeric)) return prev;
+              return [...prev, { id: clinicaIdNumeric, nombre: clinicaNombreText }];
+            });
+          }
+        }
+
+        try {
+          const resClin = await fetch(`${API_BASE}/clinicas`).catch(() => null);
+          if (resClin && resClin.ok) {
+            const body = await resClin.json().catch(() => ({}));
+            const list = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
+            const mapped = list
+              .map((c: any) => ({
+                id: Number(c.id ?? c.id_clinica ?? c.idClinica),
+                nombre: c.nombre ?? c.nombre_clinica ?? c.alias ?? `Clinica ${c.id ?? ""}`,
+              }))
+              .filter((c: ClinicaOption) => Number.isFinite(c.id));
+            if (mapped.length) {
+              setClinicas((prev) => {
+                const merged = [...prev];
+                mapped.forEach((clinic) => {
+                  if (!merged.some((c) => c.id === clinic.id)) merged.push(clinic);
+                });
+                return merged;
+              });
+            }
+          }
+        } catch (err) {
+          console.warn("Clinicas no disponibles:", err);
         }
       } catch (err) {
-        console.error("Error cargando datos:", err);
+        console.error("Error cargando datos de cita:", err);
       } finally {
         setLoading(false);
       }
     }
-    load();
+    void load();
   }, [id]);
 
-  const handleChange = (field: keyof typeof formData, value: string) => {
+  useEffect(() => {
+    const { id_consultorio, fecha } = formData;
+    if (!id_consultorio || !fecha || !duracion) {
+      setSlots([]);
+      setSlotsError(null);
+      return;
+    }
+
+    const comboKey = `${id_consultorio}-${fecha}-${duracion}`;
+    const previousKey = comboRef.current;
+    comboRef.current = comboKey;
+
+    (async () => {
+      setSlotsLoading(true);
+      setSlotsError(null);
+      try {
+        const data = await getDisponibilidad(Number(id_consultorio), fecha, duracion);
+        const rawSlots = Array.isArray(data.disponibles) ? data.disponibles : [];
+        const hhmmSlots = Array.from(new Set(rawSlots.map(isoToHHmm)));
+        const currentHora = horarioRef.current;
+        if (currentHora && !hhmmSlots.includes(currentHora)) {
+          hhmmSlots.unshift(currentHora);
+        }
+        setSlots(hhmmSlots);
+        if (
+          previousKey &&
+          previousKey !== comboKey &&
+          currentHora &&
+          !hhmmSlots.includes(currentHora)
+        ) {
+          setFormData((prev) => ({ ...prev, hora: "" }));
+        }
+      } catch (err) {
+        setSlots([]);
+        setSlotsError((err as Error).message || "No se pudo cargar disponibilidad");
+      } finally {
+        setSlotsLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.id_consultorio, formData.fecha, duracion]);
+
+  const handleChange = (field: keyof FormState, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -129,9 +282,10 @@ export default function AppointmentEdit() {
         id_paciente: Number(formData.id_paciente),
         id_odontologo: Number(formData.id_odontologo),
         id_consultorio: Number(formData.id_consultorio),
-        fecha_hora: `${formData.fecha}T${formData.hora}:00`,
+        id_clinica: formData.id_clinica ? Number(formData.id_clinica) : undefined,
+        fecha_hora: buildISOWithOffset(formData.fecha, formData.hora),
         observaciones: formData.observaciones || null,
-        estado: "AGENDADA",
+        estado: formData.estado || "AGENDADA",
       };
       const res = await fetch(`${API_BASE}/citas/${id}`, {
         method: "PUT",
@@ -148,6 +302,14 @@ export default function AppointmentEdit() {
       alert((err as Error).message);
     }
   };
+
+  const submitDisabled =
+    !formData.id_paciente ||
+    !formData.id_odontologo ||
+    !formData.id_consultorio ||
+    !formData.id_clinica ||
+    !formData.fecha ||
+    !formData.hora;
 
   if (loading) return <div className="p-4">Cargando datos...</div>;
 
@@ -171,6 +333,31 @@ export default function AppointmentEdit() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Clinica */}
+              <div className="md:col-span-2">
+                <Label>Clinica</Label>
+                <Select
+                  value={formData.id_clinica}
+                  onValueChange={(v) => handleChange("id_clinica", v)}
+                >
+                  <SelectTrigger className="w-full h-11">
+                    {formData.id_clinica
+                      ? (() => {
+                          const c = clinicas.find((x) => String(x.id) === formData.id_clinica);
+                          return c ? c.nombre : "Seleccionar clinica";
+                        })()
+                      : "Seleccionar clinica"}
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {clinicas.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Paciente */}
               <div>
                 <Label>Paciente</Label>
@@ -180,11 +367,13 @@ export default function AppointmentEdit() {
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_paciente
-                      ? pacientes.find((p) => String(p.id_paciente) === formData.id_paciente)?.nombres + " " +
-                        pacientes.find((p) => String(p.id_paciente) === formData.id_paciente)?.apellidos
+                      ? (() => {
+                          const p = pacientes.find((x) => String(x.id_paciente) === formData.id_paciente);
+                          return p ? `${p.nombres} ${p.apellidos}` : "Seleccionar paciente";
+                        })()
                       : "Seleccionar paciente"}
-                  </SelectTrigger>
-                  <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                     {pacientes.map((p) => (
                       <SelectItem
                         key={p.id_paciente}
@@ -206,11 +395,13 @@ export default function AppointmentEdit() {
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_odontologo
-                      ? doctores.find((d) => String(d.id) === formData.id_odontologo)?.nombres + " " +
-                        doctores.find((d) => String(d.id) === formData.id_odontologo)?.apellidos
+                      ? (() => {
+                          const d = doctores.find((x) => String(x.id) === formData.id_odontologo);
+                          return d ? `${d.nombres} ${d.apellidos}` : "Seleccionar medico";
+                        })()
                       : "Seleccionar medico"}
-                  </SelectTrigger>
-                  <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                     {doctores.map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
                         {d.nombres} {d.apellidos}
@@ -229,10 +420,13 @@ export default function AppointmentEdit() {
                 >
                   <SelectTrigger className="w-full">
                     {formData.id_consultorio
-                      ? consultorios.find((c) => String(c.id_consultorio) === formData.id_consultorio)?.nombre
+                      ? (() => {
+                          const c = consultorios.find((x) => String(x.id_consultorio) === formData.id_consultorio);
+                          return c ? c.nombre : "Seleccionar consultorio";
+                        })()
                       : "Seleccionar consultorio"}
-                  </SelectTrigger>
-                  <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                     {consultorios.map((c) => (
                       <SelectItem
                         key={c.id_consultorio}
@@ -256,7 +450,56 @@ export default function AppointmentEdit() {
                 />
               </div>
 
-              {/* Hora */}
+              {/* Duracion */}
+              <div>
+                <Label>Duracion (min)</Label>
+                <Select value={String(duracion)} onValueChange={(v) => setDuracion(Number(v))}>
+                  <SelectTrigger className="w-full">
+                    {duracion ? `${duracion} minutos` : "Seleccionar"}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[15, 20, 30, 45, 60].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} minutos
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Disponibilidad */}
+              <div className="md:col-span-2">
+                <Label>Horarios disponibles</Label>
+                <Select
+                  value={formData.hora}
+                  onValueChange={(v) => handleChange("hora", v)}
+                  disabled={slotsLoading || slots.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    {formData.hora
+                      ? formData.hora
+                      : slotsLoading
+                        ? "Cargando disponibilidad..."
+                        : slots.length
+                          ? "Seleccionar horario"
+                          : slotsError
+                            ? "Error al cargar horarios"
+                            : "No hay horarios segun filtros"}
+                  </SelectTrigger>
+                  <SelectContent>
+                    {slots.map((hhmm) => (
+                      <SelectItem key={hhmm} value={hhmm}>
+                        {hhmm}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {slotsError && (
+                  <p className="text-xs text-red-500 mt-1">{slotsError}</p>
+                )}
+              </div>
+
+              {/* Hora manual */}
               <div>
                 <Label>Hora</Label>
                 <Input
@@ -285,7 +528,9 @@ export default function AppointmentEdit() {
               >
                 Cancelar
               </Button>
-              <Button type="submit">Guardar cambios</Button>
+              <Button type="submit" disabled={submitDisabled}>
+                Guardar cambios
+              </Button>
             </div>
           </CardContent>
         </Card>
