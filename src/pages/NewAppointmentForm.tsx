@@ -31,7 +31,7 @@ interface Doctor {
   id: number;
   nombres: string;
   apellidos: string;
-  rol: {
+  rol?: {
     id_rol: number;
     nombre: string;
   };

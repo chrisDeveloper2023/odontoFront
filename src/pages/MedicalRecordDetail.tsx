@@ -73,7 +73,7 @@ const ALTERACION_PRESION_OPTIONS: Array<{ value: typeof EMPTY_OPTION_VALUE | Alt
   { value: "DESCONOCIDA", label: "Desconocida" },
 ];
 
-const TEXT_FIELDS: Array<keyof Historia> = [
+const TEXT_FIELDS = [
   "detalles_generales",
   "motivo_consulta",
   "antecedentes",
@@ -103,19 +103,25 @@ const TEXT_FIELDS: Array<keyof Historia> = [
   "plan_tratamiento",
   "recomendaciones",
   "observaciones",
-];
+ ] as const;
+
+type TextFieldKey = (typeof TEXT_FIELDS)[number];
 
 const toCamel = (value: string) => value.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase());
 
 const normalizeHistoria = (raw: any): Historia => {
-  const base: Partial<Historia> = {};
+  const base: Partial<Record<TextFieldKey, string | null>> = {};
   for (const field of TEXT_FIELDS) {
     const camel = toCamel(field);
     const current = raw?.[field] ?? raw?.[camel] ?? null;
-    base[field] = current ?? null;
+    base[field] = current == null ? null : String(current);
   }
-  base.antecedentes_cardiacos = raw?.antecedentes_cardiacos ?? raw?.antecedentesCardiacos ?? null;
-  base.alteracion_presion = raw?.alteracion_presion ?? raw?.alteracionPresion ?? null;
+  const antecedentesCardiacos =
+    (raw?.antecedentes_cardiacos ?? raw?.antecedentesCardiacos ?? null) as
+      | RespuestaBinaria
+      | null;
+  const alteracionPresion =
+    (raw?.alteracion_presion ?? raw?.alteracionPresion ?? null) as AlteracionPresion | null;
 
   return {
     id_historia: Number(raw?.id_historia ?? raw?.id ?? 0),
@@ -127,9 +133,9 @@ const normalizeHistoria = (raw: any): Historia => {
     detalles_generales: base.detalles_generales ?? null,
     motivo_consulta: base.motivo_consulta ?? null,
     antecedentes: base.antecedentes ?? null,
-    antecedentes_cardiacos: base.antecedentes_cardiacos as RespuestaBinaria | null,
+    antecedentes_cardiacos: antecedentesCardiacos,
     antecedentes_cardiacos_detalle: base.antecedentes_cardiacos_detalle ?? null,
-    alteracion_presion: base.alteracion_presion as AlteracionPresion | null,
+    alteracion_presion: alteracionPresion,
     presion_detalle: base.presion_detalle ?? null,
     trastornos_sanguineos: base.trastornos_sanguineos ?? null,
     alergias: base.alergias ?? null,
@@ -268,7 +274,7 @@ export default function MedicalRecordDetail() {
   if (!data) return <div className="p-4">No se encontro la historia clinica</div>;
 
   const textValue = (key: keyof Historia) => (form[key] ?? "") as string;
-const selectValue = (key: keyof Historia) => (form[key] ?? EMPTY_OPTION_VALUE) as string;
+  const selectValue = (key: keyof Historia) => (form[key] ?? EMPTY_OPTION_VALUE) as string;
 
   return (
     <div className="space-y-4 p-2">
