@@ -35,7 +35,7 @@ function AppRoutes() {
 
   return (
     <>
-      {/* Rutas base: si hay background, renderiza el fondo; si no, ruta actual */}
+      {/* Rutas base */}
       <Routes location={state?.background || location}>
         <Route path="/" element={<Layout><Dashboard /></Layout>} />
         <Route path="/patients" element={<Layout><Patients /></Layout>} />
@@ -60,7 +60,7 @@ function AppRoutes() {
       {/* Overlays modal cuando hay background */}
       {state?.background && (
         <Routes>
-          {/* Pacientes: Detalle y Edición como modal */}
+          {/* Pacientes */}
           <Route
             path="/patients/:id"
             element={
@@ -78,7 +78,7 @@ function AppRoutes() {
             }
           />
 
-          {/* Citas: Detalle y Edición como modal */}
+          {/* Citas */}
           <Route
             path="appointments/:id"
             element={
@@ -104,7 +104,7 @@ function AppRoutes() {
             }
           />
 
-          {/* Historias Clínicas: creación como modal */}
+          {/* Historias Clínicas */}
           <Route
             path="/medical-records/new"
             element={
@@ -113,7 +113,6 @@ function AppRoutes() {
               </RouteModal>
             }
           />
-          {/* Historias Clínicas: detalle/edición como modal */}
           <Route
             path="/medical-records/:id"
             element={

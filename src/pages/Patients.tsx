@@ -1,13 +1,14 @@
 // src/pages/Patients.tsx
 import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Eye, Edit, FileText, Calendar } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Search, Plus, Eye, Edit, FileText, Calendar, X, Check } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import { API_BASE } from "@/lib/http";
+import PatientDetailModal from "@/components/PatientDetailModal";
+import PatientEditModal from "@/components/PatientEditModal";
 
 interface Patient {
   id: string;
@@ -33,7 +34,8 @@ const calculateAge = (dob: string): number => {
 };
 
 const Patients: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,33 +43,34 @@ const Patients: React.FC = () => {
   const limit = 10;
   const [totalPages, setTotalPages] = useState(1);
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
-
-  // Totales provenientes del backend (universo de la consulta actual)
   const [totalBackend, setTotalBackend] = useState(0);
+
+  // Estados para selección múltiple y modales
+  const [selectedPatients, setSelectedPatients] = useState<Set<string>>(new Set());
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchPacientes() {
       setLoading(true);
       try {
-        const base = API_BASE;
         const params = new URLSearchParams({
           page: String(page),
           limit: String(limit),
         });
 
-        //  Inactivos: pedir ya filtrados por el backend
         if (mostrarInactivos) {
           params.set("withDeleted", "true");
           params.set("onlyInactive", "true");
         }
-        // Activos (default): no mandamos nada extra; el backend devuelve solo activos.
 
-        const url = `${base}/pacientes?${params.toString()}`;
+        const url = `${API_BASE}/pacientes?${params.toString()}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
-        // Guardar total global reportado por el backend (no es el tamano de la pagina)
         setTotalBackend(json.total || 0);
         setTotalPages(json.totalPages || 1);
 
@@ -95,7 +98,6 @@ const Patients: React.FC = () => {
           medicalRecords: r.medicalRecords ?? 0,
         }));
 
-        //  Ya NO filtramos por estado en el cliente; viene listo desde el backend
         setPatients(mapped);
         setError(null);
       } catch (err) {
@@ -108,7 +110,68 @@ const Patients: React.FC = () => {
     fetchPacientes();
   }, [page, mostrarInactivos]);
 
-  // Busqueda por texto (filtra lo que se muestra, NO afecta el total del backend)
+  // Actualizar la URL cuando cambia la búsqueda
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (searchTerm) {
+      params.set("search", searchTerm);
+    } else {
+      params.delete("search");
+    }
+    setSearchParams(params, { replace: true });
+  }, [searchTerm, searchParams, setSearchParams]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setPage(1);
+  };
+
+  const togglePatientSelection = (patientId: string) => {
+    setSelectedPatients((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(patientId)) {
+        newSet.delete(patientId);
+      } else {
+        newSet.add(patientId);
+      }
+      return newSet;
+    });
+  };
+
+  const clearSelections = () => setSelectedPatients(new Set());
+  const selectAllVisible = (filtered: Patient[]) =>
+    setSelectedPatients(new Set(filtered.map((p) => p.id)));
+
+  const openPatientModal = (id: string) => {
+    setSelectedPatientId(id);
+    setIsModalOpen(true);
+  };
+  const closePatientModal = () => {
+    setSelectedPatientId(null);
+    setIsModalOpen(false);
+  };
+  const openEditModal = (id: string) => {
+    setEditingPatientId(id);
+    setIsEditModalOpen(true);
+  };
+  const closeEditModal = () => {
+    setEditingPatientId(null);
+    setIsEditModalOpen(false);
+  };
+  const handlePatientDeleted = (id: string) => {
+    setPatients((prev) => prev.filter((p) => p.id !== id));
+    setSelectedPatients((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
+  };
+  const handlePatientUpdated = (updated: any) => {
+    setPatients((prev) =>
+      prev.map((p) => (p.id === updated.id ? { ...p, name: updated.name } : p))
+    );
+  };
+
   const term = searchTerm.toLowerCase();
   const filtered = patients.filter(
     (p) =>
@@ -117,10 +180,8 @@ const Patients: React.FC = () => {
       p.email.toLowerCase().includes(term)
   );
 
-  if (loading) return <div className="p-4">Cargando pacientes...</div>;
+  if (loading) return <div className="p-4">Cargando pacientes…</div>;
   if (error) return <div className="p-4 text-red-600">Error al cargar pacientes: {error}</div>;
-
-  const location = useLocation();
 
   return (
     <div className="space-y-6 p-4">
@@ -128,11 +189,9 @@ const Patients: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Pacientes</h1>
-          <p className="text-muted-foreground">
-            Gestiona los registros de todos los pacientes
-          </p>
+          <p className="text-muted-foreground">Gestiona los registros de todos los pacientes</p>
         </div>
-        <Link to="/patients/new" state={{ background: location }}>
+        <Link to="/patients/new">
           <Button className="flex items-center gap-2">
             <Plus className="h-4 w-4" /> Nuevo Paciente
           </Button>
@@ -142,14 +201,53 @@ const Patients: React.FC = () => {
       {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar pacientes por nombre, telefono o email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar pacientes por nombre, teléfono o email..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-10 pr-10"
+              />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-8 w-8 p-0"
+                  onClick={() => handleSearchChange("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+
+            {filtered.length > 0 && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => selectAllVisible(filtered)}
+                    disabled={selectedPatients.size === filtered.length}
+                  >
+                    <Check className="h-4 w-4 mr-1" /> Seleccionar Todos
+                  </Button>
+                  {selectedPatients.size > 0 && (
+                    <Button variant="outline" size="sm" onClick={clearSelections}>
+                      <X className="h-4 w-4 mr-1" /> Limpiar ({selectedPatients.size})
+                    </Button>
+                  )}
+                </div>
+                {selectedPatients.size > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    {selectedPatients.size} paciente
+                    {selectedPatients.size !== 1 ? "s" : ""} seleccionado
+                    {selectedPatients.size !== 1 ? "s" : ""}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -163,27 +261,20 @@ const Patients: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/*  Total global reportado por el backend para esta consulta */}
             <div className="text-2xl font-bold text-primary">{totalBackend}</div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">
-              En esta pagina (post-busqueda)
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">En esta página</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-accent">{filtered.length}</div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">
-              Historias Clinicas (pagina)
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Historias Clínicas (página)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-medical-green">
@@ -202,102 +293,96 @@ const Patients: React.FC = () => {
             setMostrarInactivos((v) => !v);
           }}
         >
-          {mostrarInactivos ? " Ver Activos" : " Ver Inactivos"}
+          {mostrarInactivos ? "👁️ Ver Activos" : "🗂️ Ver Inactivos"}
         </Button>
       </div>
 
       {/* Patients List */}
       <div className="grid gap-4">
-        {filtered.map((patient) => (
-          <Card key={patient.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-semibold">{patient.name}</h3>
-                    <Badge variant={patient.status === "Activo" ? "default" : "secondary"}>
-                      {patient.status}
-                    </Badge>
+        {filtered.map((patient) => {
+          const isSelected = selectedPatients.has(patient.id);
+          return (
+            <Card
+              key={patient.id}
+              className={`hover:shadow-md transition-all cursor-pointer ${
+                isSelected ? "ring-2 ring-primary bg-primary/5 border-primary" : ""
+              }`}
+              onClick={() => togglePatientSelection(patient.id)}
+            >
+              <CardContent className="pt-6">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                            isSelected
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "border-muted-foreground"
+                          }`}
+                        >
+                          {isSelected && <Check className="h-3 w-3" />}
+                        </div>
+                        <h3 className="text-lg font-semibold">{patient.name}</h3>
+                      </div>
+                      <Badge variant={patient.status === "Activo" ? "default" : "secondary"}>
+                        {patient.status}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-muted-foreground">
+                      <div><strong>Edad:</strong> {patient.age} años</div>
+                      <div><strong>Género:</strong> {patient.gender}</div>
+                      <div><strong>Teléfono:</strong> {patient.phone}</div>
+                      <div><strong>Email:</strong> {patient.email}</div>
+                      <div><strong>Ocupación:</strong> {patient.occupation || "No registrada"}</div>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div><strong>Última visita:</strong> {patient.lastVisit}</div>
+                      <div><strong>Historias clínicas:</strong> {patient.medicalRecords}</div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-muted-foreground">
-                    <div><strong>Edad:</strong> {patient.age} anios</div>
-                    <div><strong>Genero:</strong> {patient.gender}</div>
-                    <div><strong>Telefono:</strong> {patient.phone}</div>
-                    <div><strong>Email:</strong> {patient.email}</div>
-                    <div><strong>Ocupacion:</strong> {patient.occupation || "No registrada"}</div>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div><strong>Ultima visita:</strong> {patient.lastVisit}</div>
-                    <div><strong>Historias clinicas:</strong> {patient.medicalRecords}</div>
-                  </div>
-                </div>
 
-                <div className="flex gap-2">
-                  <Link to={`/patients/${patient.id}`} state={{ background: location }}>
-                    <Button variant="outline" size="sm"><Eye /></Button>
-                  </Link>
-                  <Link to={`/patients/${patient.id}/edit`} state={{ background: location }}>
-                    <Button variant="outline" size="sm"><Edit /></Button>
-                  </Link>
-                  <Link to={`/medical-records?id_paciente=${patient.id}`}>
-                    <Button variant="outline" size="sm" title="Ver historias clinicas">
-                      <FileText className="h-4 w-4" />
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button variant="outline" size="sm" onClick={() => openPatientModal(patient.id)}>
+                      <Eye />
                     </Button>
-                  </Link>
-                  <Link to={`/appointments?id_paciente=${patient.id}`}>
-                    <Button variant="outline" size="sm" title="Ver citas">
-                      <Calendar className="h-4 w-4" />
+                    <Button variant="outline" size="sm" onClick={() => openEditModal(patient.id)}>
+                      <Edit />
                     </Button>
-                  </Link>
+                    <Link to={`/medical-records/new?patientId=${patient.id}`}>
+                      <Button size="sm"><FileText /></Button>
+                    </Link>
+                    <Link to={`/appointments?id_paciente=${patient.id}`}>
+                      <Button size="sm"><Calendar /></Button>
+                    </Link>
 
-                  {/* Eliminar (soft-delete ya implementado en backend) */}
-                  {!mostrarInactivos && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={async () => {
-                        if (window.confirm("Estas seguro de eliminar este paciente?")) {
-                          try {
-                            const base = API_BASE;
-                            const res = await fetch(`${base}/pacientes/${patient.id}`, { method: "DELETE" });
-                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                            // Saca de la UI actual
-                            // (No tocamos totalBackend; lo recalculara en el proximo fetch si cambias de pagina o recargas)
-                            setPatients((p) => p.filter((x) => x.id !== patient.id));
-                          } catch (err) {
-                            alert("Error al eliminar paciente");
-                            console.error(err);
+                    {!mostrarInactivos && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (window.confirm("¿Estás seguro de eliminar este paciente?")) {
+                            try {
+                              const res = await fetch(`${API_BASE}/pacientes/${patient.id}`, { method: "DELETE" });
+                              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                              setPatients((p) => p.filter((x) => x.id !== patient.id));
+                            } catch (err) {
+                              alert("Error al eliminar paciente");
+                              console.error(err);
+                            }
                           }
-                        }
-                      }}
-                    >
-                      
-                    </Button>
-                  )}
-
-                  {/* Restaurar (si habilitas PUT /pacientes/:id/restore) */}
-                  {/*
-                  {mostrarInactivos && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        const base = API_BASE;
-                        const res = await fetch(`${base}/pacientes/${patient.id}/restore`, { method: "PUT" });
-                        if (!res.ok) return alert("No se pudo restaurar");
-                        // Quita el restaurado de la lista de inactivos
-                        setPatients((prev) => prev.filter((x) => x.id !== patient.id));
-                      }}
-                    >
-                      Restaurar
-                    </Button>
-                  )}
-                  */}
+                        }}
+                      >
+                        🗑️
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
 
         {filtered.length === 0 && (
           <Card>
@@ -314,15 +399,29 @@ const Patients: React.FC = () => {
           Anterior
         </Button>
         <span className="text-sm">
-          Pagina {page} de {totalPages}
+          Página {page} de {totalPages}
         </span>
         <Button onClick={() => setPage((p) => Math.min(p + 1, totalPages))} disabled={page === totalPages}>
           Siguiente
         </Button>
       </div>
+
+      {/* Modals */}
+      <PatientDetailModal
+        patientId={selectedPatientId}
+        isOpen={isModalOpen}
+        onClose={closePatientModal}
+        onPatientDeleted={handlePatientDeleted}
+        onEditPatient={openEditModal}
+      />
+      <PatientEditModal
+        patientId={editingPatientId}
+        isOpen={isEditModalOpen}
+        onClose={closeEditModal}
+        onPatientUpdated={handlePatientUpdated}
+      />
     </div>
   );
 };
 
 export default Patients;
-  
