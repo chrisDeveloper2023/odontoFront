@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
@@ -23,6 +23,10 @@ import AppointmentEdit from "./pages/AppointmentEdit";
 import OdontogramPage from "./pages/Odontograma";
 import Calendar from "./pages/Calendar";
 import RouteModal from "@/components/RouteModal";
+import Login from "./pages/Login";
+import LoginSimple from "./pages/LoginSimple";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { authService } from "@/services/auth";
 
 const queryClient = new QueryClient();
 
@@ -34,24 +38,100 @@ function AppRoutes() {
     <>
       {/* Rutas base: si hay background, renderiza el fondo; si no, ruta actual */}
       <Routes location={state?.background || location}>
-        <Route path="/" element={<Layout><Dashboard /></Layout>} />
-        <Route path="/patients" element={<Layout><Patients /></Layout>} />
-        <Route path="/patients/:id" element={<Layout><PatientDetail /></Layout>} />
-        <Route path="/patients/new" element={<Layout><NewPatient /></Layout>} />
-        <Route path="/patients/:id/edit" element={<Layout><NewPatient /></Layout>} />
-        <Route path="/medical-records" element={<Layout><MedicalRecords /></Layout>} />
-        <Route path="/medical-records/new" element={<Layout><NewMedicalRecord /></Layout>} />
-        <Route path="/medical-records/:id" element={<Layout><MedicalRecordDetail /></Layout>} />
-        <Route path="/NuevosPacientes" element={<Layout><Patients /></Layout>} />
-        <Route path="/NuevosPacientes/new" element={<Layout><NewPaciente /></Layout>} />
-        <Route path="/appointments" element={<Layout><Appointments /></Layout>} />
-        <Route path="/appointments/new" element={<Layout><NewAppointmentForm /></Layout>} />
-        <Route path="/calendar" element={<Layout><Calendar /></Layout>} />
-        <Route path="/clinics/new" element={<Layout><NewClinicForm /></Layout>} />
-        <Route path="/ListaClinicas" element={<Layout><ListaClinicas /></Layout>} />
-        <Route path="appointments/:id" element={<AppointmentDetail />} />
-        <Route path="appointments/:id/edit" element={<AppointmentEdit />} />
-        <Route path="odontograma" element={<OdontogramPage />} />
+        {/* Ruta de login - no protegida */}
+        <Route path="/login" element={<Login />} />
+        
+        {/* Rutas protegidas */}
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout><Dashboard /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/patients" element={
+          <ProtectedRoute>
+            <Layout><Patients /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/patients/:id" element={
+          <ProtectedRoute>
+            <Layout><PatientDetail /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/patients/new" element={
+          <ProtectedRoute>
+            <Layout><NewPatient /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/patients/:id/edit" element={
+          <ProtectedRoute>
+            <Layout><NewPatient /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/medical-records" element={
+          <ProtectedRoute>
+            <Layout><MedicalRecords /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/medical-records/new" element={
+          <ProtectedRoute>
+            <Layout><NewMedicalRecord /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/medical-records/:id" element={
+          <ProtectedRoute>
+            <Layout><MedicalRecordDetail /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/NuevosPacientes" element={
+          <ProtectedRoute>
+            <Layout><Patients /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/NuevosPacientes/new" element={
+          <ProtectedRoute>
+            <Layout><NewPaciente /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/appointments" element={
+          <ProtectedRoute>
+            <Layout><Appointments /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/appointments/new" element={
+          <ProtectedRoute>
+            <Layout><NewAppointmentForm /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/calendar" element={
+          <ProtectedRoute>
+            <Layout><Calendar /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/clinics/new" element={
+          <ProtectedRoute>
+            <Layout><NewClinicForm /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/ListaClinicas" element={
+          <ProtectedRoute>
+            <Layout><ListaClinicas /></Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="appointments/:id" element={
+          <ProtectedRoute>
+            <AppointmentDetail />
+          </ProtectedRoute>
+        } />
+        <Route path="appointments/:id/edit" element={
+          <ProtectedRoute>
+            <AppointmentEdit />
+          </ProtectedRoute>
+        } />
+        <Route path="odontograma" element={
+          <ProtectedRoute>
+            <OdontogramPage />
+          </ProtectedRoute>
+        } />
         <Route path="*" element={<NotFound />} />
       </Routes>
 
@@ -62,17 +142,21 @@ function AppRoutes() {
           <Route
             path="/patients/:id"
             element={
-              <RouteModal title="Detalle de Paciente">
-                <PatientDetail />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Detalle de Paciente">
+                  <PatientDetail />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/patients/:id/edit"
             element={
-              <RouteModal title="Editar Paciente">
-                <NewPatient />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Editar Paciente">
+                  <NewPatient />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
 
@@ -80,25 +164,31 @@ function AppRoutes() {
           <Route
             path="appointments/:id"
             element={
-              <RouteModal title="Detalle de Cita">
-                <AppointmentDetail />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Detalle de Cita">
+                  <AppointmentDetail />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
           <Route
             path="appointments/:id/edit"
             element={
-              <RouteModal title="Editar Cita">
-                <AppointmentEdit />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Editar Cita">
+                  <AppointmentEdit />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/appointments/new"
             element={
-              <RouteModal title="Nueva Cita">
-                <NewAppointmentForm />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Nueva Cita">
+                  <NewAppointmentForm />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
 
@@ -106,18 +196,22 @@ function AppRoutes() {
           <Route
             path="/medical-records/new"
             element={
-              <RouteModal title="Abrir/Crear Historia Clínica">
-                <NewMedicalRecord />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Abrir/Crear Historia Clínica">
+                  <NewMedicalRecord />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
           {/* Historias Clínicas: detalle/edición como modal */}
           <Route
             path="/medical-records/:id"
             element={
-              <RouteModal title="Historia Clínica">
-                <MedicalRecordDetail />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Historia Clínica">
+                  <MedicalRecordDetail />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
 
@@ -125,9 +219,11 @@ function AppRoutes() {
           <Route
             path="/patients/new"
             element={
-              <RouteModal title="Nuevo Paciente">
-                <NewPatient />
-              </RouteModal>
+              <ProtectedRoute>
+                <RouteModal title="Nuevo Paciente">
+                  <NewPatient />
+                </RouteModal>
+              </ProtectedRoute>
             }
           />
         </Routes>

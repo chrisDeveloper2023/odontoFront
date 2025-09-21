@@ -169,3 +169,51 @@ All colors MUST be HSL.
   -webkit-text-fill-color: transparent;
   animation: textColorWave 3s ease-in-out infinite;
 }
+
+/* Tooth shimmer animation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* Tooth glow animation */
+@keyframes toothGlow {
+  0%, 100% {
+    filter: brightness(0) invert(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+  }
+  50% {
+    filter: brightness(0) invert(1) drop-shadow(0 0 15px rgba(255, 255, 255, 0.6));
+  }
+}
+
+.animate-tooth-glow {
+  animation: toothGlow 2s ease-in-out infinite;
+}
+
+/* Tooth rotation animation */
+@keyframes toothRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(5deg);
+  }
+  75% {
+    transform: rotate(-5deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.animate-tooth-rotate {
+  animation: toothRotate 3s ease-in-out infinite;
+}

@@ -1,8 +1,11 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, Calendar, Plus } from "lucide-react";
+import { Users, FileText, Calendar, Plus, LogOut, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AnimatedToothImage from "./AnimatedToothImage";
+import { authService } from "@/services/auth";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +13,8 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const user = authService.getUser();
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: AnimatedToothImage },
@@ -18,6 +23,11 @@ const Layout = ({ children }: LayoutProps) => {
     { name: "Citas", href: "/appointments", icon: Calendar },
     { name: "Calendario", href: "/calendar", icon: Calendar },
   ];
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -34,12 +44,42 @@ const Layout = ({ children }: LayoutProps) => {
               <p className="text-sm text-muted-foreground">Sistema de Historias Clínicas</p>
               </div>
             </div>
-            <Link to="/patients/new">
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Nuevo Paciente
-              </Button>
-            </Link>
+            
+            <div className="flex items-center space-x-4">
+              <Link to="/patients/new">
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nuevo Paciente
+                </Button>
+              </Link>
+              
+              {/* User Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center space-x-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>
+                        {user?.nombreCompleto?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-left">
+                      <p className="text-sm font-medium">{user?.nombreCompleto || 'Usuario'}</p>
+                      <p className="text-xs text-muted-foreground">{user?.nombreUsuario || ''}</p>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Perfil</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Cerrar Sesión</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </header>
