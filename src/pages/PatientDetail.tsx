@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -46,6 +46,7 @@ const calculateAge = (dob: string): number => {
 const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,7 +126,7 @@ const PatientDetail: React.FC = () => {
       </Card>
 
       <div className="mt-4 flex gap-2">
-        <Link to={`/patients/${patient.id}/edit`}>
+        <Link to={`/patients/${patient.id}/edit`} state={{ background: location.state?.background ?? location }}>
           <Button>Editar</Button>
         </Link>
         <Link to={`/medical-records/new?patientId=${patient.id}`}>

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, CalendarPlus, Eye } from "lucide-react";
+import { Search, CalendarPlus, Eye, Trash2 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 interface Appointment {
@@ -96,6 +96,30 @@ const Appointments = () => {
     return matchesText && matchesEstado;
   });
 
+  const handleDeleteAppointment = async (id: number, patientName: string) => {
+    const confirmMessage = `¿Está seguro de que desea eliminar la cita de ${patientName}?\n\nEsta acción no se puede deshacer.`;
+    
+    if (window.confirm(confirmMessage)) {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/citas/${id}`, {
+          method: "DELETE",
+        });
+        
+        if (response.ok) {
+          // Actualizar la lista removiendo la cita eliminada
+          setAppointments(prev => prev.filter(appointment => appointment.id_cita !== id));
+          alert("Cita eliminada exitosamente");
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.mensaje || "Error al eliminar la cita");
+        }
+      } catch (error) {
+        console.error("Error al eliminar cita:", error);
+        alert(`Error al eliminar la cita: ${error instanceof Error ? error.message : "Error desconocido"}`);
+      }
+    }
+  };
+
   if (loading) return <p>Cargando citas...</p>;
   if (error) return <p className="text-red-600 p-4">{error}</p>;
 
@@ -184,13 +208,25 @@ const Appointments = () => {
                       </div>
                     </div>
                   </div>
-                  <div>
+                  <div className="flex gap-2">
                     <Link to={`/appointments/${appointment.id_cita}`} state={{ background: location }}>
                       <Button variant="outline" size="sm">
                         <Eye className="h-4 w-4 mr-1" />
                         Ver
                       </Button>
                     </Link>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleDeleteAppointment(
+                        appointment.id_cita, 
+                        `${appointment.paciente?.nombres ?? ""} ${appointment.paciente?.apellidos ?? ""}`
+                      )}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Eliminar
+                    </Button>
                   </div>
                 </div>
               </CardContent>

@@ -102,7 +102,12 @@ export default function AppointmentDetail() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/appointments/${cita.id_cita}/edit`)}
+            onClick={() => navigate(`/appointments/${cita.id_cita}/edit`, { 
+              state: { 
+                background: location.state?.background ?? location,
+                patientData: cita.paciente 
+              } 
+            })}
             className="flex items-center gap-1"
           >
             <Edit2 className="h-4 w-4" /> Editar

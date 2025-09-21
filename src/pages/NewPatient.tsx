@@ -1,6 +1,6 @@
 // src/pages/NewPatient.tsx
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ interface FormData {
 const NewPatient: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState<FormData>({
@@ -150,7 +151,18 @@ const NewPatient: React.FC = () => {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.success(`Paciente ${isEdit ? "actualizado" : "creado"} exitosamente`);
-      navigate("/patients");
+      
+      if (isEdit) {
+        // Si estamos editando, regresar al modal de detalle del paciente
+        navigate(`/patients/${id}`, { 
+          state: { 
+            background: location.state?.background ?? location 
+          } 
+        });
+      } else {
+        // Si estamos creando un nuevo paciente, ir a la lista
+        navigate("/patients");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Error al guardar: " + (err as Error).message);

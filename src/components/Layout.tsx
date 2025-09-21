@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, FileText, Calendar, Plus } from "lucide-react";
+import { Users, FileText, Calendar, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import AnimatedToothImage from "./AnimatedToothImage";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,7 +12,7 @@ const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
 
   const navigation = [
-    { name: "Dashboard", href: "/", icon: Heart },
+    { name: "Dashboard", href: "/", icon: AnimatedToothImage },
     { name: "Pacientes", href: "/patients", icon: Users },
     { name: "Historias Clínicas", href: "/medical-records", icon: FileText },
     { name: "Citas", href: "/appointments", icon: Calendar },
@@ -26,7 +27,7 @@ const Layout = ({ children }: LayoutProps) => {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
               <div className="bg-primary p-2 rounded-lg">
-              <Heart className="h-6 w-6 text-primary-foreground animate-heartbeat" />
+              <AnimatedToothImage className="h-6 w-6 text-primary-foreground animate-heartbeat" />
               </div>
               <div>
               <h1 className="text-xl font-bold animate-text-wave">ClinicSoft</h1>
