@@ -1,3 +1,5 @@
+import { API_BASE } from "@/lib/http";
+
 // src/services/citas.ts
 export interface DisponibilidadResponse {
   fecha: string;
@@ -17,7 +19,7 @@ export async function getDisponibilidad(
     fecha,
     duracion: String(duracionMinutos),
   });
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/citas/disponibilidad?${qs.toString()}`);
+  const res = await fetch(`${API_BASE}/citas/disponibilidad?${qs.toString()}`);
   if (!res.ok) {
     const err = await res.text().catch(() => "");
     throw new Error(err || "No se pudo obtener disponibilidad");

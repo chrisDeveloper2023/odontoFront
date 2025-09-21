@@ -19,6 +19,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { ArrowLeft, User } from "lucide-react";
+import { API_BASE } from "@/lib/http";
 
 interface Paciente {
   id_paciente: number;
@@ -38,7 +39,7 @@ interface Consultorio {
   nombre: string;
 }
 
-const ODONTOLOGO_ROLE_ID = 2; // el id de rol para odontólogo
+const ODONTOLOGO_ROLE_ID = 2; // el id de rol para odontologo
 
 export default function AppointmentEdit() {
   const { id } = useParams<{ id: string }>();
@@ -61,10 +62,10 @@ export default function AppointmentEdit() {
     async function load() {
       try {
         const [rPac, rUsers, rCon, rCita] = await Promise.all([
-          fetch("/pacientes"),
-          fetch("/usuarios"),
-          fetch("/consultorios"),
-          fetch(`/citas/${id}`),
+          fetch(`${API_BASE}/pacientes`),
+          fetch(`${API_BASE}/usuarios`),
+          fetch(`${API_BASE}/consultorios`),
+          fetch(`${API_BASE}/citas/${id}`),
         ]);
         const [pacData, usersData, conData, citaData] = await Promise.all([
           rPac.json(),
@@ -132,7 +133,7 @@ export default function AppointmentEdit() {
         observaciones: formData.observaciones || null,
         estado: "AGENDADA",
       };
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/citas/${id}`, {
+      const res = await fetch(`${API_BASE}/citas/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -148,7 +149,7 @@ export default function AppointmentEdit() {
     }
   };
 
-  if (loading) return <div className="p-4">Cargando datos…</div>;
+  if (loading) return <div className="p-4">Cargando datos...</div>;
 
   return (
     <div className="space-y-6 p-4">
@@ -196,9 +197,9 @@ export default function AppointmentEdit() {
                 </Select>
               </div>
 
-              {/* Odontólogo */}
+              {/* Odontologo */}
               <div>
-                <Label>Odontólogo</Label>
+                <Label>Odontologo</Label>
                 <Select
                   value={formData.id_odontologo}
                   onValueChange={(v) => handleChange("id_odontologo", v)}
@@ -207,7 +208,7 @@ export default function AppointmentEdit() {
                     {formData.id_odontologo
                       ? doctores.find((d) => String(d.id) === formData.id_odontologo)?.nombres + " " +
                         doctores.find((d) => String(d.id) === formData.id_odontologo)?.apellidos
-                      : "Seleccionar médico"}
+                      : "Seleccionar medico"}
                   </SelectTrigger>
                   <SelectContent>
                     {doctores.map((d) => (

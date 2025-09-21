@@ -1,3 +1,5 @@
+import { API_BASE } from "@/lib/http";
+
 // src/services/usuarios.ts
 export interface Doctor {
   id: number;
@@ -11,8 +13,8 @@ function normalizeUsersPayload(raw: any): any[] {
 }
 
 export async function getOdontologos(): Promise<Doctor[]> {
-  // Ruta preferida que en tu entorno SÍ devuelve datos JSON
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/usuarios?rol=ODONTOLOGO`);
+  // Ruta preferida que en tu entorno SI devuelve datos JSON
+  const res = await fetch(`${API_BASE}/usuarios?rol=ODONTOLOGO`);
   if (!res.ok) throw new Error("No se pudo obtener usuarios por rol ODONTOLOGO");
 
   const json = await res.json();

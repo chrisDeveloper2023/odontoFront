@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/http";
 // src/servicios/apiClinicas.ts
 import { useEffect, useState } from "react";
 import axios from "axios";
@@ -28,7 +29,7 @@ export function useClinicas(page = 1, limit = 0) {
   useEffect(() => {
     setCargando(true);
     axios
-      .get<PaginatedResponse>(`${import.meta.env.VITE_API_URL}/clinicas?page=${page}&limit=${limit}`)
+      .get<PaginatedResponse>(`${API_BASE}/clinicas?page=${page}&limit=${limit}`)
       .then(res => {
         // Puede venir en res.data.data (paginado)
         // o en res.data directamente (array sin paginar)
@@ -38,12 +39,12 @@ export function useClinicas(page = 1, limit = 0) {
         } else if (Array.isArray(body as any)) {
           setClinicas(body as any);
         } else {
-          setClinicas([]); // garantía de que siempre sea array
+          setClinicas([]); // garantia de que siempre sea array
         }
       })
       .catch(err => {
         console.error(err);
-        setError("No se pudieron cargar las clínicas");
+        setError("No se pudieron cargar las clinicas");
       })
       .finally(() => setCargando(false));
   }, [page, limit]);

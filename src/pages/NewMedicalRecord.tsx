@@ -1,512 +1,378 @@
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, Save, User, FileText, Stethoscope, Pill, Heart } from "lucide-react";
+import { apiGet, apiPost } from "@/api/client";
+
+const RESPUESTA_BINARIA_OPTIONS = [
+  { value: "", label: "Sin dato" },
+  { value: "SI", label: "SI" },
+  { value: "NO", label: "NO" },
+  { value: "DESCONOCE", label: "Desconoce" },
+] as const;
+
+const ALTERACION_PRESION_OPTIONS = [
+  { value: "", label: "Sin dato" },
+  { value: "ALTA", label: "Alta" },
+  { value: "BAJA", label: "Baja" },
+  { value: "NORMAL", label: "Normal" },
+  { value: "DESCONOCIDA", label: "Desconocida" },
+] as const;
+
+type Option = { id: number; nombre: string };
+type CitaOption = { id_cita: number; fecha_hora?: string; estado?: string };
+
+const initialForm = {
+  idPaciente: "",
+  idClinica: "",
+  idCita: "",
+  detallesGenerales: "",
+  motivoConsulta: "",
+  antecedentesCardiacos: "",
+  antecedentesCardiacosDetalle: "",
+  alteracionPresion: "",
+  presionDetalle: "",
+  alergias: "",
+  medicamentosActuales: "",
+  observaciones: "",
+};
+
+const formatFecha = (iso?: string) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+};
 
 const NewMedicalRecord = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const patientId = searchParams.get("patientId");
+  const preselectedPatient = searchParams.get("patientId") || "";
 
-  const [formData, setFormData] = useState({
-    citaId: "",
-    patientId: patientId || "",
-    date: new Date().toISOString().split('T')[0],
-    time: new Date().toTimeString().slice(0, 5),
-    consultationType: "",
-    chiefComplaint: "",
-    symptoms: "",
-    physicalExamination: "",
-    vitalSigns: {
-      bloodPressure: "",
-      heartRate: "",
-      temperature: "",
-      weight: "",
-      height: "",
-      respiratoryRate: "",
-      oxygenSaturation: "",
-    },
-    diagnosis: "",
-    differentialDiagnosis: "",
-    treatment: "",
-    medications: "",
-    recommendations: "",
-    followUpDate: "",
-    doctorName: "",
-    doctorLicense: "",
-    orderTests: false,
-    testsOrdered: "",
-    referrals: "",
-    allergiesNoted: "",
-    currentMedications: "",
-    additionalNotes: "",
-  });
+  const [patients, setPatients] = useState<Option[]>([]);
+  const [clinicas, setClinicas] = useState<Option[]>([]);
+  const [citasDisponibles, setCitasDisponibles] = useState<CitaOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingCitas, setLoadingCitas] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ ...initialForm, idPaciente: preselectedPatient });
 
-  // Datos de ejemplo de pacientes
-  const patients = [
-    { id: "1", name: "María González Pérez" },
-    { id: "2", name: "Carlos Rodríguez López" },
-    { id: "3", name: "Ana Martínez Silva" },
-    { id: "4", name: "Juan Pérez Morales" },
-  ];
+  useEffect(() => {
+    const loadBasics = async () => {
+      try {
+        setLoading(true);
+        const [pacRes, clinRes] = await Promise.all([
+          apiGet<any>('/pacientes', { page: 1, limit: 100 }),
+          apiGet<any>('/clinicas', { page: 1, limit: 100 }),
+        ]);
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    if (field.startsWith("vitalSigns.")) {
-      const vitalSign = field.replace("vitalSigns.", "");
-      setFormData(prev => ({
-        ...prev,
-        vitalSigns: { ...prev.vitalSigns, [vitalSign]: value }
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, [field]: value }));
+        const mapRows = (raw: any): Option[] => {
+          if (!raw) return [];
+          const list = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
+          return list
+            .map((item: any) => ({
+              id: Number(item.id_paciente ?? item.id ?? item.idPaciente ?? 0),
+              nombre: `${item.nombres ?? item.nombre ?? ''} ${item.apellidos ?? ''}`.trim() || String(item.id ?? ''),
+            }))
+            .filter((opt) => Number.isFinite(opt.id));
+        };
+
+        const mapClinicas = (raw: any): Option[] => {
+          if (!raw) return [];
+          const list = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
+          return list
+            .map((item: any) => ({
+              id: Number(item.id ?? item.id_clinica ?? 0),
+              nombre: item.nombre ?? item.nombre_clinica ?? item.alias ?? `Cl?nica ${item.id ?? ''}`,
+            }))
+            .filter((opt) => Number.isFinite(opt.id));
+        };
+
+        setPatients(mapRows(pacRes));
+        setClinicas(mapClinicas(clinRes));
+      } catch (error) {
+        console.error(error);
+        toast.error('No se pudieron cargar pacientes o cl?nicas');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadBasics();
+  }, []);
+
+  useEffect(() => {
+    if (!form.idPaciente) {
+      setCitasDisponibles([]);
+      return;
+    }
+    const loadCitas = async () => {
+      try {
+        setLoadingCitas(true);
+        const res = await apiGet<any>(`/pacientes/${form.idPaciente}/citas-disponibles`);
+        const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+        setCitasDisponibles(list as CitaOption[]);
+      } catch (error) {
+        console.error(error);
+        setCitasDisponibles([]);
+      } finally {
+        setLoadingCitas(false);
+      }
+    };
+    loadCitas();
+  }, [form.idPaciente]);
+
+  const updateField = (field: keyof typeof form, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === 'idPaciente') {
+      setForm((prev) => ({ ...prev, idPaciente: value, idCita: '' }));
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validación: requerimos la cita para abrir la historia en backend
-    if (!formData.citaId) {
-      toast.error("Ingresa el ID de la Cita para abrir la historia clínica");
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!form.idPaciente || !form.idClinica) {
+      toast.error('Selecciona paciente y cl?nica');
       return;
     }
-
     try {
-      const API = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
-      const res = await fetch(`${API}/citas/${formData.citaId}/historias-clinicas/abrir`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(json?.mensaje || res.statusText);
-      toast.success("Historia clínica abierta/creada correctamente");
-      navigate("/medical-records");
-    } catch (err: any) {
-      toast.error(err?.message || "Error al abrir historia clínica desde cita");
+      setSaving(true);
+      const payload = {
+        id_clinica: Number(form.idClinica),
+        id_cita: form.idCita ? Number(form.idCita) : undefined,
+        detalles_generales: form.detallesGenerales || null,
+        detallesGenerales: form.detallesGenerales || null,
+        motivo_consulta: form.motivoConsulta || null,
+        antecedentes_cardiacos: form.antecedentesCardiacos || null,
+        antecedentes_cardiacos_detalle: form.antecedentesCardiacosDetalle || null,
+        alteracion_presion: form.alteracionPresion || null,
+        presion_detalle: form.presionDetalle || null,
+        alergias: form.alergias || null,
+        medicamentos_actuales: form.medicamentosActuales || null,
+        observaciones: form.observaciones || null,
+      };
+
+      const res = await apiPost<any>(`/pacientes/${form.idPaciente}/historias-clinicas`, payload);
+      const historiaId = res?.id_historia ?? res?.id;
+      toast.success('Historia cl?nica creada correctamente');
+      if (historiaId) {
+        navigate(`/medical-records/${historiaId}`);
+      } else {
+        navigate('/medical-records');
+      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.message || 'No se pudo crear la historia cl?nica');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver
-        </Button>
+        <Button variant="outline" onClick={() => navigate(-1)}>Volver</Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Nueva Cita Médica</h1>
-          <p className="text-muted-foreground">
-            Registra una nueva Cita médica
-          </p>
+          <h1 className="text-3xl font-bold">Nueva Historia Cl?nica</h1>
+          <p className="text-muted-foreground">Asocia paciente y registra informaci?n relevante</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Información de la Consulta */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
-              Información de la Consulta
-            </CardTitle>
-            <CardDescription>
-              Datos básicos de la consulta (* campos obligatorios)
-            </CardDescription>
+            <CardTitle>Paciente y Cl?nica</CardTitle>
+            <CardDescription>Selecciona los datos b?sicos para la historia</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Paciente *</Label>
+              <Select
+                value={form.idPaciente}
+                onValueChange={(value) => updateField('idPaciente', value)}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loading ? 'Cargando pacientes?' : 'Selecciona paciente'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Cl?nica *</Label>
+              <Select
+                value={form.idClinica}
+                onValueChange={(value) => updateField('idClinica', value)}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loading ? 'Cargando cl?nicas?' : 'Selecciona cl?nica'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clinicas.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Cita asociada (opcional)</Label>
+              <Select
+                value={form.idCita}
+                onValueChange={(value) => updateField('idCita', value)}
+                disabled={!form.idPaciente || loadingCitas || citasDisponibles.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !form.idPaciente
+                        ? 'Selecciona primero un paciente'
+                        : loadingCitas
+                          ? 'Buscando citas?'
+                          : citasDisponibles.length === 0
+                            ? 'Sin citas agendadas para vincular'
+                            : 'Selecciona cita'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin cita</SelectItem>
+                  {citasDisponibles.map((cita) => (
+                    <SelectItem key={cita.id_cita} value={String(cita.id_cita)}>
+                      #{cita.id_cita} ? {cita.estado ?? 'AGENDADA'} ? {formatFecha(cita.fecha_hora)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Informaci?n cl?nica</CardTitle>
+            <CardDescription>Completa la informaci?n relevante del paciente</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="citaId">ID de Cita (para abrir historia) *</Label>
-                <Input
-                  id="citaId"
-                  placeholder="Ej. 1234"
-                  value={formData.citaId}
-                  onChange={(e) => handleInputChange("citaId", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="patientId">Paciente *</Label>
-                <Select 
-                  value={formData.patientId} 
-                  onValueChange={(value) => handleInputChange("patientId", value)}
+              <div>
+                <Label>Antecedentes cardiacos</Label>
+                <Select
+                  value={form.antecedentesCardiacos}
+                  onValueChange={(value) => updateField('antecedentesCardiacos', value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar paciente" />
+                    <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
                   <SelectContent>
-                    {patients.map((patient) => (
-                      <SelectItem key={patient.id} value={patient.id}>
-                        {patient.name}
+                    {RESPUESTA_BINARIA_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value || 'empty'} value={opt.value}>
+                        {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="consultationType">Tipo de Consulta</Label>
-                <Select onValueChange={(value) => handleInputChange("consultationType", value)}>
+              <div>
+                <Label>Alteraci?n de presi?n</Label>
+                <Select
+                  value={form.alteracionPresion}
+                  onValueChange={(value) => updateField('alteracionPresion', value)}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo" />
+                    <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="consulta-general">Consulta General</SelectItem>
-                    <SelectItem value="consulta-especializada">Consulta Especializada</SelectItem>
-                    <SelectItem value="control-rutina">Control de Rutina</SelectItem>
-                    <SelectItem value="emergencia">Emergencia</SelectItem>
-                    <SelectItem value="seguimiento">Seguimiento</SelectItem>
+                    {ALTERACION_PRESION_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value || 'empty'} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Fecha</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => handleInputChange("date", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="time">Hora</Label>
-                <Input
-                  id="time"
-                  type="time"
-                  value={formData.time}
-                  onChange={(e) => handleInputChange("time", e.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Motivo de Consulta y Síntomas */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Motivo de Consulta y Síntomas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="chiefComplaint">Motivo Principal de la Consulta *</Label>
-              <Textarea
-                id="chiefComplaint"
-                value={formData.chiefComplaint}
-                onChange={(e) => handleInputChange("chiefComplaint", e.target.value)}
-                placeholder="¿Por qué viene el paciente hoy?"
-                rows={3}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="symptoms">Síntomas Detallados</Label>
-              <Textarea
-                id="symptoms"
-                value={formData.symptoms}
-                onChange={(e) => handleInputChange("symptoms", e.target.value)}
-                placeholder="Describe los síntomas del paciente en detalle"
-                rows={4}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Signos Vitales */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Heart className="h-5 w-5 text-primary" />
-              Signos Vitales
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="bloodPressure">Presión Arterial</Label>
-                <Input
-                  id="bloodPressure"
-                  value={formData.vitalSigns.bloodPressure}
-                  onChange={(e) => handleInputChange("vitalSigns.bloodPressure", e.target.value)}
-                  placeholder="120/80 mmHg"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="heartRate">Frecuencia Cardíaca</Label>
-                <Input
-                  id="heartRate"
-                  value={formData.vitalSigns.heartRate}
-                  onChange={(e) => handleInputChange("vitalSigns.heartRate", e.target.value)}
-                  placeholder="bpm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="temperature">Temperatura</Label>
-                <Input
-                  id="temperature"
-                  value={formData.vitalSigns.temperature}
-                  onChange={(e) => handleInputChange("vitalSigns.temperature", e.target.value)}
-                  placeholder="°C"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="weight">Peso</Label>
-                <Input
-                  id="weight"
-                  value={formData.vitalSigns.weight}
-                  onChange={(e) => handleInputChange("vitalSigns.weight", e.target.value)}
-                  placeholder="kg"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="height">Estatura</Label>
-                <Input
-                  id="height"
-                  value={formData.vitalSigns.height}
-                  onChange={(e) => handleInputChange("vitalSigns.height", e.target.value)}
-                  placeholder="cm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="respiratoryRate">Frecuencia Respiratoria</Label>
-                <Input
-                  id="respiratoryRate"
-                  value={formData.vitalSigns.respiratoryRate}
-                  onChange={(e) => handleInputChange("vitalSigns.respiratoryRate", e.target.value)}
-                  placeholder="rpm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="oxygenSaturation">Saturación de Oxígeno</Label>
-                <Input
-                  id="oxygenSaturation"
-                  value={formData.vitalSigns.oxygenSaturation}
-                  onChange={(e) => handleInputChange("vitalSigns.oxygenSaturation", e.target.value)}
-                  placeholder="%"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Examen Físico */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-primary" />
-              Examen Físico
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="physicalExamination">Hallazgos del Examen Físico</Label>
-              <Textarea
-                id="physicalExamination"
-                value={formData.physicalExamination}
-                onChange={(e) => handleInputChange("physicalExamination", e.target.value)}
-                placeholder="Describe los hallazgos del examen físico completo"
-                rows={5}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Diagnóstico */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Diagnóstico y Plan de Tratamiento</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="diagnosis">Diagnóstico Principal *</Label>
-              <Textarea
-                id="diagnosis"
-                value={formData.diagnosis}
-                onChange={(e) => handleInputChange("diagnosis", e.target.value)}
-                placeholder="Diagnóstico principal basado en la evaluación"
-                rows={3}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="differentialDiagnosis">Diagnósticos Diferenciales</Label>
-              <Textarea
-                id="differentialDiagnosis"
-                value={formData.differentialDiagnosis}
-                onChange={(e) => handleInputChange("differentialDiagnosis", e.target.value)}
-                placeholder="Otros diagnósticos a considerar"
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tratamiento */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Pill className="h-5 w-5 text-primary" />
-              Tratamiento y Medicamentos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="treatment">Plan de Tratamiento</Label>
-              <Textarea
-                id="treatment"
-                value={formData.treatment}
-                onChange={(e) => handleInputChange("treatment", e.target.value)}
-                placeholder="Describe el plan de tratamiento completo"
-                rows={4}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="medications">Medicamentos Prescritos</Label>
-              <Textarea
-                id="medications"
-                value={formData.medications}
-                onChange={(e) => handleInputChange("medications", e.target.value)}
-                placeholder="Lista detallada de medicamentos con dosis y frecuencia"
-                rows={4}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="recommendations">Recomendaciones</Label>
-              <Textarea
-                id="recommendations"
-                value={formData.recommendations}
-                onChange={(e) => handleInputChange("recommendations", e.target.value)}
-                placeholder="Recomendaciones generales, cambios en estilo de vida, etc."
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Exámenes y Seguimiento */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Exámenes y Seguimiento</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="orderTests"
-                checked={formData.orderTests}
-                onCheckedChange={(checked) => handleInputChange("orderTests", !!checked)}
-              />
-              <Label htmlFor="orderTests">Ordenar exámenes de laboratorio o imagen</Label>
-            </div>
-            
-            {formData.orderTests && (
-              <div className="space-y-2">
-                <Label htmlFor="testsOrdered">Exámenes Solicitados</Label>
+              <div>
+                <Label>Detalle antecedentes cardiacos</Label>
                 <Textarea
-                  id="testsOrdered"
-                  value={formData.testsOrdered}
-                  onChange={(e) => handleInputChange("testsOrdered", e.target.value)}
-                  placeholder="Lista de exámenes solicitados"
                   rows={3}
+                  value={form.antecedentesCardiacosDetalle}
+                  onChange={(e) => updateField('antecedentesCardiacosDetalle', e.target.value)}
                 />
               </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="followUpDate">Fecha de Seguimiento</Label>
-                <Input
-                  id="followUpDate"
-                  type="date"
-                  value={formData.followUpDate}
-                  onChange={(e) => handleInputChange("followUpDate", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="referrals">Referencias a Especialistas</Label>
-                <Input
-                  id="referrals"
-                  value={formData.referrals}
-                  onChange={(e) => handleInputChange("referrals", e.target.value)}
-                  placeholder="Especialistas referidos"
+              <div>
+                <Label>Detalle presi?n arterial</Label>
+                <Textarea
+                  rows={3}
+                  value={form.presionDetalle}
+                  onChange={(e) => updateField('presionDetalle', e.target.value)}
                 />
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Información del Médico */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Información del Médico</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="doctorName">Nombre del Médico *</Label>
-                <Input
-                  id="doctorName"
-                  value={formData.doctorName}
-                  onChange={(e) => handleInputChange("doctorName", e.target.value)}
-                  placeholder="Dr./Dra. Nombre Completo"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="doctorLicense">Número de Colegiado</Label>
-                <Input
-                  id="doctorLicense"
-                  value={formData.doctorLicense}
-                  onChange={(e) => handleInputChange("doctorLicense", e.target.value)}
-                  placeholder="Número de colegiado médico"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notas Adicionales */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Notas Adicionales</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="additionalNotes">Observaciones Adicionales</Label>
+            <div>
+              <Label>Detalles generales</Label>
               <Textarea
-                id="additionalNotes"
-                value={formData.additionalNotes}
-                onChange={(e) => handleInputChange("additionalNotes", e.target.value)}
-                placeholder="Cualquier información adicional relevante"
                 rows={4}
+                value={form.detallesGenerales}
+                onChange={(e) => updateField('detallesGenerales', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Motivo de consulta</Label>
+              <Textarea
+                rows={3}
+                value={form.motivoConsulta}
+                onChange={(e) => updateField('motivoConsulta', e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Alergias</Label>
+                <Textarea
+                  rows={3}
+                  value={form.alergias}
+                  onChange={(e) => updateField('alergias', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Medicamentos actuales</Label>
+                <Textarea
+                  rows={3}
+                  value={form.medicamentosActuales}
+                  onChange={(e) => updateField('medicamentosActuales', e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Observaciones</Label>
+              <Textarea
+                rows={3}
+                value={form.observaciones}
+                onChange={(e) => updateField('observaciones', e.target.value)}
               />
             </div>
           </CardContent>
         </Card>
 
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-end sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4 mt-4">
-          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-            Cancelar
+        <div className="flex justify-end gap-3">
+          <Button type="button" variant="outline" onClick={() => setForm(initialForm)}>
+            Limpiar
           </Button>
-          <Button type="submit" className="flex items-center gap-2">
-            <Save className="h-4 w-4" />
-            Guardar Historia Clínica
+          <Button type="submit" disabled={saving || !form.idPaciente || !form.idClinica}>
+            {saving ? 'Guardando?' : 'Crear historia cl?nica'}
           </Button>
         </div>
       </form>

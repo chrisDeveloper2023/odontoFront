@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Users, FileText, Calendar, TrendingUp, Plus, Activity } from "lucide-react";
 import { Link } from "react-router-dom";
 import ListaClinicas from "./ListaClinicas";
+import { API_BASE } from "@/lib/http";
 
 interface RawPaciente {
   id_paciente: number;
@@ -26,15 +27,15 @@ const Dashboard = () => {
   useEffect(() => {
     async function fetchStats() {
       try {
-        // Obtener todos los pacientes con límite alto para evitar paginación por defecto
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes?page=1&limit=1000`);
+        // Obtener todos los pacientes con limite alto para evitar paginacion por defecto
+        const res = await fetch(`${API_BASE}/pacientes?page=1&limit=1000`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         // Extraer array de datos
         const list: RawPaciente[] = Array.isArray(json.data) ? json.data : [];
         // Total real de pacientes
         setTotalPatients(json.total ?? list.length);
-        // Calcular cuántos pacientes se crearon este mes (usando fecha_nacimiento como indicador)
+        // Calcular cuantos pacientes se crearon este mes (usando fecha_nacimiento como indicador)
         const now = new Date();
         const monthCount = list.filter(p => {
           const d = new Date(p.fecha_creacion);
@@ -51,10 +52,10 @@ const Dashboard = () => {
     fetchStats();
   }, []);
 
-  if (loading) return <div className="p-4">Cargando estadísticas…</div>;
+  if (loading) return <div className="p-4">Cargando estadisticas...</div>;
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
 
-  // Conservar estructura original de stats, pero con datos dinámicos en el primero
+  // Conservar estructura original de stats, pero con datos dinamicos en el primero
   const stats = [
     {
       title: "Total Pacientes",
@@ -64,7 +65,7 @@ const Dashboard = () => {
       color: "text-blue-600",
     },
     {
-      title: "Historias Clínicas",
+      title: "Historias Clinicas",
       value: "342",
       change: "+18 esta semana",
       icon: FileText,
@@ -88,24 +89,24 @@ const Dashboard = () => {
 
   const recentActivities = [
     {
-      patient: "María González",
-      action: "Nueva historia clínica creada",
+      patient: "Maria Gonzalez",
+      action: "Nueva historia clinica creada",
       time: "Hace 2 horas",
     },
     {
-      patient: "Carlos Rodríguez",
-      action: "Cita médica completada",
+      patient: "Carlos Rodriguez",
+      action: "Cita medica completada",
       time: "Hace 3 horas",
     },
     {
-      patient: "Ana Martínez",
-      action: "Exámenes médicos actualizados",
+      patient: "Ana Martinez",
+      action: "Examenes medicos actualizados",
       time: "Hace 5 horas",
     },
     {
-      patient: "Juan Pérez",
+      patient: "Juan Perez",
       action: "Nuevo paciente registrado",
-      time: "Hace 1 día",
+      time: "Hace 1 dia",
     },
   ];
 
@@ -115,7 +116,7 @@ const Dashboard = () => {
       <div className="bg-gradient-to-r from-primary to-accent rounded-lg p-6 text-white">
         <h1 className="text-3xl font-bold mb-2">Bienvenido a ClinicSoft</h1>
         <p className="text-lg opacity-90">
-          Sistema integral de gestión de historias clínicas y pacientes
+          Sistema integral de gestion de historias clinicas y pacientes
         </p>
       </div>
 
@@ -145,10 +146,10 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
-              Acciones Rápidas
+              Acciones Rapidas
             </CardTitle>
             <CardDescription>
-              Accesos directos a las funciones más utilizadas
+              Accesos directos a las funciones mas utilizadas
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -161,7 +162,7 @@ const Dashboard = () => {
             <Link to="/medical-records/new" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <FileText className="h-4 w-4 mr-2" />
-                Crear Historia Clínica
+                Crear Historia Clinica
               </Button>
             </Link>
             <Link to="/appointments/new" className="block">
@@ -193,7 +194,7 @@ const Dashboard = () => {
               Actividad Reciente
             </CardTitle>
             <CardDescription>
-              Últimas acciones realizadas en el sistema
+              Ultimas acciones realizadas en el sistema
             </CardDescription>
           </CardHeader>
           <CardContent>

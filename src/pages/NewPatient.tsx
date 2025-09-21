@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
+import { API_BASE } from "@/lib/http";
 
 interface FormData {
   documentType: string;
@@ -22,6 +23,7 @@ interface FormData {
   email: string;
   address: string;
   allergies: string;
+  occupation: string;
 }
 
 const NewPatient: React.FC = () => {
@@ -30,7 +32,7 @@ const NewPatient: React.FC = () => {
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState<FormData>({
-    documentType: "Cédula",
+    documentType: "Cedula",
     documentId: "",
     firstName: "",
     lastName: "",
@@ -40,14 +42,15 @@ const NewPatient: React.FC = () => {
     email: "",
     address: "",
     allergies: "",
+    occupation: "",
   });
 
-  // Cargar datos en modo edición
+  // Cargar datos en modo edicion
   useEffect(() => {
     if (!isEdit) return;
     (async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${id}`);
+        const res = await fetch(`${API_BASE}/pacientes/${id}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const raw = await res.json();
         setFormData({
@@ -61,6 +64,7 @@ const NewPatient: React.FC = () => {
           email: raw.correo,
           address: raw.direccion,
           allergies: raw.observaciones,
+          occupation: raw.ocupacion ?? "",
         });
       } catch (err) {
         console.error(err);
@@ -75,13 +79,13 @@ const NewPatient: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validación
+    // Validacion
     if (!formData.documentId || !formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.phone) {
       toast.error("Completa los campos obligatorios");
       return;
     }
     try {
-      const url = isEdit ? `${import.meta.env.VITE_API_URL}/pacientes/${id}` : `${import.meta.env.VITE_API_URL}/pacientes`;
+      const url = isEdit ? `${API_BASE}/pacientes/${id}` : `${API_BASE}/pacientes`;
       const method = isEdit ? "PUT" : "POST";
       const payload = {
         id_clinica: 1,
@@ -94,6 +98,7 @@ const NewPatient: React.FC = () => {
         correo: formData.email,
         direccion: formData.address,
         observaciones: formData.allergies,
+        ocupacion: formData.occupation || null,
         sexo: formData.gender.toUpperCase(),
       };
       const res = await fetch(url, {
@@ -128,8 +133,8 @@ const NewPatient: React.FC = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Información de Identidad</CardTitle>
-            <CardDescription>Tipo y número de documento *</CardDescription>
+            <CardTitle>Informacion de Identidad</CardTitle>
+            <CardDescription>Tipo y numero de documento *</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -137,13 +142,13 @@ const NewPatient: React.FC = () => {
               <Select value={formData.documentType} onValueChange={val => handleInputChange("documentType", val)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Cédula">Cédula</SelectItem>
+                  <SelectItem value="Cedula">Cedula</SelectItem>
                   <SelectItem value="Pasaporte">Pasaporte</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Número de Documento *</Label>
+              <Label>Numero de Documento *</Label>
               <Input
                 value={formData.documentId}
                 onChange={e => handleInputChange("documentId", e.target.value)}
@@ -155,8 +160,8 @@ const NewPatient: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Información Personal</CardTitle>
-            <CardDescription>Datos básicos *</CardDescription>
+            <CardTitle>Informacion Personal</CardTitle>
+            <CardDescription>Datos basicos *</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -185,7 +190,7 @@ const NewPatient: React.FC = () => {
               />
             </div>
             <div>
-              <Label>Género *</Label>
+              <Label>Genero *</Label>
               <RadioGroup value={formData.gender} onValueChange={val => handleInputChange("gender", val)} className="flex space-x-4">
                 <div className="flex items-center">
                   <RadioGroupItem value="masculino" id="male" /><Label htmlFor="male">Masculino</Label>
@@ -194,6 +199,14 @@ const NewPatient: React.FC = () => {
                   <RadioGroupItem value="femenino" id="female" /><Label htmlFor="female">Femenino</Label>
                 </div>
               </RadioGroup>
+            </div>
+            <div>
+              <Label>Ocupacion</Label>
+              <Input
+                value={formData.occupation}
+                onChange={(e) => handleInputChange("occupation", e.target.value)}
+                placeholder="Profesion, oficio, etc."
+              />
             </div>
           </CardContent>
         </Card>
@@ -205,7 +218,7 @@ const NewPatient: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Teléfono *</Label>
+                <Label>Telefono *</Label>
                 <Input
                   value={formData.phone}
                   onChange={e => handleInputChange("phone", e.target.value)}
@@ -222,7 +235,7 @@ const NewPatient: React.FC = () => {
               </div>
             </div>
             <div>
-              <Label>Dirección</Label>
+              <Label>Direccion</Label>
               <Textarea
                 value={formData.address}
                 onChange={e => handleInputChange("address", e.target.value)}

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Eye, Edit, Calendar, User } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { API_BASE } from "@/lib/http";
 import OdontogramaView from "@/components/OdontogramaView";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
 
@@ -28,7 +29,7 @@ const MedicalRecords = () => {
   const [ogLoading, setOgLoading] = useState(false);
   const [ogError, setOgError] = useState<string | null>(null);
 
-  // Paginación
+  // Paginacion
   const [page, setPage] = useState(1);
   const limit = 10;
   const [totalPages, setTotalPages] = useState(1);
@@ -37,7 +38,7 @@ const MedicalRecords = () => {
   const idPacienteParam = searchParams.get("id_paciente") || "";
 
   useEffect(() => {
-    const API = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+    const API = API_BASE;
     setLoadingList(true);
     setListError(null);
     const params = new URLSearchParams();
@@ -70,7 +71,7 @@ const MedicalRecords = () => {
         return list as HistoriaClinica[];
       })
       .then((rows) => setHistorias(Array.isArray(rows) ? rows : []))
-      .catch((e: any) => setListError(e?.message || "Error cargando historias clínicas"))
+      .catch((e: any) => setListError(e?.message || "Error cargando historias clinicas"))
       .finally(() => setLoadingList(false));
   }, [page]);
 
@@ -89,15 +90,15 @@ const MedicalRecords = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Historias Clínicas</h1>
+          <h1 className="text-3xl font-bold text-foreground">Historias Clinicas</h1>
           <p className="text-muted-foreground">
-            Gestiona todas las historias clínicas y registros médicos
+            Gestiona todas las historias clinicas y registros medicos
           </p>
         </div>
         <Link to="/medical-records/new" state={{ background: location }}>
           <Button className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
-            Nueva Historia Clínica
+            Nueva Historia Clinica
           </Button>
         </Link>
       </div>
@@ -118,7 +119,7 @@ const MedicalRecords = () => {
       </Card>
 
       {/* Stats */}
-      {/* Stats básicos */}
+      {/* Stats basicos */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
@@ -133,7 +134,7 @@ const MedicalRecords = () => {
       {/* Medical Records List */}
       {loadingList && (
         <Card>
-          <CardContent className="pt-6">Cargando historias clínicas…</CardContent>
+          <CardContent className="pt-6">Cargando historias clinicas...</CardContent>
         </Card>
       )}
       {listError && (
@@ -159,27 +160,27 @@ const MedicalRecords = () => {
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || "—"}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || ""}</h3>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span className="font-medium">Creación:</span> {record.fecha_creacion || "—"}
+                      <span className="font-medium">Creacion:</span> {record.fecha_creacion || ""}
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <User className="h-4 w-4" />
                       <span className="font-medium">Paciente:</span> #{record.id_paciente}
                     </div>
                     <div className="text-muted-foreground">
-                      <span className="font-medium">Actualización:</span> {record.fecha_modificacion || "—"}
+                      <span className="font-medium">Actualizacion:</span> {record.fecha_modificacion || ""}
                     </div>
                   </div>
 
                   <div className="space-y-1">
                     <div className="text-sm">
                       <span className="font-medium text-foreground">Detalles:</span>
-                      <span className="text-muted-foreground ml-2">{record.detalles_generales || "—"}</span>
+                      <span className="text-muted-foreground ml-2">{record.detalles_generales || ""}</span>
                     </div>
                   </div>
                 </div>
@@ -223,7 +224,7 @@ const MedicalRecords = () => {
                       setOgError(null);
                       setOgLoading(true);
                       try {
-                        if (!rid) throw new Error("ID de historia inválido");
+                        if (!rid) throw new Error("ID de historia invalido");
                         const res: OdontogramaResponse = await abrirDraftOdontograma(rid, "empty");
                         setSelectedHistoriaId(String(rid));
                         setOgData(res);
@@ -243,18 +244,18 @@ const MedicalRecords = () => {
                       setOgError(null);
                       setOgLoading(true);
                       try {
-                        if (!rid) throw new Error("ID de historia inválido");
+                        if (!rid) throw new Error("ID de historia invalido");
                         const res: OdontogramaResponse = await abrirDraftOdontograma(rid, "from_last");
                         setSelectedHistoriaId(String(rid));
                         setOgData(res);
                       } catch (e: any) {
-                        setOgError(e?.message || "Error al abrir odontograma (desde último)");
+                        setOgError(e?.message || "Error al abrir odontograma (desde ultimo)");
                       } finally {
                         setOgLoading(false);
                       }
                     }}
                   >
-                    Abrir desde último consolidado
+                    Abrir desde ultimo consolidado
                   </Button>
                 </div>
               </div>
@@ -277,7 +278,7 @@ const MedicalRecords = () => {
                 </div>
               )}
               {selectedHistoriaId === String(rid) && ogLoading && (
-                <div className="text-sm text-muted-foreground">Cargando odontograma…</div>
+                <div className="text-sm text-muted-foreground">Cargando odontograma...</div>
               )}
               {selectedHistoriaId === String(rid) && ogError && (
                 <div className="text-sm text-red-600">{ogError}</div>
@@ -287,12 +288,12 @@ const MedicalRecords = () => {
         )})}
       </div>
 
-      {/* Paginación */}
+      {/* Paginacion */}
       <div className="flex justify-center items-center space-x-4 mt-6">
         <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
           Anterior
         </Button>
-        <span className="text-sm">Página {page} de {totalPages}</span>
+        <span className="text-sm">Pagina {page} de {totalPages}</span>
         <Button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
           Siguiente
         </Button>
@@ -302,7 +303,7 @@ const MedicalRecords = () => {
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground">
-              No se encontraron historias clínicas que coincidan con la búsqueda.
+              No se encontraron historias clinicas que coincidan con la busqueda.
             </p>
           </CardContent>
         </Card>

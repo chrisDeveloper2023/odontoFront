@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Eye, Edit, FileText, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
+import { API_BASE } from "@/lib/http";
 
 interface Patient {
   id: string;
@@ -17,6 +18,7 @@ interface Patient {
   email: string;
   lastVisit: string;
   status: "Activo" | "Inactivo";
+  occupation: string;
   medicalRecords: number;
 }
 
@@ -47,13 +49,13 @@ const Patients: React.FC = () => {
     async function fetchPacientes() {
       setLoading(true);
       try {
-        const base = import.meta.env.VITE_API_URL || "";
+        const base = API_BASE;
         const params = new URLSearchParams({
           page: String(page),
           limit: String(limit),
         });
 
-        // 🔑 Inactivos: pedir ya filtrados por el backend
+        //  Inactivos: pedir ya filtrados por el backend
         if (mostrarInactivos) {
           params.set("withDeleted", "true");
           params.set("onlyInactive", "true");
@@ -65,7 +67,7 @@ const Patients: React.FC = () => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
-        // Guardar total global reportado por el backend (no es el tamaño de la página)
+        // Guardar total global reportado por el backend (no es el tamano de la pagina)
         setTotalBackend(json.total || 0);
         setTotalPages(json.totalPages || 1);
 
@@ -89,10 +91,11 @@ const Patients: React.FC = () => {
           email: r.correo || r.email || "",
           lastVisit: r.fecha_nacimiento || r.lastVisit || "",
           status: r.activo ? "Activo" : "Inactivo",
+          occupation: r.ocupacion || "",
           medicalRecords: r.medicalRecords ?? 0,
         }));
 
-        // 👇 Ya NO filtramos por estado en el cliente; viene listo desde el backend
+        //  Ya NO filtramos por estado en el cliente; viene listo desde el backend
         setPatients(mapped);
         setError(null);
       } catch (err) {
@@ -105,7 +108,7 @@ const Patients: React.FC = () => {
     fetchPacientes();
   }, [page, mostrarInactivos]);
 
-  // Búsqueda por texto (filtra lo que se muestra, NO afecta el total del backend)
+  // Busqueda por texto (filtra lo que se muestra, NO afecta el total del backend)
   const term = searchTerm.toLowerCase();
   const filtered = patients.filter(
     (p) =>
@@ -114,7 +117,7 @@ const Patients: React.FC = () => {
       p.email.toLowerCase().includes(term)
   );
 
-  if (loading) return <div className="p-4">Cargando pacientes…</div>;
+  if (loading) return <div className="p-4">Cargando pacientes...</div>;
   if (error) return <div className="p-4 text-red-600">Error al cargar pacientes: {error}</div>;
 
   const location = useLocation();
@@ -142,7 +145,7 @@ const Patients: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar pacientes por nombre, teléfono o email..."
+              placeholder="Buscar pacientes por nombre, telefono o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -160,7 +163,7 @@ const Patients: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {/* 🔢 Total global reportado por el backend para esta consulta */}
+            {/*  Total global reportado por el backend para esta consulta */}
             <div className="text-2xl font-bold text-primary">{totalBackend}</div>
           </CardContent>
         </Card>
@@ -168,7 +171,7 @@ const Patients: React.FC = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">
-              En esta página (post-búsqueda)
+              En esta pagina (post-busqueda)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -179,7 +182,7 @@ const Patients: React.FC = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">
-              Historias Clínicas (página)
+              Historias Clinicas (pagina)
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -199,7 +202,7 @@ const Patients: React.FC = () => {
             setMostrarInactivos((v) => !v);
           }}
         >
-          {mostrarInactivos ? "👁️ Ver Activos" : "🗂️ Ver Inactivos"}
+          {mostrarInactivos ? " Ver Activos" : " Ver Inactivos"}
         </Button>
       </div>
 
@@ -217,14 +220,15 @@ const Patients: React.FC = () => {
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-sm text-muted-foreground">
-                    <div><strong>Edad:</strong> {patient.age} años</div>
-                    <div><strong>Género:</strong> {patient.gender}</div>
-                    <div><strong>Teléfono:</strong> {patient.phone}</div>
+                    <div><strong>Edad:</strong> {patient.age} anios</div>
+                    <div><strong>Genero:</strong> {patient.gender}</div>
+                    <div><strong>Telefono:</strong> {patient.phone}</div>
                     <div><strong>Email:</strong> {patient.email}</div>
+                    <div><strong>Ocupacion:</strong> {patient.occupation || "No registrada"}</div>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div><strong>Última visita:</strong> {patient.lastVisit}</div>
-                    <div><strong>Historias clínicas:</strong> {patient.medicalRecords}</div>
+                    <div><strong>Ultima visita:</strong> {patient.lastVisit}</div>
+                    <div><strong>Historias clinicas:</strong> {patient.medicalRecords}</div>
                   </div>
                 </div>
 
@@ -236,7 +240,7 @@ const Patients: React.FC = () => {
                     <Button variant="outline" size="sm"><Edit /></Button>
                   </Link>
                   <Link to={`/medical-records?id_paciente=${patient.id}`}>
-                    <Button variant="outline" size="sm" title="Ver historias clínicas">
+                    <Button variant="outline" size="sm" title="Ver historias clinicas">
                       <FileText className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -252,13 +256,13 @@ const Patients: React.FC = () => {
                       variant="destructive"
                       size="sm"
                       onClick={async () => {
-                        if (window.confirm("¿Estás seguro de eliminar este paciente?")) {
+                        if (window.confirm("Estas seguro de eliminar este paciente?")) {
                           try {
-                            const base = import.meta.env.VITE_API_URL || "";
+                            const base = API_BASE;
                             const res = await fetch(`${base}/pacientes/${patient.id}`, { method: "DELETE" });
                             if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             // Saca de la UI actual
-                            // (No tocamos totalBackend; lo recalculará en el próximo fetch si cambias de página o recargas)
+                            // (No tocamos totalBackend; lo recalculara en el proximo fetch si cambias de pagina o recargas)
                             setPatients((p) => p.filter((x) => x.id !== patient.id));
                           } catch (err) {
                             alert("Error al eliminar paciente");
@@ -267,7 +271,7 @@ const Patients: React.FC = () => {
                         }
                       }}
                     >
-                      🗑️
+                      
                     </Button>
                   )}
 
@@ -278,7 +282,7 @@ const Patients: React.FC = () => {
                       variant="outline"
                       size="sm"
                       onClick={async () => {
-                        const base = import.meta.env.VITE_API_URL || "";
+                        const base = API_BASE;
                         const res = await fetch(`${base}/pacientes/${patient.id}/restore`, { method: "PUT" });
                         if (!res.ok) return alert("No se pudo restaurar");
                         // Quita el restaurado de la lista de inactivos
@@ -310,7 +314,7 @@ const Patients: React.FC = () => {
           Anterior
         </Button>
         <span className="text-sm">
-          Página {page} de {totalPages}
+          Pagina {page} de {totalPages}
         </span>
         <Button onClick={() => setPage((p) => Math.min(p + 1, totalPages))} disabled={page === totalPages}>
           Siguiente

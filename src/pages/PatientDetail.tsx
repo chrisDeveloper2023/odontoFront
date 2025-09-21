@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
+import { API_BASE } from "@/lib/http";
 
 interface RawPaciente {
   id_paciente: number;
@@ -31,6 +32,7 @@ interface PatientDetail {
   observations: string;
   documentType: string;
   document: string;
+  occupation: string;
   status: "Activo" | "Inactivo";
 }
 
@@ -53,7 +55,7 @@ const PatientDetail: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${import.meta.env.VITE_API_URL}/pacientes/${id}`)
+    fetch(`${API_BASE}/pacientes/${id}`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -70,6 +72,7 @@ const PatientDetail: React.FC = () => {
           observations: raw.observaciones,
           documentType: raw.tipo_documento,
           document: raw.documento_identidad,
+          occupation: raw.ocupacion ?? "",
           status: raw.activo ? "Activo" : "Inactivo",
         };
         setPatient(mapped);
@@ -80,10 +83,10 @@ const PatientDetail: React.FC = () => {
 
   const handleDelete = async () => {
     if (!patient) return;
-    if (!window.confirm("¿Estás seguro de eliminar este paciente?")) return;
+    if (!window.confirm("Estas seguro de eliminar este paciente?")) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patient.id}`, {
+      const res = await fetch(`${API_BASE}/pacientes/${patient.id}`, {
         method: "DELETE",
       });
 
@@ -96,7 +99,7 @@ const PatientDetail: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="p-4">Cargando detalle…</div>;
+  if (loading) return <div className="p-4">Cargando detalle...</div>;
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
   if (!patient) return <div className="p-4">Paciente no encontrado</div>;
 
@@ -115,11 +118,11 @@ const PatientDetail: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-2">
           <div><strong>Documento:</strong> {patient.documentType} - {patient.document}</div>
-          <div><strong>Edad:</strong> {patient.age} años</div>
-          <div><strong>Género:</strong> {patient.gender}</div>
-          <div><strong>Teléfono:</strong> {patient.phone}</div>
+          <div><strong>Edad:</strong> {patient.age} anos</div>
+          <div><strong>Genero:</strong> {patient.gender}</div>
+          <div><strong>Telefono:</strong> {patient.phone}</div>
           <div><strong>Email:</strong> {patient.email}</div>
-          <div><strong>Dirección:</strong> {patient.address}</div>
+          <div><strong>Direccion:</strong> {patient.address}</div>
           <div><strong>Observaciones:</strong> {patient.observations}</div>
         </CardContent>
       </Card>

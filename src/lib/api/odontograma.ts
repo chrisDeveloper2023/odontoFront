@@ -43,10 +43,11 @@ export type OdontogramaResponse = {
   estadoBucal?: any | null;
 };
 
-const API = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+const API = API_BASE;
 
 /* --------------------------- helpers HTTP --------------------------- */
 
+import { API_BASE } from "@/lib/http";
 import { getTenantHeaders } from "@/lib/tenant";
 
 async function httpJson(url: string, init?: RequestInit) {
@@ -147,7 +148,7 @@ export async function patchSuperficie(params: {
   });
 }
 
-/** Ejecuta `op()` y, si falla por consolidado u otros errores típicos, abre draft y reintenta una vez. */
+/** Ejecuta `op()` y, si falla por consolidado u otros errores tipicos, abre draft y reintenta una vez. */
 export async function withDraftRetry<T>(
   op: () => Promise<T>,
   ctx?: { citaId?: string | number; historiaId?: number }
@@ -161,13 +162,13 @@ export async function withDraftRetry<T>(
     const looksConsolidated =
       /consolidad/.test(msg) || /no se puede editar.*consolidado/.test(msg);
 
-    // Algunos backends mal mapeados devuelven 500 para casos de estado inválido.
+    // Algunos backends mal mapeados devuelven 500 para casos de estado invalido.
     const retriableStatus = status === 400 || status === 404 || status === 409 || (status === 500 && looksConsolidated);
 
     const canOpen = Boolean(ctx?.citaId && ctx?.historiaId);
 
     if (retriableStatus && canOpen) {
-      // Abre draft y reintenta una única vez
+      // Abre draft y reintenta una unica vez
       await abrirDraftOdontograma(ctx!.historiaId!);
       return op();
     }

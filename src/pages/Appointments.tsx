@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, CalendarPlus, Eye } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { API_BASE } from "@/lib/http";
 
 interface Appointment {
   id_cita: number;
@@ -33,12 +34,12 @@ const Appointments = () => {
       setLoading(true);
       setError(null);
       try {
-        const base = import.meta.env.VITE_API_URL || "";
+        const base = API_BASE;
         const params = new URLSearchParams();
-        // Parámetros estándar
+        // ParAmetros estAndar
         params.set("page", String(page));
         params.set("limit", String(limit));
-        // Sinónimos comunes por compatibilidad
+        // SinA3nimos comunes por compatibilidad
         params.set("pageNumber", String(page));
         params.set("page_size", String(limit));
         params.set("pageSize", String(limit));
@@ -65,7 +66,7 @@ const Appointments = () => {
               : Array.isArray(json?.items)
                 ? json.items
                 : [];
-        // Fallback: si no hay totales y llega más de 'limit', recorta para simular paginado
+        // Fallback: si no hay totales y llega mAs de 'limit', recorta para simular paginado
         const normalized = list.length > limit && (!json?.total && !json?.totalPages) ? list.slice(0, limit) : list;
         setAppointments(normalized);
       } catch (err: any) {
@@ -106,7 +107,7 @@ const Appointments = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Citas Médicas</h1>
+          <h1 className="text-3xl font-bold text-foreground">Citas MAdicas</h1>
           <p className="text-muted-foreground">Listado de citas agendadas</p>
         </div>
         <Link to="/appointments/new" state={{ background: location }}>
@@ -124,7 +125,7 @@ const Appointments = () => {
             <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por paciente o médico..."
+                placeholder="Buscar por paciente o mAdico..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -175,7 +176,7 @@ const Appointments = () => {
                     </div>
                     <div className="text-sm text-muted-foreground">
                       <div>
-                        <span className="font-medium">Médico:</span>{" "}
+                        <span className="font-medium">MAdico:</span>{" "}
                         {`${appointment.odontologo?.nombres ?? ""} ${appointment.odontologo?.apellidos ?? ""}`}
                       </div>
                       <div>
@@ -202,17 +203,17 @@ const Appointments = () => {
       {filteredAppointments.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">No se encontraron citas que coincidan con la búsqueda.</p>
+            <p className="text-muted-foreground">No se encontraron citas que coincidan con la bAosqueda.</p>
           </CardContent>
         </Card>
       )}
 
-      {/* Paginación */}
+      {/* PaginaciA3n */}
       <div className="flex justify-center items-center space-x-4 mt-6">
         <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
           Anterior
         </Button>
-        <span className="text-sm">Página {page} de {totalPages}</span>
+        <span className="text-sm">PAgina {page} de {totalPages}</span>
         <Button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
           Siguiente
         </Button>
@@ -222,3 +223,6 @@ const Appointments = () => {
 };
 
 export default Appointments;
+
+
+

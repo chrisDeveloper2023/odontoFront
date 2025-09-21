@@ -19,6 +19,7 @@ import { ArrowLeft, User } from "lucide-react";
 import { getDisponibilidad } from "@/servicios/citas";
 import { getOdontologos } from "@/servicios/usuarios";
 
+import { API_BASE } from "@/lib/http";
 
 interface Paciente {
   id_paciente: number;
@@ -40,7 +41,7 @@ interface Consultorio {
   id_consultorio: number;
   nombre: string;
 }
-// Convierte "YYYY-MM-DD", "HH:mm" a "YYYY-MM-DDTHH:mm:00±HH:MM"
+// Convierte "YYYY-MM-DD", "HH:mm" a "YYYY-MM-DDTHH:mm:00HH:MM"
 function buildISOWithOffset(fecha: string, hora: string): string {
   const [y, m, d] = fecha.split("-").map(Number);
   const [hh, mm] = hora.split(":").map(Number);
@@ -65,7 +66,7 @@ function buildISOWithOffset(fecha: string, hora: string): string {
 }
 
 
-const ODONTOLOGO_ROLE_ID = 1; // ajusta si tu rol de odontólogo tuviese otro id
+const ODONTOLOGO_ROLE_ID = 1; // ajusta si tu rol de odontologo tuviese otro id
 
 const NewAppointmentForm = () => {
   const navigate = useNavigate();
@@ -100,8 +101,8 @@ const NewAppointmentForm = () => {
       try {
         // 1) Pacientes y consultorios (igual que antes)
         const [pacRes, conRes] = await Promise.all([
-          fetch(`${import.meta.env.VITE_API_URL}/pacientes`),
-          fetch(`${import.meta.env.VITE_API_URL}/consultorios`),
+          fetch(`${API_BASE}/pacientes`),
+          fetch(`${API_BASE}/consultorios`),
         ]);
 
         const [pacData, conData] = await Promise.all([
@@ -112,14 +113,14 @@ const NewAppointmentForm = () => {
         setPacientes(Array.isArray(pacData) ? pacData : pacData.data || []);
         setConsultorios(Array.isArray(conData) ? conData : conData.data || []);
 
-        // 2) MÉDICOS (Odontólogos) — ahora vienen del servicio
+        // 2) MEDICOS (Odontologos)  ahora vienen del servicio
         const docs = await getOdontologos();
         setDoctores(docs);
-        console.debug("Odontólogos detectados:", docs);
+        console.debug("Odontologos detectados:", docs);
 
-        // 3) Clínicas (opcional): si existe endpoint, lo usamos; si falla, mantenemos 2 sucursales por defecto
+        // 3) Clinicas (opcional): si existe endpoint, lo usamos; si falla, mantenemos 2 sucursales por defecto
         try {
-          const clinRes = await fetch(`${import.meta.env.VITE_API_URL}/clinicas`).catch(() => null);
+          const clinRes = await fetch(`${API_BASE}/clinicas`).catch(() => null);
           if (clinRes && clinRes.ok) {
             const body = await clinRes.json();
             const list = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
@@ -144,7 +145,7 @@ const NewAppointmentForm = () => {
   // Helper: sacar "HH:mm" de un ISO (evita corrimientos por zona horaria)
   const isoToHHmm = (iso: string) => iso.slice(11, 16);
 
-  // Cargar disponibilidad cuando hay consultorio + fecha + duración
+  // Cargar disponibilidad cuando hay consultorio + fecha + duracion
   useEffect(() => {
     const { id_consultorio, fecha } = formData;
     // Al cambiar filtros, limpia hora seleccionada para evitar inconsistencias
@@ -191,7 +192,7 @@ const NewAppointmentForm = () => {
         estado: "AGENDADA",
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/citas`, {
+      const res = await fetch(`${API_BASE}/citas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -227,7 +228,7 @@ const NewAppointmentForm = () => {
           Volver
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Agendar Cita Médica</h1>
+          <h1 className="text-3xl font-bold text-foreground">Agendar Cita Medica</h1>
           <p className="text-muted-foreground">Registra una nueva cita.</p>
         </div>
       </div>
@@ -237,7 +238,7 @@ const NewAppointmentForm = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5 text-primary" />
-              Información de la Consulta
+              Informacion de la Consulta
             </CardTitle>
             <CardDescription>
               Completa los datos para agendar una nueva cita.
@@ -246,9 +247,9 @@ const NewAppointmentForm = () => {
 
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Clínica (requerida) */}
+              {/* Clinica (requerida) */}
               <div className="md:col-span-2">
-                <Label>Clínica</Label>
+                <Label>Clinica</Label>
                 <Select
                   value={formData.id_clinica}
                   onValueChange={(v) => handleSelectChange("id_clinica", v)}
@@ -257,9 +258,9 @@ const NewAppointmentForm = () => {
                     {formData.id_clinica
                       ? (() => {
                           const c = clinicas.find((x) => String(x.id) === formData.id_clinica);
-                          return c ? c.nombre : "Seleccionar clínica";
+                          return c ? c.nombre : "Seleccionar clinica";
                         })()
-                      : "Seleccionar clínica"}
+                      : "Seleccionar clinica"}
                   </SelectTrigger>
                   <SelectContent className="max-h-64">
                     {clinicas.map((c) => (
@@ -297,9 +298,9 @@ const NewAppointmentForm = () => {
                 </Select>
               </div>
 
-              {/* Médico */}
+              {/* Medico */}
               <div>
-                <Label>Médico</Label>
+                <Label>Medico</Label>
                 <Select
                   value={formData.id_odontologo}
                   onValueChange={(v) => handleSelectChange("id_odontologo", v)}
@@ -308,9 +309,9 @@ const NewAppointmentForm = () => {
                     {formData.id_odontologo
                       ? (() => {
                         const d = doctores.find((x) => String(x.id) === formData.id_odontologo);
-                        return d ? `${d.nombres} ${d.apellidos}` : "Seleccionar médico";
+                        return d ? `${d.nombres} ${d.apellidos}` : "Seleccionar medico";
                       })()
-                      : "Seleccionar médico"}
+                      : "Seleccionar medico"}
                   </SelectTrigger>
                   <SelectContent>
                     {doctores.map((d) => (
@@ -360,9 +361,9 @@ const NewAppointmentForm = () => {
                 />
               </div>
 
-              {/* Duración */}
+              {/* Duracion */}
               <div>
-                <Label>Duración (min)</Label>
+                <Label>Duracion (min)</Label>
                 <Select value={String(duracion)} onValueChange={(v) => setDuracion(Number(v))}>
                   <SelectTrigger className="w-full">
                     {duracion ? `${duracion} minutos` : "Seleccionar"}
@@ -389,7 +390,7 @@ const NewAppointmentForm = () => {
                     {formData.hora
                       ? formData.hora
                       : slotsLoading
-                        ? "Cargando disponibilidad…"
+                        ? "Cargando disponibilidad..."
                         : slots.length
                           ? "Seleccionar horario"
                           : slotsError
@@ -409,7 +410,7 @@ const NewAppointmentForm = () => {
                 </Select>
                 {slotsError && (
                   <p className="text-xs text-red-500 mt-1">
-                    {slotsError}. Intenta cambiar fecha, consultorio o duración.
+                    {slotsError}. Intenta cambiar fecha, consultorio o duracion.
                   </p>
                 )}
               </div>

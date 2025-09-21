@@ -1,111 +1,103 @@
+
 import { useState } from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
-
-
+import { apiPost } from "@/api/client";
+import { toast } from "sonner";
 
 const NewClinicForm = () => {
   const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     address: "",
-    city: "",
     phone: "",
     email: "",
-    status: "Activa",
+    status: "Activa" as "Activa" | "Inactiva",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleStatusChange = (value: string) => {
-    setFormData({ ...formData, status: value });
+    setFormData((prev) => ({ ...prev, status: value as "Activa" | "Inactiva" }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Clínica registrada:", formData);
-
-    
-
-    // Aquí podrías hacer un POST a una API...
-    // await axios.post("/api/clinics", formData);
-
-    navigate("/clinics"); // Redirigir a listado de clínicas
+  const resetForm = () => {
+    setFormData({ name: "", address: "", phone: "", email: "", status: "Activa" });
   };
 
-  const handleReset = () => {
-    setFormData({
-      name: "",
-      address: "",
-      city: "",
-      phone: "",
-      email: "",
-      status: "Activa",
-    });
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error("El nombre de la clinica es obligatorio");
+      return;
+    }
+
+    const payload = {
+      nombre: formData.name.trim(),
+      direccion: formData.address.trim() || null,
+      telefono: formData.phone.trim() || null,
+      correo: formData.email.trim() || null,
+      activo: formData.status === "Activa",
+    };
+
+    try {
+      setSaving(true);
+      await apiPost('/clinicas', payload);
+      toast.success('Clinica registrada correctamente');
+      resetForm();
+      navigate('/ListaClinicas');
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error?.message || 'No se pudo registrar la clinica');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Registrar Clínica</CardTitle>
-        <CardDescription>Completa la información de la clínica.</CardDescription>
+        <CardTitle>Registrar clinica</CardTitle>
+        <CardDescription>Completa la informacion basica de la clinica</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Nombre de la Clínica</Label>
+              <Label>Nombre de la clinica *</Label>
               <Input
                 name="name"
-                placeholder="Ej: Clínica Santa María"
+                placeholder="Ej: Clinica Central"
                 value={formData.name}
                 onChange={handleChange}
                 required
               />
             </div>
             <div>
-              <Label>Ciudad</Label>
-              <Input
-                name="city"
-                placeholder="Ej: Quito"
-                value={formData.city}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Dirección</Label>
-              <Textarea
-                name="address"
-                placeholder="Ej: Av. Siempre Viva 123"
-                value={formData.address}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <Label>Teléfono</Label>
+              <Label>Telefono</Label>
               <Input
                 name="phone"
                 placeholder="+593 987654321"
                 value={formData.phone}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Direccion</Label>
+              <Textarea
+                name="address"
+                placeholder="Av. Principal 123"
+                value={formData.address}
                 onChange={handleChange}
               />
             </div>
@@ -119,11 +111,11 @@ const NewClinicForm = () => {
                 onChange={handleChange}
               />
             </div>
-            <div className="md:col-span-2">
+            <div>
               <Label>Estado</Label>
               <Select value={formData.status} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-full">
-                  <span>{formData.status}</span>
+                  <SelectValue placeholder="Selecciona estado" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Activa">Activa</SelectItem>
@@ -133,12 +125,14 @@ const NewClinicForm = () => {
             </div>
           </div>
           <div className="flex justify-end gap-4 pt-4">
-            <Button type="button" variant="secondary" onClick={handleReset}>
+            <Button type="button" variant="secondary" onClick={resetForm} disabled={saving}>
               Limpiar
             </Button>
-            <Button type="submit">Registrar Clínica</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Guardando?' : 'Registrar clinica'}
+            </Button>
           </div>
-         </form>
+        </form>
       </CardContent>
     </Card>
   );
