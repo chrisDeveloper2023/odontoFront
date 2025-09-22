@@ -1,4 +1,4 @@
-// src/App.tsx
+﻿// src/App.tsx
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +18,7 @@ import NewAppointmentForm from "./pages/NewAppointmentForm";
 import Appointments from "./pages/Appointments";
 import NewClinicForm from "./pages/NewClinicaForm";
 import ListaClinicas from "./pages/ListaClinicas";
+import CalendarPage from "./pages/Calendar";
 import AppointmentDetail from "./pages/AppointmentDetail";
 import AppointmentEdit from "./pages/AppointmentEdit";
 import OdontogramPage from "./pages/Odontograma";
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="/NuevosPacientes/new" element={<Layout><NewPaciente /></Layout>} />
         <Route path="/appointments" element={<Layout><Appointments /></Layout>} />
         <Route path="/appointments/new" element={<Layout><NewAppointmentForm /></Layout>} />
+        <Route path="/calendar" element={<Layout><CalendarPage /></Layout>} />
         <Route path="/clinics/new" element={<Layout><NewClinicForm /></Layout>} />
         <Route path="/ListaClinicas" element={<Layout><ListaClinicas /></Layout>} />
         <Route path="appointments/:id" element={<AppointmentDetail />} />

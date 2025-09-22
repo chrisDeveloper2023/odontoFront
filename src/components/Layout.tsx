@@ -1,6 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
+﻿import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, FileText, Calendar, Plus } from "lucide-react";
+import { Heart, Users, FileText, Calendar, CalendarDays, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSelector from "@/components/TenantSelector";
 
@@ -14,8 +14,9 @@ const Layout = ({ children }: LayoutProps) => {
   const navigation = [
     { name: "Dashboard", href: "/", icon: Heart },
     { name: "Pacientes", href: "/patients", icon: Users },
-    { name: "Historias Clínicas", href: "/medical-records", icon: FileText },
-    { name: "Citas", href: "/Appointments", icon: Calendar },
+    { name: "Historias Clinicas", href: "/medical-records", icon: FileText },
+    { name: "Citas", href: "/appointments", icon: Calendar },
+    { name: "Calendario", href: "/calendar", icon: CalendarDays },
   ];
 
   return (
@@ -30,7 +31,7 @@ const Layout = ({ children }: LayoutProps) => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">ClinicSoft</h1>
-                <p className="text-sm text-muted-foreground">Sistema de Historias Clínicas</p>
+                <p className="text-sm text-muted-foreground">Sistema de Historias Clinicas</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

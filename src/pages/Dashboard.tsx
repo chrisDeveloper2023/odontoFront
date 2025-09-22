@@ -1,8 +1,8 @@
-// src/pages/Dashboard.tsx
+﻿// src/pages/Dashboard.tsx
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, Calendar, TrendingUp, Plus, Activity } from "lucide-react";
+import { Users, FileText, Calendar, CalendarDays, TrendingUp, Plus, Activity } from "lucide-react";
 import { Link } from "react-router-dom";
 import ListaClinicas from "./ListaClinicas";
 import { API_BASE } from "@/lib/http";
@@ -168,6 +168,12 @@ const Dashboard = () => {
             <Link to="/appointments/new" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Calendar className="h-4 w-4 mr-2" />
+            <Link to="/calendar" className="block">
+              <Button variant="outline" className="w-full justify-start">
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Ver Calendario
+              </Button>
+            </Link>
                 Programar Cita
               </Button>
             </Link>
