@@ -1,23 +1,25 @@
 // src/pages/Calendar.tsx
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  CalendarPlus, 
-  Settings, 
-  Eye, 
-  ChevronLeft, 
-  ChevronRight, 
-  Bell, 
-  HelpCircle, 
+import {
+  CalendarPlus,
+  Settings,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Bell,
+  HelpCircle,
   User,
   CheckCircle,
   Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import NewAppointmentModal from "@/components/NewAppointmentModal";
+import NewAppointmentModal, { NewAppointmentPayload } from "@/components/NewAppointmentModal";
+import { apiGet, apiPost } from "@/api/client";
+import { toast } from "sonner";
 import CalendarSettingsModal from "@/components/CalendarSettingModal";
 import { getOdontologos } from "@/servicios/usuarios";
 
@@ -30,6 +32,7 @@ interface Cita {
   horaFin: string;
   color: string;
   odontologo: string;
+  estado?: string;
   icono?: string;
   fecha?: Date;
 }
@@ -46,6 +49,49 @@ interface Odontologo {
   color: string;
 }
 
+type BackendCita = {
+  id_cita?: number;
+  id?: number;
+  fecha_hora: string;
+  duracion_minutos?: number | null;
+  estado?: string | null;
+  observaciones?: string | null;
+  paciente?: { nombres?: string | null; apellidos?: string | null } | null;
+  odontologo?: { id?: number; nombres?: string | null; apellidos?: string | null } | null;
+  consultorio?: { id_consultorio?: number; nombre?: string | null; id_clinica?: number | null } | null;
+  id_paciente?: number | null;
+  id_odontologo?: number | null;
+  id_consultorio?: number | null;
+  id_clinica?: number | null;
+};
+
+const DOCTOR_COLORS = [
+  "bg-pink-500",
+  "bg-yellow-500",
+  "bg-red-500",
+  "bg-blue-500",
+  "bg-green-500",
+];
+
+const buildNombreCompleto = (nombres?: string | null, apellidos?: string | null) => {
+  return [nombres, apellidos].filter(Boolean).join(" ").trim();
+};
+
+const combinarFechaHora = (fecha: Date, hora: string) => {
+  const [h, m] = hora.split(":").map((value) => parseInt(value, 10) || 0);
+  const result = new Date(fecha);
+  result.setHours(h, m, 0, 0);
+  return result;
+};
+
+const sumarMinutos = (fecha: Date, minutos: number) => {
+  return new Date(fecha.getTime() + minutos * 60000);
+};
+
+const formatearHoraDesdeFecha = (fecha: Date) => {
+  return fecha.toTimeString().slice(0, 5);
+};
+
 const Calendar: React.FC = () => {
   const [fechaActual, setFechaActual] = useState(new Date());
   const [vistaActual, setVistaActual] = useState<'dia' | 'semana' | 'mes'>('semana');
@@ -56,6 +102,10 @@ const Calendar: React.FC = () => {
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [loadingDoctores, setLoadingDoctores] = useState(false);
   const [odontologos, setOdontologos] = useState<Odontologo[]>([]);
+  const [loadingCitas, setLoadingCitas] = useState(false);
+  const [citasError, setCitasError] = useState<string | null>(null);
+  const [creatingAppointment, setCreatingAppointment] = useState(false);
+  const [odontologosListo, setOdontologosListo] = useState(false);
 
   // Datos de ejemplo basados en la imagen
   const citasEjemplo: Cita[] = [
@@ -201,44 +251,33 @@ const Calendar: React.FC = () => {
       try {
         const doctoresData = await getOdontologos();
         setDoctores(doctoresData);
-        
-        // Inicializar odontlogos con colores por defecto
+
         const odontologosIniciales = doctoresData.map((doctor, index) => {
-          const colores = ["bg-pink-500", "bg-yellow-500", "bg-red-500", "bg-blue-500", "bg-green-500"];
+          const color = DOCTOR_COLORS[index % DOCTOR_COLORS.length];
           return {
             id: doctor.id,
-            nombre: `${doctor.nombres} ${doctor.apellidos}`,
-            color: colores[index % colores.length]
+            nombre: buildNombreCompleto(doctor.nombres, doctor.apellidos),
+            color,
           };
         });
         setOdontologos(odontologosIniciales);
-        
-        // Actualizar citas de ejemplo con nombres reales de mdicos
-        const citasActualizadas = citasEjemplo.map((cita, index) => {
-          const doctor = doctoresData[index % doctoresData.length];
-          const odontologo = odontologosIniciales[index % odontologosIniciales.length];
-          return {
-            ...cita,
-            odontologo: `${doctor.nombres} ${doctor.apellidos}`,
-            color: odontologo.color
-          };
-        });
-        setCitas(citasActualizadas);
+        setOdontologosListo(true);
       } catch (error) {
-        console.error("Error cargando mdicos:", error);
-        // Fallback a datos por defecto
-        const doctoresPorDefecto = [
+        console.error("Error cargando medicos:", error);
+        const doctoresFallback = [
           { id: 1, nombres: "Guadalupe", apellidos: "Guerrero" },
           { id: 2, nombres: "Pamela", apellidos: "Gil" },
           { id: 3, nombres: "Juan", apellidos: "Domingo" },
         ];
-        setDoctores(doctoresPorDefecto);
+        setDoctores(doctoresFallback);
         setOdontologos([
           { id: 1, nombre: "Guadalupe Guerrero", color: "bg-pink-500" },
           { id: 2, nombre: "Pamela Gil", color: "bg-yellow-500" },
           { id: 3, nombre: "Juan Domingo", color: "bg-red-500" },
         ]);
         setCitas(citasEjemplo);
+        setOdontologosListo(true);
+        toast.error("No se pudieron cargar los medicos");
       } finally {
         setLoadingDoctores(false);
       }
@@ -247,6 +286,99 @@ const Calendar: React.FC = () => {
     cargarDoctores();
   }, []);
 
+    const obtenerRangoFechas = useCallback(() => {
+    const inicio = new Date(fechaActual);
+    const fin = new Date(fechaActual);
+
+    if (vistaActual === "dia") {
+      inicio.setHours(0, 0, 0, 0);
+      fin.setHours(23, 59, 59, 999);
+      return { inicio, fin };
+    }
+
+    if (vistaActual === "semana") {
+      const dia = inicio.getDay();
+      const diff = inicio.getDate() - dia + (dia === 0 ? -6 : 1);
+      inicio.setDate(diff);
+      inicio.setHours(0, 0, 0, 0);
+      fin.setDate(diff + 6);
+      fin.setHours(23, 59, 59, 999);
+      return { inicio, fin };
+    }
+
+    // vista mes
+    inicio.setDate(1);
+    inicio.setHours(0, 0, 0, 0);
+    fin.setMonth(inicio.getMonth() + 1, 0);
+    fin.setHours(23, 59, 59, 999);
+    return { inicio, fin };
+  }, [fechaActual, vistaActual]);
+
+  const fetchCitas = useCallback(async () => {
+    if (!odontologosListo) {
+      return;
+    }
+    const { inicio, fin } = obtenerRangoFechas();
+    setLoadingCitas(true);
+    setCitasError(null);
+    try {
+      const response = await apiGet<any>("/citas", {
+        page: 1,
+        limit: 500,
+        desde: inicio.toISOString(),
+        hasta: fin.toISOString(),
+      });
+
+      const lista = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+
+      const normalizadas: Cita[] = lista
+        .map((raw: BackendCita) => {
+          if (!raw?.fecha_hora) return null;
+          const inicioCita = new Date(raw.fecha_hora);
+          if (Number.isNaN(inicioCita.getTime())) return null;
+          const duracion = raw.duracion_minutos && raw.duracion_minutos > 0 ? raw.duracion_minutos : 60;
+          const finCita = sumarMinutos(inicioCita, duracion);
+
+          const nombrePaciente = buildNombreCompleto(raw.paciente?.nombres, raw.paciente?.apellidos) || "Paciente";
+          const nombreOdontologo = buildNombreCompleto(raw.odontologo?.nombres, raw.odontologo?.apellidos) || "Sin asignar";
+          const estado = (raw.estado || "AGENDADA").toUpperCase();
+          const colorConfig = odontologos.find((o) => o.nombre === nombreOdontologo)?.color;
+          const colorEstado = ESTADO_COLOR[estado] || "bg-blue-500";
+
+          return {
+            id: raw.id_cita ?? raw.id ?? Number(inicioCita.getTime()),
+            paciente: nombrePaciente,
+            tipo: estado,
+            descripcion: raw.observaciones || "",
+            horaInicio: formatearHoraDesdeFecha(inicioCita),
+            horaFin: formatearHoraDesdeFecha(finCita),
+            color: colorConfig || colorEstado,
+            odontologo: nombreOdontologo,
+            icono: "",
+            fecha: inicioCita,
+            estado,
+          } as Cita;
+        })
+        .filter((item): item is Cita => Boolean(item));
+
+      setCitas(normalizadas);
+    } catch (error: any) {
+      console.error("Error cargando citas:", error);
+      setCitasError(error?.message || "No se pudieron cargar las citas");
+      setCitas(citasEjemplo);
+    } finally {
+      setLoadingCitas(false);
+    }
+  }, [obtenerRangoFechas, odontologos, odontologosListo]);
+
+  useEffect(() => {
+    if (!odontologosListo) return;
+    fetchCitas();
+  }, [fetchCitas, odontologosListo]);
   const obtenerDiasSemana = () => {
     const inicioSemana = new Date(fechaActual);
     const dia = inicioSemana.getDay();
@@ -393,21 +525,38 @@ const Calendar: React.FC = () => {
   };
 
   const diasSemana = obtenerDiasSemana();
+  const citasDelDiaSeleccionado = useMemo(() => obtenerCitasDelDiaSeleccionado(), [citas, fechaSeleccionada]);
   const horaActual = obtenerHoraActual();
 
-  const handleNewAppointment = (appointmentData: any) => {
-    const nuevaCita: Cita = {
-      id: Date.now(), // ID temporal
-      paciente: appointmentData.paciente,
-      tipo: appointmentData.tipo,
-      descripcion: appointmentData.descripcion || appointmentData.tipo,
-      horaInicio: appointmentData.horaInicio,
-      horaFin: appointmentData.horaFin,
-      color: appointmentData.color,
-      odontologo: appointmentData.odontologo,
-      icono: ""
-    };
-    setCitas(prev => [...prev, nuevaCita]);
+  const handleNewAppointment = async (appointment: NewAppointmentPayload) => {
+    try {
+      setCreatingAppointment(true);
+      const inicio = combinarFechaHora(appointment.fecha, appointment.horaInicio);
+      const fin = combinarFechaHora(appointment.fecha, appointment.horaFin);
+      const duracion = Math.max(15, Math.round((fin.getTime() - inicio.getTime()) / 60000));
+
+      const payload = {
+        id_paciente: appointment.idPaciente,
+        id_odontologo: appointment.idOdontologo,
+        id_consultorio: appointment.idConsultorio,
+        id_clinica: appointment.idClinica,
+        fecha_hora: inicio.toISOString(),
+        duracion_minutos: duracion,
+        observaciones: appointment.descripcion || null,
+        estado: "AGENDADA",
+      };
+
+      await apiPost("/citas", payload);
+      toast.success("Cita creada correctamente");
+      await fetchCitas();
+      setIsNewAppointmentOpen(false);
+    } catch (error: any) {
+      console.error("Error creando cita:", error);
+      toast.error(error?.message || "No se pudo crear la cita");
+      throw error;
+    } finally {
+      setCreatingAppointment(false);
+    }
   };
 
   const handleSaveSettings = (nuevosOdontologos: Odontologo[]) => {
@@ -651,8 +800,18 @@ const Calendar: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Eventos del Da */}
-                      {obtenerCitasDelDiaSeleccionado().map((cita) => {
+                      {/* Eventos del Dia */}
+                      {loadingCitas && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="px-3 py-1 text-sm text-blue-600 bg-blue-100 rounded">Cargando citas...</span>
+                        </div>
+                      )}
+                      {citasError && !loadingCitas && (
+                        <div className="absolute inset-x-0 top-2 flex justify-center pointer-events-none">
+                          <span className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded">{citasError}</span>
+                        </div>
+                      )}
+                      {citasDelDiaSeleccionado.map((cita) => {
                         const posicion = obtenerPosicionEvento(cita.horaInicio);
                         const altura = obtenerAlturaEvento(cita.horaInicio, cita.horaFin);
 
@@ -686,7 +845,7 @@ const Calendar: React.FC = () => {
                       })}
 
                       {/* Mensaje si no hay eventos */}
-                      {obtenerCitasDelDiaSeleccionado().length === 0 && (
+                      {!loadingCitas && citasDelDiaSeleccionado.length === 0 && (
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center text-gray-500 dark:text-gray-400">
                             <div className="text-lg font-medium mb-2">No hay eventos programados</div>
@@ -870,6 +1029,8 @@ const Calendar: React.FC = () => {
         isOpen={isNewAppointmentOpen}
         onClose={() => setIsNewAppointmentOpen(false)}
         onSave={handleNewAppointment}
+        odontologos={odontologos}
+        isSubmitting={creatingAppointment}
       />
 
       {/* Modal de Configuracin */}
@@ -884,3 +1045,6 @@ const Calendar: React.FC = () => {
 };
 
 export default Calendar;
+
+
+
