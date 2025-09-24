@@ -1,4 +1,5 @@
 ﻿// src/App.tsx
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,12 +24,24 @@ import AppointmentDetail from "./pages/AppointmentDetail";
 import AppointmentEdit from "./pages/AppointmentEdit";
 import OdontogramPage from "./pages/Odontograma";
 import RouteModal from "@/components/RouteModal";
+import { setTenant } from "@/api/client";
 import { initTenant } from "@/lib/tenant";
 
 const queryClient = new QueryClient();
 
 // Inicializa tenant (set default en dev, parche fetch, set header en axios)
 initTenant();
+
+function useBootTenant() {
+  useEffect(() => {
+    try {
+      const slug = localStorage.getItem("tenantSlug") || "default";
+      setTenant(slug);
+    } catch {
+      /* noop */
+    }
+  }, []);
+}
 
 function AppRoutes() {
   const location = useLocation();
@@ -139,16 +152,20 @@ function AppRoutes() {
   );
 }
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  useBootTenant();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
