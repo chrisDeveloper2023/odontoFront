@@ -10,6 +10,7 @@ import { ArrowLeft, Edit2 } from "lucide-react";
 import { apiPatch } from "@/api/client";
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/http";
+import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
 
 const ESTADOS_CITA = ["AGENDADA", "CONFIRMADA", "CANCELADA", "COMPLETADA"] as const;
 
@@ -83,9 +84,8 @@ export default function AppointmentDetail() {
   if (error) return <p className="p-4 text-red-600">Error: {error}</p>;
   if (!cita) return <p className="p-4">No se encontro la cita #{id}.</p>;
 
-  const fecha = new Date(cita.fecha_hora);
-  const fechaStr = fecha.toLocaleDateString();
-  const horaStr = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const fechaStr = formatGuayaquilDate(cita.fecha_hora, { dateStyle: "long" }) || "";
+  const horaStr = formatGuayaquilTimeHM(cita.fecha_hora);
 
   return (
     <div className="space-y-6 p-4">

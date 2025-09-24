@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { apiGet, apiPost } from "@/api/client";
+import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
 
 const EMPTY_OPTION_VALUE = "__none__";
 
@@ -61,9 +62,12 @@ const initialForm: FormState = {
 
 const formatFecha = (iso?: string) => {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  const fecha = formatGuayaquilDate(iso, { dateStyle: "medium" });
+  const hora = formatGuayaquilTimeHM(iso);
+  if (fecha && hora) return `${fecha} ${hora}`;
+  if (fecha) return fecha;
+  if (hora) return hora;
+  return iso;
 };
 
 const NewMedicalRecord = () => {

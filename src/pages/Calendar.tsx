@@ -22,6 +22,15 @@ import { apiGet, apiPost } from "@/api/client";
 import { toast } from "sonner";
 import CalendarSettingsModal from "@/components/CalendarSettingModal";
 import { getOdontologos } from "@/servicios/usuarios";
+import {
+  combineDateAndTimeGuayaquil,
+  formatGuayaquilDate,
+  formatGuayaquilDateISO,
+  formatGuayaquilTime,
+  formatGuayaquilTimeHM,
+  parseDateInGuayaquil,
+  toGuayaquilISOString,
+} from "@/lib/timezone";
 
 interface Cita {
   id: number;
@@ -78,10 +87,15 @@ const buildNombreCompleto = (nombres?: string | null, apellidos?: string | null)
 };
 
 const combinarFechaHora = (fecha: Date, hora: string) => {
+  const iso = combineDateAndTimeGuayaquil(fecha, hora);
+  if (iso) {
+    const date = new Date(iso);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  const fallback = new Date(fecha);
   const [h, m] = hora.split(":").map((value) => parseInt(value, 10) || 0);
-  const result = new Date(fecha);
-  result.setHours(h, m, 0, 0);
-  return result;
+  fallback.setHours(h, m, 0, 0);
+  return fallback;
 };
 
 const sumarMinutos = (fecha: Date, minutos: number) => {
@@ -89,6 +103,8 @@ const sumarMinutos = (fecha: Date, minutos: number) => {
 };
 
 const formatearHoraDesdeFecha = (fecha: Date) => {
+  const formatted = formatGuayaquilTimeHM(fecha);
+  if (formatted) return formatted;
   return fecha.toTimeString().slice(0, 5);
 };
 
@@ -325,8 +341,8 @@ const Calendar: React.FC = () => {
       const response = await apiGet<any>("/citas", {
         page: 1,
         limit: 500,
-        desde: inicio.toISOString(),
-        hasta: fin.toISOString(),
+        desde: toGuayaquilISOString(inicio),
+        hasta: toGuayaquilISOString(fin),
       });
 
       const lista = Array.isArray(response?.data)
@@ -338,8 +354,8 @@ const Calendar: React.FC = () => {
       const normalizadas: Cita[] = lista
         .map((raw: BackendCita) => {
           if (!raw?.fecha_hora) return null;
-          const inicioCita = new Date(raw.fecha_hora);
-          if (Number.isNaN(inicioCita.getTime())) return null;
+          const inicioCita = parseDateInGuayaquil(raw.fecha_hora);
+          if (!inicioCita) return null;
           const duracion = raw.duracion_minutos && raw.duracion_minutos > 0 ? raw.duracion_minutos : 60;
           const finCita = sumarMinutos(inicioCita, duracion);
 
@@ -435,28 +451,30 @@ const Calendar: React.FC = () => {
   };
 
   const obtenerHoraActual = () => {
-    const ahora = new Date();
-    return ahora.getHours() + (ahora.getMinutes() / 60);
+    const hm = formatGuayaquilTimeHM(new Date());
+    if (hm) {
+      const [hStr, mStr] = hm.split(":");
+      const horas = Number(hStr) || 0;
+      const minutos = Number(mStr) || 0;
+      return horas + minutos / 60;
+    }
+    const fallback = new Date();
+    return fallback.getHours() + fallback.getMinutes() / 60;
   };
 
   const obtenerCitasDelDia = (fecha: Date) => {
-    const ao = fecha.getFullYear();
-    const mes = fecha.getMonth();
-    const dia = fecha.getDate();
-    
-    return citas.filter(cita => {
-      const fechaCita = new Date(cita.fecha || new Date());
-      return fechaCita.getFullYear() === ao && 
-             fechaCita.getMonth() === mes && 
-             fechaCita.getDate() === dia;
+    const fechaObjetivo = formatGuayaquilDateISO(fecha);
+    if (!fechaObjetivo) return [];
+    return citas.filter((cita) => {
+      const fechaCita = cita.fecha ? formatGuayaquilDateISO(cita.fecha) : "";
+      return fechaCita === fechaObjetivo;
     });
   };
 
   const esHoy = (fecha: Date) => {
-    const hoy = new Date();
-    return fecha.getDate() === hoy.getDate() &&
-           fecha.getMonth() === hoy.getMonth() &&
-           fecha.getFullYear() === hoy.getFullYear();
+    const hoy = formatGuayaquilDateISO(new Date());
+    const comparar = formatGuayaquilDateISO(fecha);
+    return Boolean(hoy) && comparar === hoy;
   };
 
   const esDelMesActual = (fecha: Date) => {
@@ -531,8 +549,10 @@ const Calendar: React.FC = () => {
   const handleNewAppointment = async (appointment: NewAppointmentPayload) => {
     try {
       setCreatingAppointment(true);
-      const inicio = combinarFechaHora(appointment.fecha, appointment.horaInicio);
-      const fin = combinarFechaHora(appointment.fecha, appointment.horaFin);
+      const inicioIso = combineDateAndTimeGuayaquil(appointment.fecha, appointment.horaInicio);
+      const finIso = combineDateAndTimeGuayaquil(appointment.fecha, appointment.horaFin);
+      const inicio = inicioIso ? new Date(inicioIso) : combinarFechaHora(appointment.fecha, appointment.horaInicio);
+      const fin = finIso ? new Date(finIso) : combinarFechaHora(appointment.fecha, appointment.horaFin);
       const duracion = Math.max(15, Math.round((fin.getTime() - inicio.getTime()) / 60000));
 
       const payload = {
@@ -540,7 +560,7 @@ const Calendar: React.FC = () => {
         id_odontologo: appointment.idOdontologo,
         id_consultorio: appointment.idConsultorio,
         id_clinica: appointment.idClinica,
-        fecha_hora: inicio.toISOString(),
+        fecha_hora: inicioIso || toGuayaquilISOString(inicio),
         duracion_minutos: duracion,
         observaciones: appointment.descripcion || null,
         estado: "AGENDADA",
@@ -677,22 +697,19 @@ const Calendar: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <Input
                       type="date"
-                      value={fechaSeleccionada.toISOString().split('T')[0]}
+                      value={formatGuayaquilDateISO(fechaSeleccionada)}
                       onChange={(e) => {
-                        const nuevaFecha = new Date(e.target.value);
-                        setFechaSeleccionada(nuevaFecha);
-                        setFechaActual(nuevaFecha);
+                        const parseada = parseDateInGuayaquil(e.target.value);
+                        if (parseada) {
+                          setFechaSeleccionada(parseada);
+                          setFechaActual(parseada);
+                        }
                       }}
                       className="w-40"
                     />
                     <div className="text-center">
                       <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {fechaSeleccionada.toLocaleDateString('es-ES', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
+                        {formatGuayaquilDate(fechaSeleccionada, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                       </div>
                     </div>
                   </div>
@@ -700,12 +717,12 @@ const Calendar: React.FC = () => {
                   <div className="text-center">
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
                       {vistaActual === 'mes' 
-                        ? fechaActual.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit' })
-                        : fechaActual.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' })
+                        ? formatGuayaquilDate(fechaActual, { year: 'numeric', month: '2-digit' })
+                        : formatGuayaquilDate(fechaActual, { year: 'numeric', month: '2-digit', day: '2-digit' })
                       }
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      {formatGuayaquilTime(new Date(), { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                 )}
@@ -795,7 +812,7 @@ const Calendar: React.FC = () => {
                         >
                           <div className="absolute -left-2 -top-2 w-4 h-4 bg-blue-500 rounded-full"></div>
                           <div className="absolute -left-16 top-1 text-xs text-blue-600 font-semibold">
-                            {new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                            {formatGuayaquilTime(new Date(), { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       )}
@@ -849,11 +866,7 @@ const Calendar: React.FC = () => {
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center text-gray-500 dark:text-gray-400">
                             <div className="text-lg font-medium mb-2">No hay eventos programados</div>
-                            <div className="text-sm">para {fechaSeleccionada.toLocaleDateString('es-ES', { 
-                              weekday: 'long', 
-                              day: 'numeric', 
-                              month: 'long' 
-                            })}</div>
+                            <div className="text-sm">para {formatGuayaquilDate(fechaSeleccionada, { dateStyle: 'long' })}</div>
                           </div>
                         </div>
                       )}
@@ -938,13 +951,13 @@ const Calendar: React.FC = () => {
                     {diasSemana.map((dia, index) => (
                       <div key={index} className="p-3 text-center border-l border-gray-200 dark:border-gray-700">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {dia.getDate()} {dia.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase()}
+                          {dia.getDate()} {formatGuayaquilDate(dia, { weekday: 'short' }).toUpperCase()}
                         </div>
                         <div className={cn(
                           "text-xs mt-1",
                           dia.getDay() === 0 ? "text-red-500" : "text-gray-500 dark:text-gray-400"
                         )}>
-                          {dia.toLocaleDateString('es-ES', { month: 'short' })}
+                          {formatGuayaquilDate(dia, { month: 'short' })}
                         </div>
                       </div>
                     ))}

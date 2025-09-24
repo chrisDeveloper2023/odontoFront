@@ -20,6 +20,7 @@ import { getDisponibilidad } from "@/servicios/citas";
 import { getOdontologos } from "@/servicios/usuarios";
 
 import { API_BASE } from "@/lib/http";
+import { combineDateAndTimeGuayaquil, formatGuayaquilTimeHM } from "@/lib/timezone";
 
 interface Paciente {
   id_paciente: number;
@@ -41,28 +42,9 @@ interface Consultorio {
   id_consultorio: number;
   nombre: string;
 }
-// Convierte "YYYY-MM-DD", "HH:mm" a "YYYY-MM-DDTHH:mm:00HH:MM"
+// Convierte "YYYY-MM-DD", "HH:mm" a un ISO fijo en zona América/Guayaquil
 function buildISOWithOffset(fecha: string, hora: string): string {
-  const [y, m, d] = fecha.split("-").map(Number);
-  const [hh, mm] = hora.split(":").map(Number);
-
-  // Construye fecha local del navegador (sin convertir a UTC)
-  const local = new Date(y, (m - 1), d, hh, mm, 0);
-
-  // Offset en minutos respecto a UTC (Ecuador -> 300)
-  const offsetMin = local.getTimezoneOffset();        // ej. 300
-  const sign = offsetMin > 0 ? "-" : "+";             // 300 -> "-"
-  const abs = Math.abs(offsetMin);
-  const offHH = String(Math.floor(abs / 60)).padStart(2, "0");
-  const offMM = String(abs % 60).padStart(2, "0");
-
-  const YYYY = String(y).padStart(4, "0");
-  const MM = String(m).padStart(2, "0");
-  const DD = String(d).padStart(2, "0");
-  const HH = String(hh).padStart(2, "0");
-  const MI = String(mm).padStart(2, "0");
-
-  return `${YYYY}-${MM}-${DD}T${HH}:${MI}:00${sign}${offHH}:${offMM}`;
+  return combineDateAndTimeGuayaquil(fecha, hora);
 }
 
 
@@ -143,7 +125,11 @@ const NewAppointmentForm = () => {
 
 
   // Helper: sacar "HH:mm" de un ISO (evita corrimientos por zona horaria)
-  const isoToHHmm = (iso: string) => iso.slice(11, 16);
+  const isoToHHmm = (iso: string) => {
+    const formatted = formatGuayaquilTimeHM(iso);
+    if (formatted) return formatted;
+    return iso.slice(11, 16);
+  };
 
   // Cargar disponibilidad cuando hay consultorio + fecha + duracion
   useEffect(() => {

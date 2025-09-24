@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, CalendarPlus, Eye } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { API_BASE } from "@/lib/http";
+import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
 
 interface Appointment {
   id_cita: number;
@@ -152,7 +153,8 @@ const Appointments = () => {
       {/* Lista de citas */}
       <div className="grid gap-4">
         {filteredAppointments.map((appointment) => {
-          const dateObj = new Date(appointment.fecha_hora);
+          const fechaStr = formatGuayaquilDate(appointment.fecha_hora, { dateStyle: "medium" }) || "";
+          const horaStr = formatGuayaquilTimeHM(appointment.fecha_hora);
           return (
             <Card key={appointment.id_cita} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-6">
@@ -181,7 +183,7 @@ const Appointments = () => {
                       </div>
                       <div>
                         <span className="font-medium">Fecha:</span>{" "}
-                        {dateObj.toLocaleDateString()} - {dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {fechaStr} {horaStr ? `- ${horaStr}` : ""}
                       </div>
                     </div>
                   </div>

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, User } from "lucide-react";
 import { API_BASE } from "@/lib/http";
+import { combineDateAndTimeGuayaquil, formatGuayaquilDateISO, formatGuayaquilTimeHM, parseDateInGuayaquil } from "@/lib/timezone";
 import { getDisponibilidad } from "@/servicios/citas";
 import { getOdontologos } from "@/servicios/usuarios";
 
@@ -68,6 +69,8 @@ const initialForm: FormState = {
 };
 
 function isoToHHmm(iso: string) {
+  const formatted = formatGuayaquilTimeHM(iso);
+  if (formatted) return formatted;
   try {
     return new Date(iso).toISOString().slice(11, 16);
   } catch {
@@ -77,20 +80,7 @@ function isoToHHmm(iso: string) {
 
 function buildISOWithOffset(fecha: string, hora: string): string {
   if (!fecha || !hora) return "";
-  const [y, m, d] = fecha.split("-").map(Number);
-  const [hh, mm] = hora.split(":").map(Number);
-  const local = new Date(y, m - 1, d, hh, mm, 0);
-  const offsetMin = local.getTimezoneOffset();
-  const sign = offsetMin > 0 ? "-" : "+";
-  const abs = Math.abs(offsetMin);
-  const offHH = String(Math.floor(abs / 60)).padStart(2, "0");
-  const offMM = String(abs % 60).padStart(2, "0");
-  const YYYY = String(y).padStart(4, "0");
-  const MM = String(m).padStart(2, "0");
-  const DD = String(d).padStart(2, "0");
-  const HH = String(hh).padStart(2, "0");
-  const MI = String(mm).padStart(2, "0");
-  return `${YYYY}-${MM}-${DD}T${HH}:${MI}:00${sign}${offHH}:${offMM}`;
+  return combineDateAndTimeGuayaquil(fecha, hora);
 }
 
 export default function AppointmentEdit() {
@@ -153,9 +143,9 @@ export default function AppointmentEdit() {
 
         const citaRaw = Array.isArray(citaData) ? citaData[0] : citaData;
         if (citaRaw) {
-          const date = new Date(citaRaw.fecha_hora);
-          const fecha = date.toISOString().slice(0, 10);
-          const hora = date.toTimeString().slice(0, 5);
+          const date = parseDateInGuayaquil(citaRaw.fecha_hora);
+          const fecha = date ? formatGuayaquilDateISO(date) : "";
+          const hora = date ? formatGuayaquilTimeHM(date) : "";
           const clinicaIdNumeric = Number(
             citaRaw.id_clinica ?? citaRaw.clinica?.id ?? citaRaw.clinica?.id_clinica ?? ""
           );

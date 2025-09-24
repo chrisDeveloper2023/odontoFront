@@ -6,6 +6,7 @@ import { Users, FileText, Calendar, CalendarDays, TrendingUp, Plus, Activity } f
 import { Link } from "react-router-dom";
 import ListaClinicas from "./ListaClinicas";
 import { API_BASE } from "@/lib/http";
+import { formatGuayaquilDateISO } from "@/lib/timezone";
 
 interface RawPaciente {
   id_paciente: number;
@@ -36,10 +37,14 @@ const Dashboard = () => {
         // Total real de pacientes
         setTotalPatients(json.total ?? list.length);
         // Calcular cuantos pacientes se crearon este mes (usando fecha_nacimiento como indicador)
-        const now = new Date();
-        const monthCount = list.filter(p => {
-          const d = new Date(p.fecha_creacion);
-          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        const todayParts = formatGuayaquilDateISO(new Date()).split("-");
+        const currentYear = Number(todayParts[0] ?? 0);
+        const currentMonth = Number(todayParts[1] ?? 0);
+        const monthCount = list.filter((p) => {
+          const dateStr = formatGuayaquilDateISO(p.fecha_creacion);
+          if (!dateStr) return false;
+          const [yearStr, monthStr] = dateStr.split("-");
+          return Number(yearStr) === currentYear && Number(monthStr) === currentMonth;
         }).length;
         setNewThisMonth(monthCount);
       } catch (err) {
