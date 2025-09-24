@@ -1,182 +1,129 @@
-const GUAYAQUIL_TIMEZONE = "America/Guayaquil";
-const GUAYAQUIL_LOCALE = "es-EC";
-const GUAYAQUIL_OFFSET = "-05:00";
+// Utilidades de fecha/hora en zona America/Guayaquil (UTC-05, sin DST)
+const TZ = "America/Guayaquil";
+const FIXED_OFFSET = "-05:00";
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const ISO_DATETIME_NO_TZ_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/;
-const ISO_HAS_TZ_RE = /[+-]\d{2}:\d{2}$|Z$/i;
+type DateParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour?: number;
+  minute?: number;
+  second?: number;
+};
 
-type DateInput = Date | string | number | null | undefined;
+function pad(n: number, len = 2) {
+  return String(n).padStart(len, "0");
+}
 
-const dateFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: GUAYAQUIL_TIMEZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-const timeFormatter = new Intl.DateTimeFormat("en-GB", {
-  timeZone: GUAYAQUIL_TIMEZONE,
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
-
-const hmFormatter = new Intl.DateTimeFormat("en-GB", {
-  timeZone: GUAYAQUIL_TIMEZONE,
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-});
-
-const baseTimeFormatter = (options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat(GUAYAQUIL_LOCALE, {
-    timeZone: GUAYAQUIL_TIMEZONE,
-    ...options,
+function getPartsInGuayaquil(d: Date): DateParts {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
   });
+  const parts = fmt.formatToParts(d);
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour ?? 0),
+    minute: Number(map.minute ?? 0),
+    second: Number(map.second ?? 0),
+  };
+}
 
-const toPartsMap = (formatter: Intl.DateTimeFormat, date: Date) => {
-  const parts: Record<string, string> = {};
-  formatter.formatToParts(date).forEach((part) => {
-    if (part.type !== "literal") {
-      parts[part.type] = part.value;
-    }
-  });
-  return parts;
-};
+/** "YYYY-MM-DD" en Guayaquil */
+export function formatGuayaquilDateISO(d: Date | string | number | undefined | null): string {
+  if (!d) return "";
+  const date = typeof d === "string" || typeof d === "number" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "";
+  const p = getPartsInGuayaquil(date);
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+}
 
-const ensureDate = (input: DateInput): Date | null => {
-  if (input instanceof Date) {
-    return Number.isNaN(input.getTime()) ? null : input;
+/** "HH:mm" en Guayaquil */
+export function formatGuayaquilTimeHM(d: Date | string | number | undefined | null): string {
+  if (!d) return "";
+  const date = typeof d === "string" || typeof d === "number" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "";
+  const p = getPartsInGuayaquil(date);
+  return `${pad(p.hour ?? 0)}:${pad(p.minute ?? 0)}`;
+}
+
+/** Hora formateada con Intl en Guayaquil */
+export function formatGuayaquilTime(
+  d: Date | string | number,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const date = typeof d === "string" || typeof d === "number" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-EC", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(options || {}),
+  }).format(date);
+}
+
+/** Fecha formateada con Intl en Guayaquil */
+export function formatGuayaquilDate(
+  d: Date | string | number,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  const date = typeof d === "string" || typeof d === "number" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-EC", { timeZone: TZ, ...(options || {}) }).format(date);
+}
+
+/** Parsea ISO o "YYYY-MM-DD" asumiendo Guayaquil; retorna Date válido o null */
+export function parseDateInGuayaquil(value: string | Date | null | undefined): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
-  if (typeof input === "number") {
-    const date = new Date(input);
-    return Number.isNaN(date.getTime()) ? null : date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = new Date(`${value}T00:00:00${FIXED_OFFSET}`);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
-  if (typeof input !== "string") {
-    return null;
-  }
-  const trimmed = input.trim();
-  if (!trimmed) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
-  if (ISO_DATE_RE.test(trimmed)) {
-    const date = new Date(trimmed + "T00:00:00" + GUAYAQUIL_OFFSET);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
+/** Combina Date (día) + "HH:mm" → ISO con offset -05:00 */
+export function combineDateAndTimeGuayaquil(fecha: Date, horaHM: string): string | null {
+  if (!fecha || !horaHM) return null;
+  const dayISO = formatGuayaquilDateISO(fecha);
+  const match = /^(\d{2}):(\d{2})$/.exec(horaHM);
+  if (!dayISO || !match) return null;
+  const hh = pad(Number(match[1]) || 0);
+  const mm = pad(Number(match[2]) || 0);
+  return `${dayISO}T${hh}:${mm}:00${FIXED_OFFSET}`;
+}
 
-  if (!ISO_HAS_TZ_RE.test(trimmed) && ISO_DATETIME_NO_TZ_RE.test(trimmed)) {
-    const normalized = trimmed.replace(" ", "T");
-    const date = new Date(normalized + GUAYAQUIL_OFFSET);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  const date = new Date(trimmed);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-export const parseDateInGuayaquil = (input: DateInput): Date | null => ensureDate(input);
-
-export const formatGuayaquilDateISO = (input: DateInput): string => {
-  const date = ensureDate(input);
-  if (!date) return "";
-  const parts = toPartsMap(dateFormatter, date);
-  const year = parts.year ?? "";
-  const month = parts.month ?? "";
-  const day = parts.day ?? "";
-  if (!year || !month || !day) return "";
-  return [year, month, day].join("-");
-};
-
-export const formatGuayaquilTimeHM = (input: DateInput): string => {
-  const date = ensureDate(input);
-  if (!date) return "";
-  const parts = toPartsMap(hmFormatter, date);
-  const hour = parts.hour ?? "00";
-  const minute = parts.minute ?? "00";
-  return hour + ":" + minute;
-};
-
-export const formatGuayaquilTime = (
-  input: DateInput,
-  options: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" }
-): string => {
-  const date = ensureDate(input);
-  if (!date) return "";
-  const formatter = baseTimeFormatter({ hour12: false, ...options });
-  return formatter.format(date);
-};
-
-export const formatGuayaquilDate = (
-  input: DateInput,
-  options: Intl.DateTimeFormatOptions = { dateStyle: "medium" }
-): string => {
-  const date = ensureDate(input);
-  if (!date) return "";
-  const formatter = baseTimeFormatter(options);
-  return formatter.format(date);
-};
-
-export const formatGuayaquilDateTime = (
-  input: DateInput,
-  options: Intl.DateTimeFormatOptions = { dateStyle: "medium", timeStyle: "short" }
-): string => {
-  const date = ensureDate(input);
-  if (!date) return "";
-  const formatter = baseTimeFormatter(options);
-  return formatter.format(date);
-};
-
-export const toGuayaquilISOString = (input: DateInput): string => {
-  const date = ensureDate(input);
-  if (!date) return "";
-  const datePart = formatGuayaquilDateISO(date);
-  if (!datePart) return "";
-  const timeParts = toPartsMap(timeFormatter, date);
-  const hour = timeParts.hour ?? "00";
-  const minute = timeParts.minute ?? "00";
-  const second = timeParts.second ?? "00";
-  return datePart + "T" + hour + ":" + minute + ":" + second + GUAYAQUIL_OFFSET;
-};
-
-export const combineDateAndTimeGuayaquil = (
-  dateInput: Date | string,
-  time: string
-): string => {
-  if (!time) return "";
-  const trimmedTime = time.trim();
-  if (!trimmedTime) return "";
-  const parts = trimmedTime.split(":");
-  const rawHour = parts[0] ?? "00";
-  const rawMinute = parts[1] ?? "00";
-  const rawSecond = parts[2] ?? "00";
-  const hour = rawHour.padStart(2, "0");
-  const minute = rawMinute.padStart(2, "0");
-  const second = rawSecond.padStart(2, "0");
-  const datePart =
-    typeof dateInput === "string" && ISO_DATE_RE.test(dateInput.trim())
-      ? dateInput.trim()
-      : formatGuayaquilDateISO(dateInput);
-  if (!datePart) return "";
-  return datePart + "T" + hour + ":" + minute + ":" + second + GUAYAQUIL_OFFSET;
-};
-
-export const GUAYAQUIL_CONSTANTS = {
-  TIMEZONE: GUAYAQUIL_TIMEZONE,
-  LOCALE: GUAYAQUIL_LOCALE,
-  OFFSET: GUAYAQUIL_OFFSET,
-};
+/** Date → ISO con offset -05:00, según hora local de Guayaquil */
+export function toGuayaquilISOString(d: Date | string | number): string {
+  const date = typeof d === "string" || typeof d === "number" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return "";
+  const p = getPartsInGuayaquil(date);
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour ?? 0)}:${pad(p.minute ?? 0)}:${pad(p.second ?? 0)}${FIXED_OFFSET}`;
+}
 
 export default {
-  GUAYAQUIL_TIMEZONE,
-  GUAYAQUIL_LOCALE,
-  GUAYAQUIL_OFFSET,
-  parseDateInGuayaquil,
+  TZ,
+  FIXED_OFFSET,
   formatGuayaquilDateISO,
   formatGuayaquilTimeHM,
   formatGuayaquilTime,
   formatGuayaquilDate,
-  formatGuayaquilDateTime,
-  toGuayaquilISOString,
+  parseDateInGuayaquil,
   combineDateAndTimeGuayaquil,
+  toGuayaquilISOString,
 };
