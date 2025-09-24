@@ -32,6 +32,18 @@ import {
   toGuayaquilISOString,
 } from "@/lib/timezone";
 
+// Colores por estado de la cita (tailwind)
+const ESTADO_COLOR: Record<string, string> = {
+  AGENDADA: "bg-green-500",
+  CONFIRMADA: "bg-emerald-500",
+  EN_CONSULTA: "bg-indigo-500",
+  EN_PROCEDIMIENTO: "bg-blue-500",
+  REALIZADA: "bg-gray-500",
+  CANCELADA: "bg-red-500",
+  NO_SHOW: "bg-orange-500",
+};
+const getEstadoColor = (estado?: string) => ESTADO_COLOR[estado ?? ""] ?? "bg-slate-400";
+
 interface Cita {
   id: number;
   paciente: string;
@@ -106,6 +118,13 @@ const formatearHoraDesdeFecha = (fecha: Date) => {
   const formatted = formatGuayaquilTimeHM(fecha);
   if (formatted) return formatted;
   return fecha.toTimeString().slice(0, 5);
+};
+
+// Formato para eje horario (12h con am/pm limpio)
+const formatearHoraEje = (base: Date, hour: number) => {
+  const d = new Date(base);
+  d.setHours(hour, 0, 0, 0);
+  return formatGuayaquilTime(d, { hour: "numeric", minute: "2-digit", hour12: true });
 };
 
 const Calendar: React.FC = () => {
@@ -363,7 +382,7 @@ const Calendar: React.FC = () => {
           const nombreOdontologo = buildNombreCompleto(raw.odontologo?.nombres, raw.odontologo?.apellidos) || "Sin asignar";
           const estado = (raw.estado || "AGENDADA").toUpperCase();
           const colorConfig = odontologos.find((o) => o.nombre === nombreOdontologo)?.color;
-          const colorEstado = ESTADO_COLOR[estado] || "bg-blue-500";
+          const colorEstado = getEstadoColor(estado);
 
           return {
             id: raw.id_cita ?? raw.id ?? Number(inicioCita.getTime()),
@@ -786,7 +805,7 @@ const Calendar: React.FC = () => {
                               "text-xs text-gray-500 dark:text-gray-400",
                               esHoraActual && "text-blue-600 font-semibold"
                             )}>
-                              {hora}:00 {hora < 12 ? 'am' : 'pm'}
+                              {formatearHoraEje(fechaSeleccionada, hora)}
                             </div>
                           </div>
                         );
