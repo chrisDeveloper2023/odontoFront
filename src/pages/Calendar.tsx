@@ -32,6 +32,21 @@ import {
   toGuayaquilISOString,
 } from "@/lib/timezone";
 
+// --- Helpers de rango en America/Guayaquil (evitan desfases de -05:00) ---
+const startOfDayGye = (d: Date) => {
+  const isoDay = formatGuayaquilDateISO(d); // "YYYY-MM-DD" en GYE
+  return parseDateInGuayaquil(isoDay)!;     // 00:00:00 -05:00 como Date
+};
+const addDaysGye = (d: Date, n: number) => new Date(startOfDayGye(d).getTime() + n * 86400000);
+const inRangeGye = (dt: Date, start: Date, end: Date) => dt >= start && dt < end;
+const getInicioSemanaGye = (base: Date) => {
+  const d0 = startOfDayGye(base);
+  const day = d0.getDay(); // 0=Dom, 1=Lun...
+  const delta = day === 0 ? -6 : 1 - day;
+  return addDaysGye(d0, delta);
+};
+const getFinSemanaGye = (base: Date) => addDaysGye(getInicioSemanaGye(base), 7);
+
 // Colores por estado de la cita (tailwind)
 const ESTADO_COLOR: Record<string, string> = {
   AGENDADA: "bg-green-500",
@@ -366,9 +381,7 @@ const Calendar: React.FC = () => {
 
       const lista = Array.isArray(response?.data)
         ? response.data
-        : Array.isArray(response)
-          ? response
-          : [];
+        : (Array.isArray(response) ? response : []);
 
       const normalizadas: Cita[] = lista
         .map((raw: BackendCita) => {
@@ -394,7 +407,7 @@ const Calendar: React.FC = () => {
             color: colorConfig || colorEstado,
             odontologo: nombreOdontologo,
             icono: "",
-            fecha: inicioCita,
+            fecha: inicioCita, // Date ya parseado en zona Guayaquil
             estado,
           } as Cita;
         })
@@ -414,20 +427,22 @@ const Calendar: React.FC = () => {
     if (!odontologosListo) return;
     fetchCitas();
   }, [fetchCitas, odontologosListo]);
-  const obtenerDiasSemana = () => {
-    const inicioSemana = new Date(fechaActual);
-    const dia = inicioSemana.getDay();
-    const diff = inicioSemana.getDate() - dia + (dia === 0 ? -6 : 1); // Lunes como primer da
-    inicioSemana.setDate(diff);
+  const inicioSemana = useMemo(() => getInicioSemanaGye(fechaActual), [fechaActual]);
+  const finSemana = useMemo(() => getFinSemanaGye(fechaActual), [fechaActual]);
+  const diasSemana = useMemo(
+    () => Array.from({ length: 7 }).map((_, i) => addDaysGye(inicioSemana, i)),
+    [inicioSemana]
+  );
 
-    const dias = [];
-    for (let i = 0; i < 7; i++) {
-      const fecha = new Date(inicioSemana);
-      fecha.setDate(inicioSemana.getDate() + i);
-      dias.push(fecha);
-    }
-    return dias;
-  };
+  const citasDia = useMemo(() => {
+    const ini = startOfDayGye(fechaSeleccionada);
+    const fin = addDaysGye(fechaSeleccionada, 1);
+    return citas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
+  }, [citas, fechaSeleccionada]);
+
+  const citasSemana = useMemo(() => {
+    return citas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, inicioSemana, finSemana));
+  }, [citas, inicioSemana, finSemana]);
 
   const obtenerDiasMes = () => {
     const ao = fechaActual.getFullYear();
@@ -481,12 +496,12 @@ const Calendar: React.FC = () => {
     return fallback.getHours() + fallback.getMinutes() / 60;
   };
 
-  const obtenerCitasDelDia = (fecha: Date) => {
-    const fechaObjetivo = formatGuayaquilDateISO(fecha);
-    if (!fechaObjetivo) return [];
-    return citas.filter((cita) => {
-      const fechaCita = cita.fecha ? formatGuayaquilDateISO(cita.fecha) : "";
-      return fechaCita === fechaObjetivo;
+  const obtenerCitasDelDia = (fecha: Date, fuente: Cita[] = citas) => {
+    const ini = startOfDayGye(fecha);
+    const fin = addDaysGye(fecha, 1);
+    return fuente.filter((cita) => {
+      if (!cita?.fecha) return false;
+      return inRangeGye(cita.fecha, ini, fin);
     });
   };
 
@@ -515,10 +530,6 @@ const Calendar: React.FC = () => {
     const hoy = new Date();
     setFechaActual(hoy);
     setFechaSeleccionada(hoy);
-  };
-
-  const obtenerCitasDelDiaSeleccionado = () => {
-    return obtenerCitasDelDia(fechaSeleccionada);
   };
 
   const obtenerPosicionEvento = (horaInicio: string) => {
@@ -561,8 +572,6 @@ const Calendar: React.FC = () => {
     return (fin - inicio) * 60; // cada hora = 60px
   };
 
-  const diasSemana = obtenerDiasSemana();
-  const citasDelDiaSeleccionado = useMemo(() => obtenerCitasDelDiaSeleccionado(), [citas, fechaSeleccionada]);
   const horaActual = obtenerHoraActual();
 
   const handleNewAppointment = async (appointment: NewAppointmentPayload) => {
@@ -847,7 +856,7 @@ const Calendar: React.FC = () => {
                           <span className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded">{citasError}</span>
                         </div>
                       )}
-                      {citasDelDiaSeleccionado.map((cita) => {
+                      {citasDia.map((cita) => {
                         const posicion = obtenerPosicionEvento(cita.horaInicio);
                         const altura = obtenerAlturaEvento(cita.horaInicio, cita.horaFin);
 
@@ -881,7 +890,7 @@ const Calendar: React.FC = () => {
                       })}
 
                       {/* Mensaje si no hay eventos */}
-                      {!loadingCitas && citasDelDiaSeleccionado.length === 0 && (
+                      {!loadingCitas && citasDia.length === 0 && (
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center text-gray-500 dark:text-gray-400">
                             <div className="text-lg font-medium mb-2">No hay eventos programados</div>
@@ -1016,35 +1025,41 @@ const Calendar: React.FC = () => {
                           {Array.from({ length: 11 }, (_, i) => (
                             <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600"></div>
                           ))}
-                          
-                          {/* Citas del Da */}
-                          {obtenerCitasDelDia(dia).map((cita) => {
-                            const posicion = obtenerPosicionCita(cita.horaInicio);
-                            const altura = obtenerAlturaCita(cita.horaInicio, cita.horaFin);
 
-                            return (
-                              <div
-                                key={cita.id}
-                                className={cn(
-                                  "absolute left-1 right-1 rounded-md p-2 text-white text-xs cursor-pointer hover:opacity-80 transition-opacity",
-                                  cita.color
-                                )}
-                                style={{
-                                  top: `${posicion}px`,
-                                  height: `${altura}px`,
-                                }}
-                              >
-                                <div className="flex items-center space-x-1 mb-1">
-                                  <span>{cita.icono}</span>
-                                  <span className="font-medium truncate">{cita.paciente}</span>
+                          {/* Citas del Da */}
+                          {(() => {
+                            const ini = startOfDayGye(dia);
+                            const fin = addDaysGye(dia, 1);
+                            const delDia = citasSemana.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
+
+                            return delDia.map((cita) => {
+                              const posicion = obtenerPosicionCita(cita.horaInicio);
+                              const altura = obtenerAlturaCita(cita.horaInicio, cita.horaFin);
+
+                              return (
+                                <div
+                                  key={cita.id}
+                                  className={cn(
+                                    "absolute left-1 right-1 rounded-md p-2 text-white text-xs cursor-pointer hover:opacity-80 transition-opacity",
+                                    cita.color
+                                  )}
+                                  style={{
+                                    top: `${posicion}px`,
+                                    height: `${altura}px`,
+                                  }}
+                                >
+                                  <div className="flex items-center space-x-1 mb-1">
+                                    <span>{cita.icono}</span>
+                                    <span className="font-medium truncate">{cita.paciente}</span>
+                                  </div>
+                                  <div className="text-xs opacity-90 truncate">{cita.descripcion}</div>
+                                  <div className="text-xs opacity-75 mt-1">
+                                    {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
+                                  </div>
                                 </div>
-                                <div className="text-xs opacity-90 truncate">{cita.descripcion}</div>
-                                <div className="text-xs opacity-75 mt-1">
-                                  {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            });
+                          })()}
                         </div>
                       ))}
                     </div>
