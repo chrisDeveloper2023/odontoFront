@@ -19,7 +19,7 @@ import { ArrowLeft, User } from "lucide-react";
 import { getDisponibilidad } from "@/servicios/citas";
 import { getOdontologos } from "@/servicios/usuarios";
 
-import { API_BASE } from "@/lib/http";
+import { apiGet, apiPost } from "@/api/client";
 import { combineDateAndTimeGuayaquil, formatGuayaquilTimeHM } from "@/lib/timezone";
 
 interface Paciente {
@@ -78,49 +78,44 @@ const NewAppointmentForm = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchData() {
+    (async () => {
       setLoading(true);
       try {
-        // 1) Pacientes y consultorios (igual que antes)
-        const [pacRes, conRes] = await Promise.all([
-          fetch(`${API_BASE}/pacientes`),
-          fetch(`${API_BASE}/consultorios`),
-        ]);
-
         const [pacData, conData] = await Promise.all([
-          pacRes.json(),
-          conRes.json(),
+          apiGet<any>("/pacientes", { page: 1, limit: 1000 }).catch(() => ({ data: [] })),
+          apiGet<any>("/consultorios").catch(() => ({ data: [] })),
         ]);
 
-        setPacientes(Array.isArray(pacData) ? pacData : pacData.data || []);
-        setConsultorios(Array.isArray(conData) ? conData : conData.data || []);
+        setPacientes(Array.isArray(pacData) ? pacData : pacData?.data || []);
+        setConsultorios(Array.isArray(conData) ? conData : conData?.data || []);
 
-        // 2) MEDICOS (Odontologos)  ahora vienen del servicio
-        const docs = await getOdontologos();
-        setDoctores(docs);
-        console.debug("Odontologos detectados:", docs);
-
-        // 3) Clinicas (opcional): si existe endpoint, lo usamos; si falla, mantenemos 2 sucursales por defecto
         try {
-          const clinRes = await fetch(`${API_BASE}/clinicas`).catch(() => null);
-          if (clinRes && clinRes.ok) {
-            const body = await clinRes.json();
-            const list = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
-            const mapped = list
-              .map((c: any) => ({ id: c.id ?? c.id_clinica ?? c.idClinica, nombre: c.nombre ?? c.nombre_clinica ?? c.name }))
-              .filter((c: any) => c.id);
-            if (mapped.length >= 2) setClinicas(mapped);
-          }
+          const clinRes = await apiGet<any>("/clinicas").catch(() => ({ data: [] }));
+          const list = Array.isArray(clinRes?.data) ? clinRes.data : Array.isArray(clinRes) ? clinRes : [];
+          const mapped = list
+            .map((c: any) => ({
+              id: c.id ?? c.id_clinica ?? c.idClinica,
+              nombre: c.nombre ?? c.nombre_clinica ?? c.name,
+            }))
+            .filter((c: any) => c.id);
+          if (mapped.length >= 2) setClinicas(mapped);
         } catch (e) {
-          // mantener defaults
+          // mantener defaults si falla
+        }
+
+        try {
+          const docs = await getOdontologos();
+          setDoctores(docs);
+          console.debug("Odontologos detectados:", docs);
+        } catch (docsErr) {
+          console.error("No se pudieron cargar odontologos:", docsErr);
         }
       } catch (err) {
         console.error("Error cargando listas:", err);
       } finally {
         setLoading(false);
       }
-    }
-    fetchData();
+    })();
   }, []);
 
 
@@ -178,16 +173,7 @@ const NewAppointmentForm = () => {
         estado: "AGENDADA",
       };
 
-      const res = await fetch(`${API_BASE}/citas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.mensaje || "Error al agendar cita");
-      }
+      await apiPost("/citas", payload);
       navigate("/appointments");
     } catch (err) {
       console.error("Error creando cita:", err);

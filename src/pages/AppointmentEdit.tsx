@@ -19,7 +19,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { ArrowLeft, User } from "lucide-react";
-import { API_BASE } from "@/lib/http";
+import { apiGet, apiPut } from "@/api/client";
 import { combineDateAndTimeGuayaquil, formatGuayaquilDateISO, formatGuayaquilTimeHM, parseDateInGuayaquil } from "@/lib/timezone";
 import { getDisponibilidad } from "@/servicios/citas";
 import { getOdontologos } from "@/servicios/usuarios";
@@ -109,20 +109,10 @@ export default function AppointmentEdit() {
     async function load() {
       try {
         setLoading(true);
-        const [pacRes, conRes, citaRes] = await Promise.all([
-          fetch(`${API_BASE}/pacientes`),
-          fetch(`${API_BASE}/consultorios`),
-          fetch(`${API_BASE}/citas/${id}`),
-        ]);
-
-        if (!pacRes.ok) throw new Error("No se pudieron cargar pacientes");
-        if (!conRes.ok) throw new Error("No se pudieron cargar consultorios");
-        if (!citaRes.ok) throw new Error("No se pudo cargar la cita");
-
         const [pacData, conData, citaData] = await Promise.all([
-          pacRes.json().catch(() => ({})),
-          conRes.json().catch(() => ({})),
-          citaRes.json().catch(() => ({})),
+          apiGet<any>("/pacientes"),
+          apiGet<any>("/consultorios"),
+          apiGet<any>(`/citas/${id}`),
         ]);
 
         setPacientes(
@@ -187,10 +177,9 @@ export default function AppointmentEdit() {
         }
 
         try {
-          const resClin = await fetch(`${API_BASE}/clinicas`).catch(() => null);
-          if (resClin && resClin.ok) {
-            const body = await resClin.json().catch(() => ({}));
-            const list = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
+          const clinRes = await apiGet<any>("/clinicas").catch(() => null);
+          if (clinRes) {
+            const list = Array.isArray(clinRes?.data) ? clinRes.data : Array.isArray(clinRes) ? clinRes : [];
             const mapped = list
               .map((c: any) => ({
                 id: Number(c.id ?? c.id_clinica ?? c.idClinica),
@@ -277,15 +266,7 @@ export default function AppointmentEdit() {
         observaciones: formData.observaciones || null,
         estado: formData.estado || "AGENDADA",
       };
-      const res = await fetch(`${API_BASE}/citas/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.mensaje || "Error al actualizar cita");
-      }
+      await apiPut(`/citas/${id}`, payload);
       navigate(`/appointments/${id}`);
     } catch (err) {
       console.error(err);

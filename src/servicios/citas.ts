@@ -1,4 +1,4 @@
-import { API_BASE } from "@/lib/http";
+import { apiGet } from "@/api/client";
 
 // src/services/citas.ts
 export interface DisponibilidadResponse {
@@ -14,15 +14,9 @@ export async function getDisponibilidad(
   fecha: string,             // "YYYY-MM-DD"
   duracionMinutos: number    // p.ej. 30
 ): Promise<DisponibilidadResponse> {
-  const qs = new URLSearchParams({
+  return apiGet<DisponibilidadResponse>("/citas/disponibilidad", {
     consultorio: String(consultorioId),
     fecha,
     duracion: String(duracionMinutos),
   });
-  const res = await fetch(`${API_BASE}/citas/disponibilidad?${qs.toString()}`);
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    throw new Error(err || "No se pudo obtener disponibilidad");
-  }
-  return res.json();
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, CalendarPlus, Eye } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { API_BASE } from "@/lib/http";
+import { apiGet } from "@/api/client";
 import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
 
 interface Appointment {
@@ -35,7 +35,6 @@ const Appointments = () => {
       setLoading(true);
       setError(null);
       try {
-        const base = API_BASE;
         const params = new URLSearchParams();
         // ParAmetros estAndar
         params.set("page", String(page));
@@ -50,8 +49,8 @@ const Appointments = () => {
         // Filtros del brief
         if (idPacienteParam) params.set("id_paciente", idPacienteParam);
         if (estadoFiltro) params.set("estado", estadoFiltro);
-        const res = await fetch(`${base}/citas?${params.toString()}`);
-        const json = await res.json();
+        const queryString = params.toString();
+        const json = await apiGet<any>(`/citas${queryString ? `?${queryString}` : ""}`);
 
         // Totales
         setTotalBackend(Number(json?.total) || 0);
