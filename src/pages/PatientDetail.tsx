@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import { API_BASE } from "@/lib/http";
+import { apiDelete, apiGet } from "@/api/client";
 
 interface RawPaciente {
   id_paciente: number;
@@ -55,12 +55,8 @@ const PatientDetail: React.FC = () => {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${API_BASE}/pacientes/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((raw: RawPaciente) => {
+    apiGet<RawPaciente>(`/pacientes/${id}`)
+      .then((raw) => {
         const mapped: PatientDetail = {
           id: String(raw.id_paciente),
           name: `${raw.nombres} ${raw.apellidos}`,
@@ -77,7 +73,7 @@ const PatientDetail: React.FC = () => {
         };
         setPatient(mapped);
       })
-      .catch(err => setError(err.message))
+      .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -86,11 +82,7 @@ const PatientDetail: React.FC = () => {
     if (!window.confirm("Estas seguro de eliminar este paciente?")) return;
 
     try {
-      const res = await fetch(`${API_BASE}/pacientes/${patient.id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await apiDelete(`/pacientes/${patient.id}`);
       alert("Paciente eliminado correctamente");
       navigate("/patients");
     } catch (err) {

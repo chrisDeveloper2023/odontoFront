@@ -1,4 +1,3 @@
-// src/pages/NewPatient.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
-import { API_BASE } from "@/lib/http";
+import { apiGet, apiPost, apiPut } from "@/api/client";
+import { useAuth } from "@/context/AuthContext";
 
 interface FormData {
   documentType: string;
@@ -24,12 +24,19 @@ interface FormData {
   address: string;
   allergies: string;
   occupation: string;
+  clinicId: number | null;
+}
+
+interface ClinicaOption {
+  id: number;
+  nombre: string;
 }
 
 const NewPatient: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
+  const { session } = useAuth();
 
   const [formData, setFormData] = useState<FormData>({
     documentType: "Cedula",
@@ -43,52 +50,79 @@ const NewPatient: React.FC = () => {
     address: "",
     allergies: "",
     occupation: "",
+    clinicId: null,
   });
+  const [clinicas, setClinicas] = useState<ClinicaOption[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Cargar datos en modo edicion
   useEffect(() => {
-    if (!isEdit) return;
+    async function loadClinicas() {
+      try {
+        const response = await apiGet<any>("/clinicas");
+        const list: ClinicaOption[] = Array.isArray(response?.data)
+          ? response.data.map((c: any) => ({ id: c.id ?? c.id_clinica, nombre: c.nombre ?? c.nombre_clinica }))
+          : Array.isArray(response)
+          ? response.map((c: any) => ({ id: c.id ?? c.id_clinica, nombre: c.nombre ?? c.nombre_clinica }))
+          : [];
+        const validList = list.filter((c) => Number.isFinite(c.id));
+        setClinicas(validList);
+        setFormData((prev) => ({
+          ...prev,
+          clinicId: prev.clinicId ?? validList[0]?.id ?? session?.usuario?.tenantId ?? null,
+        }));
+      } catch (err) {
+        console.error(err);
+        toast.error("No se pudieron cargar las clinicas");
+      }
+    }
+    loadClinicas();
+  }, [session?.usuario?.tenantId]);
+
+  useEffect(() => {
+    if (!isEdit || !id) return;
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/pacientes/${id}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const raw = await res.json();
+        const raw = await apiGet<any>(`/pacientes/${id}`);
         setFormData({
           documentType: raw.tipo_documento,
           documentId: raw.documento_identidad,
           firstName: raw.nombres,
           lastName: raw.apellidos,
-          dateOfBirth: raw.fecha_nacimiento,
-          gender: raw.sexo.toLowerCase(),
-          phone: raw.telefono,
-          email: raw.correo,
-          address: raw.direccion,
-          allergies: raw.observaciones,
+          dateOfBirth: raw.fecha_nacimiento?.substring(0, 10) ?? "",
+          gender: raw.sexo?.toLowerCase() ?? "",
+          phone: raw.telefono ?? "",
+          email: raw.correo ?? "",
+          address: raw.direccion ?? "",
+          allergies: raw.observaciones ?? "",
           occupation: raw.ocupacion ?? "",
+          clinicId: raw.id_clinica ?? null,
         });
       } catch (err) {
         console.error(err);
         toast.error("Error al cargar datos: " + (err as Error).message);
       }
     })();
-  }, [id]);
+  }, [id, isEdit]);
 
-  const handleInputChange = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof FormData, value: string | number | null) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validacion
     if (!formData.documentId || !formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.phone) {
       toast.error("Completa los campos obligatorios");
       return;
     }
+    if (!formData.clinicId) {
+      toast.error("Selecciona una clinica");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const url = isEdit ? `${API_BASE}/pacientes/${id}` : `${API_BASE}/pacientes`;
-      const method = isEdit ? "PUT" : "POST";
       const payload = {
-        id_clinica: 1,
+        id_clinica: formData.clinicId,
         tipo_documento: formData.documentType,
         documento_identidad: formData.documentId,
         nombres: formData.firstName,
@@ -101,23 +135,26 @@ const NewPatient: React.FC = () => {
         ocupacion: formData.occupation || null,
         sexo: formData.gender.toUpperCase(),
       };
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      toast.success(`Paciente ${isEdit ? "actualizado" : "creado"} exitosamente`);
+
+      if (isEdit) {
+        await apiPut(`/pacientes/${id}`, payload);
+        toast.success("Paciente actualizado exitosamente");
+      } else {
+        await apiPost("/pacientes", payload);
+        toast.success("Paciente creado exitosamente");
+      }
+
       navigate("/patients");
     } catch (err) {
       console.error(err);
       toast.error("Error al guardar: " + (err as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="space-y-6 p-4">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="outline" onClick={() => navigate(-1)}>
           <ArrowLeft className="mr-2" /> Volver
@@ -139,7 +176,7 @@ const NewPatient: React.FC = () => {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Tipo de Documento *</Label>
-              <Select value={formData.documentType} onValueChange={val => handleInputChange("documentType", val)}>
+              <Select value={formData.documentType} onValueChange={(val) => handleInputChange("documentType", val)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Cedula">Cedula</SelectItem>
@@ -151,7 +188,7 @@ const NewPatient: React.FC = () => {
               <Label>Numero de Documento *</Label>
               <Input
                 value={formData.documentId}
-                onChange={e => handleInputChange("documentId", e.target.value)}
+                onChange={(e) => handleInputChange("documentId", e.target.value)}
                 required
               />
             </div>
@@ -165,10 +202,23 @@ const NewPatient: React.FC = () => {
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <Label>Clinica *</Label>
+              <Select value={formData.clinicId ? String(formData.clinicId) : undefined} onValueChange={(val) => handleInputChange("clinicId", Number(val))}>
+                <SelectTrigger><SelectValue placeholder="Selecciona una clinica" /></SelectTrigger>
+                <SelectContent>
+                  {clinicas.map((clinica) => (
+                    <SelectItem key={clinica.id} value={String(clinica.id)}>
+                      {clinica.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Nombres *</Label>
               <Input
                 value={formData.firstName}
-                onChange={e => handleInputChange("firstName", e.target.value)}
+                onChange={(e) => handleInputChange("firstName", e.target.value)}
                 required
               />
             </div>
@@ -176,7 +226,7 @@ const NewPatient: React.FC = () => {
               <Label>Apellidos *</Label>
               <Input
                 value={formData.lastName}
-                onChange={e => handleInputChange("lastName", e.target.value)}
+                onChange={(e) => handleInputChange("lastName", e.target.value)}
                 required
               />
             </div>
@@ -185,13 +235,13 @@ const NewPatient: React.FC = () => {
               <Input
                 type="date"
                 value={formData.dateOfBirth}
-                onChange={e => handleInputChange("dateOfBirth", e.target.value)}
+                onChange={(e) => handleInputChange("dateOfBirth", e.target.value)}
                 required
               />
             </div>
             <div>
               <Label>Genero *</Label>
-              <RadioGroup value={formData.gender} onValueChange={val => handleInputChange("gender", val)} className="flex space-x-4">
+              <RadioGroup value={formData.gender} onValueChange={(val) => handleInputChange("gender", val)} className="flex space-x-4">
                 <div className="flex items-center">
                   <RadioGroupItem value="masculino" id="male" /><Label htmlFor="male">Masculino</Label>
                 </div>
@@ -201,67 +251,45 @@ const NewPatient: React.FC = () => {
               </RadioGroup>
             </div>
             <div>
-              <Label>Ocupacion</Label>
+              <Label>Telefono *</Label>
               <Input
-                value={formData.occupation}
-                onChange={(e) => handleInputChange("occupation", e.target.value)}
-                placeholder="Profesion, oficio, etc."
+                value={formData.phone}
+                onChange={(e) => handleInputChange("phone", e.target.value)}
+                required
               />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Contacto</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Telefono *</Label>
-                <Input
-                  value={formData.phone}
-                  onChange={e => handleInputChange("phone", e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={e => handleInputChange("email", e.target.value)}
-                />
-              </div>
             </div>
             <div>
+              <Label>Email</Label>
+              <Input value={formData.email} onChange={(e) => handleInputChange("email", e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
               <Label>Direccion</Label>
-              <Textarea
-                value={formData.address}
-                onChange={e => handleInputChange("address", e.target.value)}
-                rows={3}
-              />
+              <Input value={formData.address} onChange={(e) => handleInputChange("address", e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Ocupacion</Label>
+              <Input value={formData.occupation} onChange={(e) => handleInputChange("occupation", e.target.value)} />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Observaciones/Alergias</CardTitle>
+            <CardTitle>Observaciones</CardTitle>
+            <CardDescription>Datos adicionales</CardDescription>
           </CardHeader>
           <CardContent>
             <Textarea
               value={formData.allergies}
-              onChange={e => handleInputChange("allergies", e.target.value)}
-              rows={3}
+              onChange={(e) => handleInputChange("allergies", e.target.value)}
+              placeholder="Alergias u observaciones"
             />
           </CardContent>
         </Card>
 
-        <div className="flex justify-end space-x-4 sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4 mt-4">
-          <Button variant="outline" onClick={() => navigate(-1)}>Cancelar</Button>
-          <Button type="submit" className="flex items-center gap-2">
-            <Save className="h-4 w-4" /> {isEdit ? "Actualizar" : "Guardar"}
+        <div className="flex justify-end">
+          <Button type="submit" disabled={loading}>
+            <Save className="mr-2" /> {isEdit ? "Actualizar" : "Guardar"}
           </Button>
         </div>
       </form>

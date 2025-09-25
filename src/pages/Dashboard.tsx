@@ -1,14 +1,13 @@
-﻿// src/pages/Dashboard.tsx
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, FileText, Calendar, CalendarDays, TrendingUp, Plus, Activity } from "lucide-react";
 import { Link } from "react-router-dom";
 import ListaClinicas from "./ListaClinicas";
-import { API_BASE } from "@/lib/http";
 import { formatGuayaquilDateISO } from "@/lib/timezone";
+import { apiGet } from "@/api/client";
 
-interface RawPaciente {
+type RawPaciente = {
   id_paciente: number;
   nombres: string;
   apellidos: string;
@@ -17,7 +16,7 @@ interface RawPaciente {
   telefono: string;
   correo: string;
   activo: boolean;
-}
+};
 
 const Dashboard = () => {
   const [totalPatients, setTotalPatients] = useState(0);
@@ -28,15 +27,13 @@ const Dashboard = () => {
   useEffect(() => {
     async function fetchStats() {
       try {
-        // Obtener todos los pacientes con limite alto para evitar paginacion por defecto
-        const res = await fetch(`${API_BASE}/pacientes?page=1&limit=1000`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        // Extraer array de datos
-        const list: RawPaciente[] = Array.isArray(json.data) ? json.data : [];
-        // Total real de pacientes
+        const json = await apiGet<{ data: RawPaciente[]; total?: number }>("/pacientes", {
+          page: 1,
+          limit: 1000,
+        });
+        const list = Array.isArray(json.data) ? json.data : [];
         setTotalPatients(json.total ?? list.length);
-        // Calcular cuantos pacientes se crearon este mes (usando fecha_nacimiento como indicador)
+
         const todayParts = formatGuayaquilDateISO(new Date()).split("-");
         const currentYear = Number(todayParts[0] ?? 0);
         const currentMonth = Number(todayParts[1] ?? 0);
@@ -60,7 +57,6 @@ const Dashboard = () => {
   if (loading) return <div className="p-4">Cargando estadisticas...</div>;
   if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
 
-  // Conservar estructura original de stats, pero con datos dinamicos en el primero
   const stats = [
     {
       title: "Total Pacientes",
@@ -93,39 +89,19 @@ const Dashboard = () => {
   ];
 
   const recentActivities = [
-    {
-      patient: "Maria Gonzalez",
-      action: "Nueva historia clinica creada",
-      time: "Hace 2 horas",
-    },
-    {
-      patient: "Carlos Rodriguez",
-      action: "Cita medica completada",
-      time: "Hace 3 horas",
-    },
-    {
-      patient: "Ana Martinez",
-      action: "Examenes medicos actualizados",
-      time: "Hace 5 horas",
-    },
-    {
-      patient: "Juan Perez",
-      action: "Nuevo paciente registrado",
-      time: "Hace 1 dia",
-    },
+    { patient: "Maria Gonzalez", action: "Nueva historia clinica creada", time: "Hace 2 horas" },
+    { patient: "Carlos Rodriguez", action: "Cita medica completada", time: "Hace 3 horas" },
+    { patient: "Ana Martinez", action: "Examenes medicos actualizados", time: "Hace 5 horas" },
+    { patient: "Juan Perez", action: "Nuevo paciente registrado", time: "Hace 1 dia" },
   ];
 
   return (
     <div className="space-y-8">
-      {/* Welcome Section */}
       <div className="bg-gradient-to-r from-primary to-accent rounded-lg p-6 text-white">
         <h1 className="text-3xl font-bold mb-2">Bienvenido a ClinicSoft</h1>
-        <p className="text-lg opacity-90">
-          Sistema integral de gestion de historias clinicas y pacientes
-        </p>
+        <p className="text-lg opacity-90">Sistema integral de gestion de historias clinicas y pacientes</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
@@ -144,18 +120,14 @@ const Dashboard = () => {
         })}
       </div>
 
-      {/* Quick Actions & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
               Acciones Rapidas
             </CardTitle>
-            <CardDescription>
-              Accesos directos a las funciones mas utilizadas
-            </CardDescription>
+            <CardDescription>Accesos directos a las funciones mas utilizadas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Link to="/patients/new" className="block">
@@ -173,16 +145,16 @@ const Dashboard = () => {
             <Link to="/appointments/new" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Calendar className="h-4 w-4 mr-2" />
+                Programar Cita
+              </Button>
+            </Link>
             <Link to="/calendar" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <CalendarDays className="h-4 w-4 mr-2" />
                 Ver Calendario
               </Button>
             </Link>
-                Programar Cita
-              </Button>
-            </Link>
-            <Link to="/ListadoClinicas/new" className="block">
+            <Link to="/ListaClinicas" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Calendar className="h-4 w-4 mr-2" />
                 Clinicas
@@ -197,22 +169,19 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
               Actividad Reciente
             </CardTitle>
-            <CardDescription>
-              Ultimas acciones realizadas en el sistema
-            </CardDescription>
+            <CardDescription>Ultimas acciones realizadas en el sistema</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {recentActivities.map((activity, index) => (
                 <div key={index} className="flex items-start space-x-3 pb-3 border-b last:border-b-0">
-                  <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{activity.patient}</p>
                     <p className="text-sm text-muted-foreground">{activity.action}</p>
@@ -224,11 +193,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-      <div>Aqui la lista
-        <div className="App">
-          <h1>Bienvenido</h1>
-          <ListaClinicas />
-        </div>
+
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Clinicas registradas</h2>
+        <ListaClinicas />
       </div>
     </div>
   );
