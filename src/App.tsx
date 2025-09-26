@@ -1,4 +1,4 @@
-﻿// src/App.tsx
+// src/App.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -24,7 +24,7 @@ import AppointmentDetail from "./pages/AppointmentDetail";
 import AppointmentEdit from "./pages/AppointmentEdit";
 import OdontogramPage from "./pages/Odontograma";
 import RouteModal from "@/components/RouteModal";
-import { setTenant } from "@/api/client";
+import { setTenant, setAuthToken } from "@/api/client";
 import { initTenant } from "@/lib/tenant";
 import LoginPage from "./pages/Login";
 import { AuthProvider, useAuth, useIsAuthenticated } from "@/context/AuthContext";
@@ -173,6 +173,10 @@ const App = () => {
   }, [session]);
 
   useEffect(() => {
+    setAuthToken(session?.token ?? null);
+  }, [session?.token]);
+
+  useEffect(() => {
     const removeHandler = addUnauthorizedHandler(() => {
       setSessionState(null);
       clearAuth();
@@ -210,4 +214,5 @@ const App = () => {
 };
 
 export default App;
+
 
