@@ -1,41 +1,105 @@
-// src/pages/ListaClinicas.tsx
-import { useClinicas } from "../servicios/apiClinicas";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ClinicsTable from "@/components/ClinicsTable";
+import ClinicForm from "@/components/ClinicForm";
+import { useClinicas, deleteClinic, createClinic, updateClinic, Clinic, ClinicPayload } from "@/servicios/clinicas";
+import { toast } from "sonner";
 
-const ListaClinicas = () => {
-  const { clinicas, cargando, error } = useClinicas();
+const ClinicsPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { clinics, loading, error, refetch } = useClinicas();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingClinic, setEditingClinic] = useState<Clinic | null>(null);
 
-  if (cargando) return <p>Cargando clínicas...</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingClinic(null);
+  };
+
+  const handleCreateClick = () => {
+    setEditingClinic(null);
+    setModalOpen(true);
+  };
+
+  const handleEditClick = (clinic: Clinic) => {
+    setEditingClinic(clinic);
+    setModalOpen(true);
+  };
+
+  const handleDelete = async (clinic: Clinic) => {
+    if (!window.confirm(`Eliminar la clinica "${clinic.nombre}"?`)) {
+      return;
+    }
+    try {
+      await deleteClinic(clinic.id);
+      toast.success("Clinica eliminada correctamente");
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "No se pudo eliminar la clinica");
+    }
+  };
+
+  const handleSubmit = async (payload: ClinicPayload) => {
+    try {
+      setSaving(true);
+      if (editingClinic) {
+        await updateClinic(editingClinic.id, payload);
+        toast.success("Clinica actualizada correctamente");
+      } else {
+        await createClinic(payload);
+        toast.success("Clinica registrada correctamente");
+      }
+      closeModal();
+      refetch();
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar la clinica");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("action") === "new") {
+      handleCreateClick();
+      navigate("/clinics", { replace: true });
+    }
+  }, [location.search]);
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Listado de Clínicas</h2>
-      <table className="table-auto border-collapse border border-gray-400 w-full">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border p-2">ID</th>
-            <th className="border p-2">Nombre</th>
-            <th className="border p-2">Dirección</th>
-            <th className="border p-2">Teléfono</th>
-            <th className="border p-2">Correo</th>
-            <th className="border p-2">Activo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clinicas.map(clinica => (
-            <tr key={clinica.id}>
-              <td className="border p-2">{clinica.id}</td>
-              <td className="border p-2">{clinica.nombre}</td>
-              <td className="border p-2">{clinica.direccion}</td>
-              <td className="border p-2">{clinica.telefono}</td>
-              <td className="border p-2">{clinica.correo}</td>
-              <td className="border p-2">{clinica.activo ? "Sí" : "No"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-6">
+      <ClinicsTable
+        clinics={clinics}
+        loading={loading}
+        error={error}
+        onRetry={refetch}
+        onCreate={handleCreateClick}
+        onEdit={handleEditClick}
+        onDelete={handleDelete}
+      />
+
+      <Dialog open={modalOpen} onOpenChange={(open) => (open ? setModalOpen(true) : closeModal())}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{editingClinic ? "Editar clinica" : "Registrar clinica"}</DialogTitle>
+          </DialogHeader>
+          <ClinicForm
+            initialClinic={editingClinic}
+            onSubmit={handleSubmit}
+            onCancel={closeModal}
+            saving={saving}
+            submitLabel={editingClinic ? "Actualizar clinica" : "Registrar clinica"}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default ListaClinicas;
+export default ClinicsPage;
+

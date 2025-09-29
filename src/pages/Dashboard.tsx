@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, Calendar, CalendarDays, TrendingUp, Plus, Activity } from "lucide-react";
-import { Link } from "react-router-dom";
-import ListaClinicas from "./ListaClinicas";
+import { Users, FileText, Calendar, CalendarDays, TrendingUp, Plus, Activity, Building2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { formatGuayaquilDateISO } from "@/lib/timezone";
 import { apiGet } from "@/api/client";
+import ClinicsTable from "@/components/ClinicsTable";
+import { useClinicas } from "@/servicios/clinicas";
 
 type RawPaciente = {
   id_paciente: number;
@@ -19,10 +20,20 @@ type RawPaciente = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [totalPatients, setTotalPatients] = useState(0);
   const [newThisMonth, setNewThisMonth] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [patientError, setPatientError] = useState<string | null>(null);
+
+  const {
+    clinics,
+    loading: clinicsLoading,
+    error: clinicsError,
+    refetch: refetchClinics,
+    total: totalClinics,
+    activeCount: activeClinics,
+  } = useClinicas();
 
   useEffect(() => {
     async function fetchStats() {
@@ -46,43 +57,48 @@ const Dashboard = () => {
         setNewThisMonth(monthCount);
       } catch (err) {
         console.error(err);
-        setError((err as Error).message);
+        setPatientError(err instanceof Error ? err.message : "No se pudieron cargar las estadisticas");
       } finally {
-        setLoading(false);
+        setLoadingPatients(false);
       }
     }
     fetchStats();
   }, []);
 
-  if (loading) return <div className="p-4">Cargando estadisticas...</div>;
-  if (error) return <div className="p-4 text-red-600">Error: {error}</div>;
+  if (loadingPatients) {
+    return <div className="p-4">Cargando estadisticas...</div>;
+  }
+
+  if (patientError) {
+    return <div className="p-4 text-red-600">Error: {patientError}</div>;
+  }
 
   const stats = [
     {
-      title: "Total Pacientes",
+      title: "Total pacientes",
       value: String(totalPatients),
       change: `+${newThisMonth} este mes`,
       icon: Users,
       color: "text-blue-600",
     },
     {
-      title: "Historias Clinicas",
+      title: "Historias clinicas",
       value: "342",
       change: "+18 esta semana",
       icon: FileText,
       color: "text-green-600",
     },
     {
-      title: "Citas Programadas",
-      value: "24",
-      change: "Para hoy",
-      icon: Calendar,
-      color: "text-orange-600",
+      title: "Clinicas activas",
+      value: String(activeClinics),
+      change: `${totalClinics} registradas`,
+      icon: Building2,
+      color: "text-sky-600",
     },
     {
-      title: "Consultas Activas",
-      value: "8",
-      change: "En curso",
+      title: "Citas programadas",
+      value: "24",
+      change: "Para hoy",
       icon: Activity,
       color: "text-purple-600",
     },
@@ -125,7 +141,7 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
-              Acciones Rapidas
+              Acciones rapidas
             </CardTitle>
             <CardDescription>Accesos directos a las funciones mas utilizadas</CardDescription>
           </CardHeader>
@@ -133,37 +149,35 @@ const Dashboard = () => {
             <Link to="/patients/new" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Plus className="h-4 w-4 mr-2" />
-                Registrar Nuevo Paciente
+                Registrar nuevo paciente
               </Button>
             </Link>
             <Link to="/medical-records/new" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <FileText className="h-4 w-4 mr-2" />
-                Crear Historia Clinica
+                Crear historia clinica
               </Button>
             </Link>
             <Link to="/appointments/new" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Calendar className="h-4 w-4 mr-2" />
-                Programar Cita
+                Programar cita
               </Button>
             </Link>
             <Link to="/calendar" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <CalendarDays className="h-4 w-4 mr-2" />
-                Ver Calendario
+                Ver calendario
               </Button>
             </Link>
-            <Link to="/ListaClinicas" className="block">
-              <Button variant="outline" className="w-full justify-start">
-                <Calendar className="h-4 w-4 mr-2" />
-                Clinicas
-              </Button>
-            </Link>
+            <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/clinics")}> 
+              <Building2 className="h-4 w-4 mr-2" />
+              Gestionar clinicas
+            </Button>
             <Link to="/patients" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Users className="h-4 w-4 mr-2" />
-                Ver Todos los Pacientes
+                Ver todos los pacientes
               </Button>
             </Link>
           </CardContent>
@@ -173,7 +187,7 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
-              Actividad Reciente
+              Actividad reciente
             </CardTitle>
             <CardDescription>Ultimas acciones realizadas en el sistema</CardDescription>
           </CardHeader>
@@ -194,12 +208,26 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      <div>
-        <h2 className="text-xl font-semibold mb-2">Clinicas registradas</h2>
-        <ListaClinicas />
-      </div>
+      <ClinicsTable
+        clinics={clinics}
+        onCreate={() => navigate("/clinics?action=new")}
+        loading={clinicsLoading}
+        error={clinicsError}
+        onRetry={refetchClinics}
+        onViewAll={() => navigate("/clinics")}
+        showCreateButton
+        showViewAllButton
+        showActions={false}
+        limit={5}
+        compact
+      />
     </div>
   );
 };
 
 export default Dashboard;
+
+
+
+
+

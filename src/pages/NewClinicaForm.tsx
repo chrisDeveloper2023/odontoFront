@@ -1,141 +1,88 @@
-
-import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useNavigate } from "react-router-dom";
-import { apiPost } from "@/api/client";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import ClinicForm from "@/components/ClinicForm";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { createClinic, fetchClinic, updateClinic, ClinicPayload, Clinic } from "@/servicios/clinicas";
 
 const NewClinicForm = () => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id?: string }>();
+  const clinicId = id ? Number(id) : null;
+  const isEdit = Number.isFinite(clinicId);
+  const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [initialClinic, setInitialClinic] = useState<Clinic | null>(null);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    phone: "",
-    email: "",
-    status: "Activa" as "Activa" | "Inactiva",
-  });
+  useEffect(() => {
+    if (!isEdit || clinicId === null) return;
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleStatusChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, status: value as "Activa" | "Inactiva" }));
-  };
-
-  const resetForm = () => {
-    setFormData({ name: "", address: "", phone: "", email: "", status: "Activa" });
-  };
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!formData.name.trim()) {
-      toast.error("El nombre de la clinica es obligatorio");
-      return;
+    async function loadClinic() {
+      try {
+        setLoading(true);
+        const clinic = await fetchClinic(clinicId);
+        if (!clinic) {
+          toast.error("Clinica no encontrada");
+          navigate("/clinics", { replace: true });
+          return;
+        }
+        setInitialClinic(clinic);
+      } catch (err) {
+        console.error(err);
+        toast.error("No se pudo cargar la clinica");
+        navigate("/clinics", { replace: true });
+      } finally {
+        setLoading(false);
+      }
     }
 
-    const payload = {
-      nombre: formData.name.trim(),
-      direccion: formData.address.trim() || null,
-      telefono: formData.phone.trim() || null,
-      correo: formData.email.trim() || null,
-      activo: formData.status === "Activa",
-    };
+    loadClinic();
+  }, [clinicId, isEdit, navigate]);
 
+  const handleSubmit = async (payload: ClinicPayload) => {
     try {
       setSaving(true);
-      await apiPost('/clinicas', payload);
-      toast.success('Clinica registrada correctamente');
-      resetForm();
-      navigate('/ListaClinicas');
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error?.message || 'No se pudo registrar la clinica');
+      if (isEdit && clinicId !== null) {
+        await updateClinic(clinicId, payload);
+        toast.success("Clinica actualizada correctamente");
+      } else {
+        await createClinic(payload);
+        toast.success("Clinica registrada correctamente");
+      }
+      navigate("/clinics");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "No se pudo guardar la clinica");
     } finally {
       setSaving(false);
     }
   };
 
+  if (loading) {
+    return <div className="p-6 text-center text-muted-foreground">Cargando clinica...</div>;
+  }
+
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Registrar clinica</CardTitle>
-        <CardDescription>Completa la informacion basica de la clinica</CardDescription>
+        <CardTitle>{isEdit ? "Editar clinica" : "Registrar clinica"}</CardTitle>
+        <CardDescription>
+          {isEdit ? "Actualiza la informacion basica de la clinica" : "Completa la informacion basica de la clinica"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Nombre de la clinica *</Label>
-              <Input
-                name="name"
-                placeholder="Ej: Clinica Central"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div>
-              <Label>Telefono</Label>
-              <Input
-                name="phone"
-                placeholder="+593 987654321"
-                value={formData.phone}
-                onChange={handleChange}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label>Direccion</Label>
-              <Textarea
-                name="address"
-                placeholder="Av. Principal 123"
-                value={formData.address}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                name="email"
-                type="email"
-                placeholder="contacto@clinica.com"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </div>
-            <div>
-              <Label>Estado</Label>
-              <Select value={formData.status} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Activa">Activa</SelectItem>
-                  <SelectItem value="Inactiva">Inactiva</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-4 pt-4">
-            <Button type="button" variant="secondary" onClick={resetForm} disabled={saving}>
-              Limpiar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Guardando?' : 'Registrar clinica'}
-            </Button>
-          </div>
-        </form>
+        <ClinicForm
+          initialClinic={initialClinic ?? undefined}
+          onSubmit={handleSubmit}
+          onCancel={() => navigate("/clinics")}
+          saving={saving}
+          submitLabel={isEdit ? "Actualizar clinica" : "Registrar clinica"}
+          showResetButton={!isEdit}
+        />
       </CardContent>
     </Card>
   );
 };
 
 export default NewClinicForm;
+

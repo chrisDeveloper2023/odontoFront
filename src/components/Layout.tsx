@@ -1,6 +1,6 @@
-﻿import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut } from "lucide-react";
+import { Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSelector from "@/components/TenantSelector";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,6 +37,7 @@ const Layout = ({ children }: LayoutProps) => {
     { name: "Dashboard", href: "/", icon: Heart },
     { name: "Pacientes", href: "/patients", icon: Users },
     { name: "Historias Clinicas", href: "/medical-records", icon: FileText },
+    { name: "Clinicas", href: "/clinics", icon: Building2 },
     { name: "Citas", href: "/appointments", icon: Calendar },
     { name: "Calendario", href: "/calendar", icon: CalendarDays },
   ];
@@ -181,6 +182,10 @@ const Layout = ({ children }: LayoutProps) => {
 };
 
 export default Layout;
+
+
+
+
 
 
 
