@@ -77,8 +77,9 @@ function AppRoutes() {
           <Route path="/appointments" element={<Layout><Appointments /></Layout>} />
           <Route path="/appointments/new" element={<Layout><NewAppointmentForm /></Layout>} />
           <Route path="/calendar" element={<Layout><CalendarPage /></Layout>} />
+          <Route path="/clinics" element={<Layout><ListaClinicas /></Layout>} />
           <Route path="/clinics/new" element={<Layout><NewClinicForm /></Layout>} />
-          <Route path="/ListaClinicas" element={<Layout><ListaClinicas /></Layout>} />
+          <Route path="/ListaClinicas" element={<Navigate to="/clinics" replace />} />
           <Route path="appointments/:id" element={<AppointmentDetail />} />
           <Route path="appointments/:id/edit" element={<AppointmentEdit />} />
           <Route path="odontograma" element={<OdontogramPage />} />
@@ -214,5 +215,7 @@ const App = () => {
 };
 
 export default App;
+
+
 
 

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
-import { apiPost } from "@/api/client";
 import { toast } from "sonner";
+import { ClinicPayload, createClinic } from "@/servicios/clinicas";
 
 const NewClinicForm = () => {
   const navigate = useNavigate();
@@ -42,7 +41,7 @@ const NewClinicForm = () => {
       return;
     }
 
-    const payload = {
+    const payload: ClinicPayload = {
       nombre: formData.name.trim(),
       direccion: formData.address.trim() || null,
       telefono: formData.phone.trim() || null,
@@ -52,13 +51,13 @@ const NewClinicForm = () => {
 
     try {
       setSaving(true);
-      await apiPost('/clinicas', payload);
-      toast.success('Clinica registrada correctamente');
+      await createClinic(payload);
+      toast.success("Clinica registrada correctamente");
       resetForm();
-      navigate('/ListaClinicas');
+      navigate("/clinics");
     } catch (error: any) {
       console.error(error);
-      toast.error(error?.message || 'No se pudo registrar la clinica');
+      toast.error(error?.message || "No se pudo registrar la clinica");
     } finally {
       setSaving(false);
     }
@@ -129,7 +128,7 @@ const NewClinicForm = () => {
               Limpiar
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? 'Guardando?' : 'Registrar clinica'}
+              {saving ? "Guardando..." : "Registrar clinica"}
             </Button>
           </div>
         </form>
@@ -139,3 +138,4 @@ const NewClinicForm = () => {
 };
 
 export default NewClinicForm;
+
