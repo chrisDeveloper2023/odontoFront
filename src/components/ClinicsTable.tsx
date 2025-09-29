@@ -1,19 +1,23 @@
-import { Link } from "react-router-dom";
-import { Building2, Plus, RefreshCw } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Clinic } from "@/servicios/clinicas";
+import { Building2, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 
 interface ClinicsTableProps {
   clinics: Clinic[];
   loading: boolean;
   error: string | null;
   onRetry?: () => void;
+  onCreate?: () => void;
+  onEdit?: (clinic: Clinic) => void;
+  onDelete?: (clinic: Clinic) => void;
+  onViewAll?: () => void;
   limit?: number;
   showCreateButton?: boolean;
-  showViewAllLink?: boolean;
+  showViewAllButton?: boolean;
+  showActions?: boolean;
   compact?: boolean;
 }
 
@@ -22,9 +26,14 @@ const ClinicsTable = ({
   loading,
   error,
   onRetry,
+  onCreate,
+  onEdit,
+  onDelete,
+  onViewAll,
   limit,
   showCreateButton = true,
-  showViewAllLink = false,
+  showViewAllButton = false,
+  showActions = true,
   compact = false,
 }: ClinicsTableProps) => {
   const displayedClinics = typeof limit === "number" ? clinics.slice(0, limit) : clinics;
@@ -44,17 +53,15 @@ const ClinicsTable = ({
           </CardDescription>
         </div>
         <div className="flex flex-wrap gap-2">
-          {showViewAllLink && total > 0 ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/clinics">Ver todas</Link>
+          {showViewAllButton && total > 0 ? (
+            <Button variant="outline" size="sm" onClick={onViewAll}>
+              Ver todas
             </Button>
           ) : null}
           {showCreateButton ? (
-            <Button size="sm" asChild>
-              <Link to="/clinics/new">
-                <Plus className="h-4 w-4 mr-1" />
-                Nueva clinica
-              </Link>
+            <Button size="sm" onClick={onCreate}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nueva clinica
             </Button>
           ) : null}
         </div>
@@ -84,6 +91,7 @@ const ClinicsTable = ({
                 <TableHead>Direccion</TableHead>
                 <TableHead>Contacto</TableHead>
                 <TableHead className="text-center">Estado</TableHead>
+                {showActions ? <TableHead className="text-right">Acciones</TableHead> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -103,6 +111,32 @@ const ClinicsTable = ({
                       {clinic.activo ? "Activa" : "Inactiva"}
                     </Badge>
                   </TableCell>
+                  {showActions ? (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => onEdit?.(clinic)}
+                          disabled={!onEdit}
+                        >
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Editar</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => onDelete?.(clinic)}
+                          disabled={!onDelete}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Eliminar</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               ))}
             </TableBody>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, FileText, Calendar, CalendarDays, TrendingUp, Plus, Activity, Building2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { formatGuayaquilDateISO } from "@/lib/timezone";
 import { apiGet } from "@/api/client";
 import ClinicsTable from "@/components/ClinicsTable";
@@ -20,6 +20,7 @@ type RawPaciente = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [totalPatients, setTotalPatients] = useState(0);
   const [newThisMonth, setNewThisMonth] = useState(0);
   const [loadingPatients, setLoadingPatients] = useState(true);
@@ -74,14 +75,14 @@ const Dashboard = () => {
 
   const stats = [
     {
-      title: "Total Pacientes",
+      title: "Total pacientes",
       value: String(totalPatients),
       change: `+${newThisMonth} este mes`,
       icon: Users,
       color: "text-blue-600",
     },
     {
-      title: "Historias Clinicas",
+      title: "Historias clinicas",
       value: "342",
       change: "+18 esta semana",
       icon: FileText,
@@ -95,7 +96,7 @@ const Dashboard = () => {
       color: "text-sky-600",
     },
     {
-      title: "Citas Programadas",
+      title: "Citas programadas",
       value: "24",
       change: "Para hoy",
       icon: Activity,
@@ -104,7 +105,7 @@ const Dashboard = () => {
   ];
 
   const recentActivities = [
-    { patient: "Maria Gonzalez", action: "Nueva historia Clinica creada", time: "Hace 2 horas" },
+    { patient: "Maria Gonzalez", action: "Nueva historia clinica creada", time: "Hace 2 horas" },
     { patient: "Carlos Rodriguez", action: "Cita medica completada", time: "Hace 3 horas" },
     { patient: "Ana Martinez", action: "Examenes medicos actualizados", time: "Hace 5 horas" },
     { patient: "Juan Perez", action: "Nuevo paciente registrado", time: "Hace 1 dia" },
@@ -114,7 +115,7 @@ const Dashboard = () => {
     <div className="space-y-8">
       <div className="bg-gradient-to-r from-primary to-accent rounded-lg p-6 text-white">
         <h1 className="text-3xl font-bold mb-2">Bienvenido a ClinicSoft</h1>
-        <p className="text-lg opacity-90">Sistema integral de Gestion de historias Clinicas y pacientes</p>
+        <p className="text-lg opacity-90">Sistema integral de gestion de historias clinicas y pacientes</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -142,7 +143,7 @@ const Dashboard = () => {
               <TrendingUp className="h-5 w-5 text-primary" />
               Acciones rapidas
             </CardTitle>
-            <CardDescription>Accesos directos a las funciones Mas utilizadas</CardDescription>
+            <CardDescription>Accesos directos a las funciones mas utilizadas</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Link to="/patients/new" className="block">
@@ -154,7 +155,7 @@ const Dashboard = () => {
             <Link to="/medical-records/new" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <FileText className="h-4 w-4 mr-2" />
-                Crear historia Clinica
+                Crear historia clinica
               </Button>
             </Link>
             <Link to="/appointments/new" className="block">
@@ -169,12 +170,10 @@ const Dashboard = () => {
                 Ver calendario
               </Button>
             </Link>
-            <Link to="/clinics" className="block">
-              <Button variant="outline" className="w-full justify-start">
-                <Building2 className="h-4 w-4 mr-2" />
-                Gestion de Clinicas
-              </Button>
-            </Link>
+            <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/clinics")}> 
+              <Building2 className="h-4 w-4 mr-2" />
+              Gestionar clinicas
+            </Button>
             <Link to="/patients" className="block">
               <Button variant="outline" className="w-full justify-start">
                 <Users className="h-4 w-4 mr-2" />
@@ -211,11 +210,15 @@ const Dashboard = () => {
 
       <ClinicsTable
         clinics={clinics}
+        onCreate={() => navigate("/clinics?action=new")}
         loading={clinicsLoading}
         error={clinicsError}
         onRetry={refetchClinics}
+        onViewAll={() => navigate("/clinics")}
+        showCreateButton
+        showViewAllButton
+        showActions={false}
         limit={5}
-        showViewAllLink
         compact
       />
     </div>
@@ -223,5 +226,8 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
 
 
