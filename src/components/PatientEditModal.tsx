@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
+import { apiGet, apiPut } from "@/api/client";
 
 interface FormData {
   documentType: string;
@@ -21,6 +22,7 @@ interface FormData {
   email: string;
   address: string;
   allergies: string;
+  clinicId: number | null;
 }
 
 interface PatientEditModalProps {
@@ -47,6 +49,7 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
     email: "",
     address: "",
     allergies: "",
+    clinicId: null,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +68,7 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
         email: "",
         address: "",
         allergies: "",
+        clinicId: null,
       });
       setError(null);
       return;
@@ -73,12 +77,8 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
     setLoading(true);
     setError(null);
 
-    fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patientId}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then(raw => {
+    apiGet<any>(`/pacientes/${patientId}`)
+      .then((raw) => {
         setFormData({
           documentType: raw.tipo_documento,
           documentId: raw.documento_identidad,
@@ -90,9 +90,10 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
           email: raw.correo,
           address: raw.direccion,
           allergies: raw.observaciones,
+          clinicId: raw.id_clinica ?? null,
         });
       })
-      .catch(err => {
+      .catch((err: Error) => {
         console.error(err);
         setError(err.message);
         toast.error("Error al cargar datos: " + err.message);
@@ -116,7 +117,7 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
     setLoading(true);
     try {
       const payload = {
-        id_clinica: 1,
+        id_clinica: formData.clinicId,
         tipo_documento: formData.documentType,
         documento_identidad: formData.documentId,
         nombres: formData.firstName,
@@ -129,13 +130,7 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
         sexo: formData.gender.toUpperCase(),
       };
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patientId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await apiPut(`/pacientes/${patientId}`, payload);
       
       toast.success("Paciente actualizado exitosamente");
       

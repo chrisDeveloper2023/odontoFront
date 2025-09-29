@@ -1,23 +1,66 @@
-// src/api/client.ts
-import axios from "axios";
+﻿import axios from "axios";
 import { toast } from "sonner";
+import { notifyUnauthorized } from "@/lib/auth-events";
 
 const baseURL = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
+const AUTH_KEY = "authToken";
+const TENANT_KEY = "tenantSlug";
 
 export const api = axios.create({ baseURL });
 
-// Tenant helpers (header X-Tenant)
+const storedToken = (() => {
+  try {
+    return localStorage.getItem(AUTH_KEY) || null;
+  } catch {
+    return null;
+  }
+})();
+
+if (storedToken) {
+  api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
+}
+
+const storedTenant = (() => {
+  try {
+    return localStorage.getItem(TENANT_KEY) || null;
+  } catch {
+    return null;
+  }
+})();
+
+if (storedTenant) {
+  api.defaults.headers.common["X-Tenant"] = storedTenant;
+}
+
 export const setTenant = (slug: string) => {
   if (!slug) return;
   api.defaults.headers.common["X-Tenant"] = slug;
-  try { localStorage.setItem("tenantSlug", slug); } catch {}
-};
-export const clearTenant = () => {
-  delete api.defaults.headers.common["X-Tenant"];
-  try { localStorage.removeItem("tenantSlug"); } catch {}
+  try {
+    localStorage.setItem(TENANT_KEY, slug);
+  } catch {}
 };
 
-// Interceptor de respuesta: normaliza errores y maneja tenant/403
+export const clearTenant = () => {
+  delete api.defaults.headers.common["X-Tenant"];
+  try {
+    localStorage.removeItem(TENANT_KEY);
+  } catch {}
+};
+
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+    try {
+      localStorage.setItem(AUTH_KEY, token);
+    } catch {}
+  } else {
+    delete api.defaults.headers.common.Authorization;
+    try {
+      localStorage.removeItem(AUTH_KEY);
+    } catch {}
+  }
+};
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -26,30 +69,30 @@ api.interceptors.response.use(
     const status = response?.status;
     const msg = data?.mensaje || data?.error || err.message || "Error de red";
 
-    if (status === 400 && String(data?.mensaje).toLowerCase().includes("tenant")) {
-      // Tenant requerido: en dev autoconfigura 'default' y sugiere refrescar
+    if (status === 400 && String(data?.mensaje ?? "").toLowerCase().includes("tenant")) {
       if (import.meta.env.DEV) {
         setTenant("default");
-        toast.info("Se configuró tenant 'default' para desarrollo.");
+        toast.info("Se configuro tenant 'default' para desarrollo.");
       } else {
-        toast.error("Tenant requerido. Selecciona una clínica/tenant.");
+        toast.error("Tenant requerido. Selecciona una clinica.");
       }
+    }
+
+    if (status === 401) {
+      setAuthToken(null);
+      notifyUnauthorized();
+      toast.error("Sesion expirada o credenciales invalidas");
     }
 
     if (status === 403) {
       toast.error(msg || "Acceso denegado (403)");
     }
 
-    // Log útil para diagnóstico
-    console.error(
-      `[API ${status ?? "?"}] ${err.config?.method?.toUpperCase?.() ?? ""} ${err.config?.url}`,
-      data
-    );
+    console.error(`API ${status ?? "?"} ${err.config?.method?.toUpperCase?.() ?? ""} ${err.config?.url}`, data);
     return Promise.reject(new Error(msg));
   }
 );
 
-// Helpers mínimos
 export const apiGet = async <T = any>(url: string, params?: any): Promise<T> => {
   const res = await api.get<T>(url, { params });
   return res.data as T;
@@ -70,4 +113,6 @@ export const apiDelete = async <T = any>(url: string): Promise<T> => {
   const res = await api.delete<T>(url);
   return res.data as T;
 };
+
+
 

@@ -1,5 +1,5 @@
 // src/lib/tenant.ts
-import { setTenant as setAxiosTenant } from "@/api/client";
+import { setTenant as setAxiosTenant, clearTenant as clearAxiosTenant } from "@/api/client";
 
 const KEY = "tenantSlug";
 
@@ -17,7 +17,12 @@ export function getTenantHeaders(): Record<string, string> {
   return slug ? { "X-Tenant": slug } : {};
 }
 
-// Parche global para fetch: añade X-Tenant automáticamente
+export function clearTenant() {
+  try { localStorage.removeItem(KEY); } catch {}
+  clearAxiosTenant();
+}
+
+// Parche global para fetch: anade X-Tenant automaticamente
 let patched = false;
 export function initTenant() {
   const stored = getTenantSlug();
@@ -41,4 +46,3 @@ export function initTenant() {
     };
   }
 }
-

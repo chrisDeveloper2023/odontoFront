@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Eye, Edit, FileText, Calendar, X, Check } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { API_BASE } from "@/lib/http";
+import { apiGet, apiDelete } from "@/api/client";
 import PatientDetailModal from "@/components/PatientDetailModal";
 import PatientEditModal from "@/components/PatientEditModal";
 
@@ -66,10 +66,7 @@ const Patients: React.FC = () => {
           params.set("onlyInactive", "true");
         }
 
-        const url = `${API_BASE}/pacientes?${params.toString()}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
+        const json = await apiGet<any>("/pacientes", Object.fromEntries(params.entries()));
 
         setTotalBackend(json.total || 0);
         setTotalPages(json.totalPages || 1);
@@ -362,10 +359,9 @@ const Patients: React.FC = () => {
                         size="sm"
                         onClick={async (e) => {
                           e.stopPropagation();
-                          if (window.confirm("¿Estás seguro de eliminar este paciente?")) {
+                          if (window.confirm("¿Estas seguro de eliminar este paciente?")) {
                             try {
-                              const res = await fetch(`${API_BASE}/pacientes/${patient.id}`, { method: "DELETE" });
-                              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                              await apiDelete(`/pacientes/${patient.id}`);
                               setPatients((p) => p.filter((x) => x.id !== patient.id));
                             } catch (err) {
                               alert("Error al eliminar paciente");

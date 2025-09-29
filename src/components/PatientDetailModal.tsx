@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Edit, FileText, Trash2 } from "lucide-react";
+import { apiDelete, apiGet } from "@/api/client";
 
 interface RawPaciente {
   id_paciente: number;
@@ -75,12 +76,8 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
     setLoading(true);
     setError(null);
 
-    fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patientId}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((raw: RawPaciente) => {
+    apiGet<RawPaciente>(`/pacientes/${patientId}`)
+      .then((raw) => {
         const mapped: PatientDetail = {
           id: String(raw.id_paciente),
           name: `${raw.nombres} ${raw.apellidos}`,
@@ -96,7 +93,7 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
         };
         setPatient(mapped);
       })
-      .catch(err => {
+      .catch((err: Error) => {
         console.error(err);
         setError(err.message);
       })
@@ -108,18 +105,11 @@ const PatientDetailModal: React.FC<PatientDetailModalProps> = ({
     if (!window.confirm("¿Estás seguro de eliminar este paciente?")) return;
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/pacientes/${patient.id}`, {
-        method: "DELETE",
-      });
+      await apiDelete(`/pacientes/${patient.id}`);
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      
-      // Notify parent component about deletion
       onPatientDeleted?.(patient.id);
-      
-      // Close modal
       onClose();
-      
+
       alert("Paciente eliminado correctamente");
     } catch (err) {
       console.error(err);
