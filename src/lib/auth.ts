@@ -1,33 +1,32 @@
 import { setAuthToken } from "@/api/client";
-import { setTenantSlug, clearTenant } from "@/lib/tenant";
+import { clearTenant, setTenantSlug } from "@/lib/tenant";
+import type { Usuario } from "@/types/usuario";
 
 const AUTH_USER_KEY = "authUser";
 
 export interface AuthSession {
   token: string;
   expiresIn: number;
-  usuario: {
-    id: number;
-    correo: string;
-    nombres: string;
-    apellidos: string;
-    roles: string[];
-    tenantId?: number;
-    tenantSlug?: string;
-  };
+  usuario: Usuario;
 }
 
 export interface StoredAuth {
   token: string;
-  usuario: AuthSession["usuario"];
+  usuario: Usuario;
   expiresAt?: number;
 }
+
+const resolveTenantSlug = (usuario: Usuario | null | undefined) => {
+  if (!usuario) return null;
+  return usuario.tenantSlug ?? usuario.tenant?.slug ?? null;
+};
 
 export function loadStoredAuth(): StoredAuth | null {
   try {
     const raw = localStorage.getItem(AUTH_USER_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as StoredAuth;
+    const parsed = JSON.parse(raw) as StoredAuth;
+    return parsed;
   } catch {
     return null;
   }
@@ -43,17 +42,22 @@ export function clearAuth() {
 
 export function persistAuth(session: AuthSession): StoredAuth {
   setAuthToken(session.token);
-  if (session.usuario.tenantSlug) {
-    setTenantSlug(session.usuario.tenantSlug);
+
+  const tenantSlug = resolveTenantSlug(session.usuario);
+  if (tenantSlug) {
+    setTenantSlug(tenantSlug);
   }
+
   const expiresAt = session.expiresIn ? Date.now() + session.expiresIn * 1000 : undefined;
   const stored: StoredAuth = {
     token: session.token,
     usuario: session.usuario,
     expiresAt,
   };
+
   try {
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(stored));
   } catch {}
+
   return stored;
 }

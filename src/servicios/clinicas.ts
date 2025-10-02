@@ -1,72 +1,49 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/api/client";
+import { ensureArray, mapClinica } from "@/lib/api/mappers";
+import type { Clinica } from "@/types/clinica";
 
-interface ClinicDto {
-  id_clinica: number;
-  nombre: string;
-  direccion: string | null;
-  telefono: string | null;
-  correo: string | null;
-  activo: boolean;
-  tenant_id?: number | null;
-}
+export type Clinic = Clinica;
 
-export interface Clinic {
-  id: number;
-  nombre: string;
-  direccion: string | null;
-  telefono: string | null;
-  correo: string | null;
-  activo: boolean;
-  tenantId?: number | null;
-}
-
-export interface ClinicPayload {
+export type ClinicaPayload = {
   nombre: string;
   direccion?: string | null;
   telefono?: string | null;
   correo?: string | null;
   activo?: boolean;
-}
-
-const ensureArray = (data: unknown): ClinicDto[] => {
-  if (Array.isArray(data)) {
-    return data as ClinicDto[];
-  }
-  if (data && typeof data === "object" && Array.isArray((data as any).data)) {
-    return (data as any).data as ClinicDto[];
-  }
-  return [];
+  tenant_id?: number | null;
 };
 
-const mapClinic = (dto: ClinicDto): Clinic => ({
-  id: dto.id_clinica,
-  nombre: dto.nombre,
-  direccion: dto.direccion ?? null,
-  telefono: dto.telefono ?? null,
-  correo: dto.correo ?? null,
-  activo: Boolean(dto.activo),
-  tenantId: dto.tenant_id ?? undefined,
-});
+const buildPayload = (payload: ClinicaPayload) => {
+  const body: Record<string, any> = {
+    nombre: payload.nombre,
+  };
+  if (payload.direccion !== undefined) body.direccion = payload.direccion;
+  if (payload.telefono !== undefined) body.telefono = payload.telefono;
+  if (payload.correo !== undefined) body.correo = payload.correo;
+  if (payload.activo !== undefined) body.activo = Boolean(payload.activo);
+  if (payload.tenant_id !== undefined) body.tenant_id = payload.tenant_id;
+  return body;
+};
 
-export async function fetchClinics(): Promise<Clinic[]> {
+export async function fetchClinics(): Promise<Clinica[]> {
   const data = await apiGet<unknown>("/clinicas");
-  return ensureArray(data).map(mapClinic);
+  return ensureArray(data).map(mapClinica);
 }
 
-export async function fetchClinic(id: number): Promise<Clinic | null> {
-  const dto = await apiGet<ClinicDto | null>(`/clinicas/${id}`);
-  return dto ? mapClinic(dto) : null;
+export async function fetchClinic(id: number): Promise<Clinica | null> {
+  const data = await apiGet<unknown>(`/clinicas/${id}`);
+  return data ? mapClinica(data) : null;
 }
 
-export async function createClinic(payload: ClinicPayload): Promise<Clinic> {
-  const dto = await apiPost<ClinicDto>("/clinicas", payload);
-  return mapClinic(dto);
+export async function createClinic(payload: ClinicaPayload): Promise<Clinica> {
+  const data = await apiPost<unknown>("/clinicas", buildPayload(payload));
+  return mapClinica(data);
 }
 
-export async function updateClinic(id: number, payload: ClinicPayload): Promise<Clinic> {
-  const dto = await apiPut<ClinicDto>(`/clinicas/${id}`, payload);
-  return mapClinic(dto);
+export async function updateClinic(id: number, payload: ClinicaPayload): Promise<Clinica> {
+  const data = await apiPut<unknown>(`/clinicas/${id}`, buildPayload(payload));
+  return mapClinica(data);
 }
 
 export async function deleteClinic(id: number): Promise<void> {
@@ -74,7 +51,7 @@ export async function deleteClinic(id: number): Promise<void> {
 }
 
 export function useClinicas() {
-  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [clinics, setClinics] = useState<Clinica[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -108,3 +85,5 @@ export function useClinicas() {
     activeCount,
   };
 }
+
+export { mapClinica };

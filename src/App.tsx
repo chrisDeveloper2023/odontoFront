@@ -24,6 +24,8 @@ import AppointmentDetail from "./pages/AppointmentDetail";
 import AppointmentEdit from "./pages/AppointmentEdit";
 import OdontogramPage from "./pages/Odontograma";
 import RouteModal from "@/components/RouteModal";
+import UsersPage from "./pages/Users";
+import PaymentsPage from "./pages/Payments";
 import { setTenant, setAuthToken } from "@/api/client";
 import { initTenant } from "@/lib/tenant";
 import LoginPage from "./pages/Login";
@@ -80,6 +82,8 @@ function AppRoutes() {
           <Route path="/clinics" element={<Layout><ListaClinicas /></Layout>} />
           <Route path="/clinics/new" element={<Layout><NewClinicForm /></Layout>} />
           <Route path="/clinics/:id/edit" element={<Layout><NewClinicForm /></Layout>} />
+          <Route path="/users" element={<Layout><UsersPage /></Layout>} />
+          <Route path="/payments" element={<Layout><PaymentsPage /></Layout>} />
           <Route path="/ListaClinicas" element={<Navigate to="/clinics" replace />} />
           <Route path="appointments/:id" element={<AppointmentDetail />} />
           <Route path="appointments/:id/edit" element={<AppointmentEdit />} />

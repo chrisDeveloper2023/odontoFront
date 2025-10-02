@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Edit2 } from "lucide-react";
-import { apiPatch } from "@/api/client";
+import { apiGet, apiPatch, apiPost } from "@/api/client";
 import { toast } from "sonner";
 import { API_BASE } from "@/lib/http";
 import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
@@ -42,6 +42,16 @@ type Appointment = {
   clinica?: {
     id: number;
     nombre: string;
+    tenant?: {
+      id: number;
+      nombre?: string;
+      slug?: string;
+    } | null;
+  } | null;
+  tenant?: {
+    id: number;
+    nombre?: string;
+    slug?: string;
   } | null;
 };
 
@@ -55,13 +65,17 @@ export default function AppointmentDetail() {
   const [updatingEstado, setUpdatingEstado] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_BASE}/citas/${id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
+    apiGet<Appointment>(`/citas/${id}`)
+      .then((data) => setCita(data))
+      .catch((err: any) => {
+        if (err?.status === 403) {
+          const message = "No tienes acceso a esta cita (403)";
+          setError(message);
+          toast.error(message);
+        } else {
+          setError(err?.message || "Error al cargar la cita");
+        }
       })
-      .then((data: Appointment) => setCita(data))
-      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -101,18 +115,19 @@ export default function AppointmentDetail() {
             size="sm"
             onClick={async () => {
               try {
-                const res = await fetch(`${API_BASE}/citas/${cita.id_cita}/historias-clinicas/abrir`, { method: "POST" });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const hist = await res.json();
+                const hist = await apiPost<any>(`/citas/${cita.id_cita}/historias-clinicas/abrir`);
                 const idHistoria = hist?.id_historia || hist?.id || hist?.historia?.id_historia;
                 if (idHistoria) {
                   navigate(`/medical-records/${idHistoria}`, {
                     state: { background: location.state?.background ?? location },
                   });
                 }
-              } catch (e) {
+              } catch (e: any) {
                 console.error("No se pudo abrir la historia clinica desde la cita:", e);
-                toast.error("No se pudo abrir la historia clinica");
+                const message = e?.status === 403
+                  ? "No tienes acceso a la historia clinica de esta cita (403)"
+                  : e?.message || "No se pudo abrir la historia clinica";
+                toast.error(message);
               }
             }}
           >
@@ -154,6 +169,12 @@ export default function AppointmentDetail() {
             <div>
               <Label>Clinica</Label>
               <p>{cita.clinica.nombre}</p>
+            </div>
+          )}
+          {(cita.tenant || cita.clinica?.tenant) && (
+            <div>
+              <Label>Tenant</Label>
+              <p>{cita.tenant?.nombre || cita.tenant?.slug || cita.clinica?.tenant?.nombre || cita.clinica?.tenant?.slug || 'Sin tenant'}</p>
             </div>
           )}
           <div>

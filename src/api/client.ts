@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 import { toast } from "sonner";
 import { notifyUnauthorized } from "@/lib/auth-events";
 
@@ -89,7 +89,10 @@ api.interceptors.response.use(
     }
 
     console.error(`API ${status ?? "?"} ${err.config?.method?.toUpperCase?.() ?? ""} ${err.config?.url}`, data);
-    return Promise.reject(new Error(msg));
+    const clientError = new Error(msg) as Error & { status?: number; payload?: any };
+    clientError.status = status;
+    clientError.payload = data;
+    return Promise.reject(clientError);
   }
 );
 
@@ -113,6 +116,7 @@ export const apiDelete = async <T = any>(url: string): Promise<T> => {
   const res = await api.delete<T>(url);
   return res.data as T;
 };
+
 
 
 

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2 } from "lucide-react";
+import { Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSelector from "@/components/TenantSelector";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,15 +29,27 @@ const Layout = ({ children }: LayoutProps) => {
     .map((part) => part.charAt(0).toUpperCase())
     .join("")
     .slice(0, 2) || "US";
-  const tenantLabel = session?.usuario.tenantSlug || "Sin tenant";
+  const tenantLabel = session?.usuario.tenant?.nombre || session?.usuario.tenantSlug || "Sin tenant";
   const email = session?.usuario.correo ?? "";
-  const rolesLabel = session?.usuario.roles?.length ? session.usuario.roles.join(", ") : null;
+  const roleNames = Array.from(
+    new Set(
+      [
+        session?.usuario.rol?.nombre_rol,
+        ...(session?.usuario.roles ?? []),
+      ]
+        .filter(Boolean)
+        .map((name) => String(name))
+    )
+  );
+  const rolesLabel = roleNames.length ? roleNames.join(", ") : null;
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: Heart },
     { name: "Pacientes", href: "/patients", icon: Users },
     { name: "Historias Clinicas", href: "/medical-records", icon: FileText },
     { name: "Clinicas", href: "/clinics", icon: Building2 },
+    { name: "Usuarios", href: "/users", icon: Users },
+    { name: "Pagos", href: "/payments", icon: Wallet },
     { name: "Citas", href: "/appointments", icon: Calendar },
     { name: "Calendario", href: "/calendar", icon: CalendarDays },
   ];

@@ -37,6 +37,7 @@ const NewPatient: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const { session } = useAuth();
+  const tenantId = session?.usuario?.tenant_id ?? session?.usuario?.tenant?.id ?? null;
 
   const [formData, setFormData] = useState<FormData>({
     documentType: "Cedula",
@@ -68,7 +69,7 @@ const NewPatient: React.FC = () => {
         setClinicas(validList);
         setFormData((prev) => ({
           ...prev,
-          clinicId: prev.clinicId ?? validList[0]?.id ?? session?.usuario?.tenantId ?? null,
+          clinicId: prev.clinicId ?? validList[0]?.id ?? tenantId,
         }));
       } catch (err) {
         console.error(err);
@@ -76,7 +77,7 @@ const NewPatient: React.FC = () => {
       }
     }
     loadClinicas();
-  }, [session?.usuario?.tenantId]);
+  }, [tenantId]);
 
   useEffect(() => {
     if (!isEdit || !id) return;

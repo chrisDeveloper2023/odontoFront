@@ -196,7 +196,11 @@ export default function MedicalRecordDetail() {
         setData(normalized);
         setForm(normalized);
       })
-      .catch((e: any) => setError(e?.message || "Error al cargar historia"))
+      .catch((e: any) => {
+        const message = e?.status === 403 ? "No tienes acceso a esta historia clinica (403)" : e?.message || "Error al cargar historia";
+        setError(message);
+        toast.error(message);
+      })
       .finally(() => setLoading(false));
   }, [hasValidId, id]);
 
@@ -523,3 +527,5 @@ export default function MedicalRecordDetail() {
     </div>
   );
 }
+
+

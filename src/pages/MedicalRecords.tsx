@@ -2,74 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Eye, Edit, Calendar, User } from "lucide-react";
+import { Search, Plus, Eye, Edit, Calendar, User, Building2 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { API_BASE } from "@/lib/http";
 import OdontogramaView from "@/components/OdontogramaView";
+import { fetchHistoriasClinicas } from "@/lib/api/historiasClinicas";
+import type { HistoriaClinica } from "@/types/historiaClinica";
+import { toast } from "sonner";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
-
-type HistoriaClinica = {
-  id_historia: number;
-  id_paciente: number;
-  id_clinica?: number | null;
-  id_cita?: number | null;
-  detalles_generales?: string | null;
-  motivo_consulta?: string | null;
-  fecha_creacion?: string | null;
-  fecha_modificacion?: string | null;
-  [k: string]: any;
-};
-
-const normalizeHistoria = (raw: any): HistoriaClinica => {
-  const historia: HistoriaClinica = {
-    ...raw,
-    id_historia: Number(raw?.id_historia ?? raw?.id ?? raw?.idHistoria ?? 0),
-    id_paciente: Number(
-      raw?.id_paciente ??
-        raw?.paciente?.id_paciente ??
-        raw?.pacienteId ??
-        raw?.idPaciente ??
-        0
-    ),
-    id_clinica: Number(
-      raw?.id_clinica ??
-        raw?.clinica?.id_clinica ??
-        raw?.clinicaId ??
-        raw?.idClinica ??
-        0
-    ) || null,
-    id_cita:
-      raw?.id_cita ??
-      raw?.cita?.id_cita ??
-      raw?.citaId ??
-      raw?.idCita ??
-      null,
-    detalles_generales:
-      raw?.detalles_generales ??
-      raw?.detallesGenerales ??
-      raw?.detalles ??
-      null,
-    motivo_consulta:
-      raw?.motivo_consulta ??
-      raw?.motivoConsulta ??
-      raw?.motivo ??
-      null,
-    fecha_creacion:
-      raw?.fecha_creacion ??
-      raw?.fechaCreacion ??
-      raw?.created_at ??
-      raw?.createdAt ??
-      null,
-    fecha_modificacion:
-      raw?.fecha_modificacion ??
-      raw?.fechaModificacion ??
-      raw?.updated_at ??
-      raw?.updatedAt ??
-      null,
-  };
-
-  return historia;
-};
 
 const MedicalRecords = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -92,44 +31,44 @@ const MedicalRecords = () => {
   const idPacienteParam = searchParams.get("id_paciente") || "";
 
   useEffect(() => {
-    const API = API_BASE;
+    let cancelled = false;
     setLoadingList(true);
     setListError(null);
-    const params = new URLSearchParams();
-    params.set("page", String(page));
-    params.set("limit", String(limit));
-    params.set("pageNumber", String(page));
-    params.set("page_size", String(limit));
-    params.set("pageSize", String(limit));
-    params.set("per_page", String(limit));
-    params.set("perPage", String(limit));
-    params.set("pagina", String(page));
-    if (idPacienteParam) params.set("id_paciente", idPacienteParam);
-    fetch(`${API}/historias-clinicas?${params.toString()}`)
-      .then(async (res) => {
-        const json = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(json?.mensaje || res.statusText);
-        // Totales si vienen del backend
-        setTotalBackend(Number(json?.total) || 0);
-        setTotalPages(Number(json?.totalPages) || 1);
-        // Lista en varias formas
-        const list = Array.isArray(json)
-          ? json
-          : Array.isArray(json?.data)
-            ? json.data
-            : Array.isArray(json?.historias)
-              ? json.historias
-              : Array.isArray(json?.items)
-                ? json.items
-                : [];
-        return list as HistoriaClinica[];
+
+    const query: Record<string, string | number> = {
+      page,
+      limit,
+    };
+    if (idPacienteParam) {
+      query.id_paciente = idPacienteParam;
+    }
+
+    fetchHistoriasClinicas(query)
+      .then(({ items, total, totalPages: totalPagesMeta }) => {
+        if (cancelled) return;
+        setHistorias(items);
+        const resolvedTotal = total ?? items.length;
+        const resolvedTotalPages = totalPagesMeta ?? (resolvedTotal ? Math.max(1, Math.ceil(resolvedTotal / limit)) : 1);
+        setTotalBackend(resolvedTotal);
+        setTotalPages(resolvedTotalPages);
       })
-      .then((rows) =>
-        setHistorias(Array.isArray(rows) ? rows.map((row) => normalizeHistoria(row)) : [])
-      )
-      .catch((e: any) => setListError(e?.message || "Error cargando historias clinicas"))
-      .finally(() => setLoadingList(false));
-  }, [idPacienteParam, page]);
+      .catch((e: any) => {
+        if (cancelled) return;
+        const message = e?.status === 403
+          ? "Acceso denegado: la historia pertenece a otro tenant"
+          : e?.message || "Error cargando historias clinicas";
+        setListError(message);
+        toast.error(message);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingList(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [idPacienteParam, limit, page]);
 
   const filteredRecords = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -211,7 +150,7 @@ const MedicalRecords = () => {
                   <div className="flex items-center gap-3 flex-wrap">
                     <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || ""}</h3>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
@@ -221,8 +160,17 @@ const MedicalRecords = () => {
                       <User className="h-4 w-4" />
                       <span className="font-medium">Paciente:</span> #{record.id_paciente}
                     </div>
-                    <div className="text-muted-foreground">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
                       <span className="font-medium">Actualizacion:</span> {record.fecha_modificacion || ""}
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      <span className="font-medium">Clinica:</span> {clinicName}
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      <span className="font-medium">Tenant:</span> {tenantLabel || "Sin tenant"}
                     </div>
                   </div>
 
@@ -233,7 +181,6 @@ const MedicalRecords = () => {
                     </div>
                   </div>
                 </div>
-                
                 <div className="flex gap-2">
                   {rid > 0 ? (
                     <Link to={`/medical-records/${ridStr}`} state={{ background: location }}>
