@@ -91,7 +91,8 @@ const Patients: React.FC = () => {
           email: r.correo || r.email || "",
           lastVisit: r.fecha_nacimiento || r.lastVisit || "",
           status: r.activo ? "Activo" : "Inactivo",
-          occupation: r.ocupacion || "",
+          occupation: r.ocupacion || "",          clinic: r.clinica?.nombre ?? r.nombre_clinica ?? r.clinica_nombre ?? "",
+          tenant: r.tenant?.nombre ?? r.tenant?.slug ?? r.clinica?.tenant?.nombre ?? r.clinica?.tenant?.slug ?? "",
           medicalRecords: r.medicalRecords ?? 0,
         }));
 
@@ -331,6 +332,8 @@ const Patients: React.FC = () => {
                       <div><strong>Género:</strong> {patient.gender}</div>
                       <div><strong>Teléfono:</strong> {patient.phone}</div>
                       <div><strong>Email:</strong> {patient.email}</div>
+                      <div><strong>Clinica:</strong> {patient.clinic || "Sin clinica"}</div>
+                      <div><strong>Tenant:</strong> {patient.tenant || "Sin tenant"}</div>
                       <div><strong>Ocupación:</strong> {patient.occupation || "No registrada"}</div>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">

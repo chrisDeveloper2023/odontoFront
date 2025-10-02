@@ -1,33 +1,35 @@
-import { API_BASE } from "@/lib/http";
+import { fetchUsuario, fetchUsuarios, createUsuario as createUsuarioApi, updateUsuario as updateUsuarioApi, deleteUsuario as deleteUsuarioApi } from "@/lib/api/usuarios";
+import type { Usuario, UsuarioPayload } from "@/types/usuario";
 
-// src/services/usuarios.ts
-export interface Doctor {
-  id: number;
-  nombres: string;
-  apellidos: string;
-}
+export type Doctor = Pick<Usuario, "id" | "nombres" | "apellidos" | "rol" | "clinica" | "tenant" | "id_clinica" | "tenant_id">;
 
-function normalizeUsersPayload(raw: any): any[] {
-  if (Array.isArray(raw)) return raw;
-  return raw?.data || raw?.usuarios || raw?.items || raw?.results || [];
-}
+const isOdontologo = (usuario: Usuario) => {
+  const rolNombre = usuario.rol?.nombre_rol?.toUpperCase?.();
+  if (rolNombre && rolNombre.includes("ODONTO")) return true;
+  return Array.isArray(usuario.roles) && usuario.roles.some((role) => String(role).toUpperCase().includes("ODONTO"));
+};
 
 export async function getOdontologos(): Promise<Doctor[]> {
-  // Ruta preferida que en tu entorno SI devuelve datos JSON
-  const res = await fetch(`${API_BASE}/usuarios?rol=ODONTOLOGO`);
-  if (!res.ok) throw new Error("No se pudo obtener usuarios por rol ODONTOLOGO");
+  const usuarios = await fetchUsuarios();
+  return usuarios.filter(isOdontologo);
+}
 
-  const json = await res.json();
-  const arr = normalizeUsersPayload(json);
+export async function listUsuarios(): Promise<Usuario[]> {
+  return fetchUsuarios();
+}
 
-  // Mapeo tolerante a nombres de campos
-  const docs: Doctor[] = arr
-    .map((u: any) => ({
-      id: Number(u.id ?? u.id_usuario ?? u.id_odontologo ?? u.usuario_id),
-      nombres: u.nombres ?? u.nombre ?? u.first_name ?? "",
-      apellidos: u.apellidos ?? u.apellido ?? u.last_name ?? "",
-    }))
-    .filter((d: Doctor) => Number.isFinite(d.id) && d.nombres);
+export async function getUsuario(id: number): Promise<Usuario | null> {
+  return fetchUsuario(id);
+}
 
-  return docs;
+export async function createUsuario(payload: UsuarioPayload): Promise<Usuario> {
+  return createUsuarioApi(payload);
+}
+
+export async function updateUsuario(id: number, payload: UsuarioPayload): Promise<Usuario> {
+  return updateUsuarioApi(id, payload);
+}
+
+export async function deleteUsuario(id: number): Promise<void> {
+  return deleteUsuarioApi(id);
 }

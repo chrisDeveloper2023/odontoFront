@@ -17,6 +17,71 @@ interface Appointment {
   fecha_hora: string;
 }
 
+const mapAppointment = (raw: any): Appointment => {
+  const clinicFromRelation = raw?.clinica
+    ? {
+        id: Number(raw.clinica.id ?? raw.clinica.id_clinica ?? raw.id_clinica ?? 0) || undefined,
+        nombre: raw.clinica.nombre ?? raw.clinica.nombre_clinica ?? "",
+        tenant: raw.clinica.tenant
+          ? {
+              id: Number(raw.clinica.tenant.id ?? raw.clinica.tenant.id_tenant ?? 0) || undefined,
+              nombre: raw.clinica.tenant.nombre ?? raw.clinica.tenant.nombre_legal ?? "",
+              slug: raw.clinica.tenant.slug ?? raw.clinica.tenant.tenant_slug ?? "",
+            }
+          : null,
+      }
+    : null;
+
+  const clinica: ClinicInfo | null = clinicFromRelation
+    ? clinicFromRelation
+    : raw?.id_clinica
+    ? {
+        id: Number(raw.id_clinica) || undefined,
+        nombre: raw.nombre_clinica ?? raw.clinica_nombre ?? "",
+        tenant: raw.tenant
+          ? {
+              id: Number(raw.tenant.id ?? raw.tenant.id_tenant ?? raw.tenant_id ?? 0) || undefined,
+              nombre: raw.tenant.nombre ?? raw.tenant.nombre_legal ?? "",
+              slug: raw.tenant.slug ?? raw.tenant_slug ?? "",
+            }
+          : null,
+      }
+    : null;
+
+  const tenantSource = raw?.tenant ?? clinica?.tenant ?? null;
+  const tenant: TenantInfo | null = tenantSource
+    ? {
+        id: Number(tenantSource.id ?? tenantSource.id_tenant ?? raw?.tenant_id ?? 0) || undefined,
+        nombre: tenantSource.nombre ?? tenantSource.nombre_legal ?? "",
+        slug: tenantSource.slug ?? tenantSource.tenant_slug ?? "",
+      }
+    : raw?.tenant_id
+    ? {
+        id: Number(raw.tenant_id) || undefined,
+        nombre: raw.tenant_nombre ?? "",
+        slug: raw.tenant_slug ?? "",
+      }
+    : null;
+
+  return {
+    id_cita: Number(raw.id_cita ?? raw.id ?? 0),
+    paciente: {
+      nombres: raw.paciente?.nombres ?? raw.paciente?.nombre ?? "",
+      apellidos: raw.paciente?.apellidos ?? raw.paciente?.apellido ?? "",
+    },
+    odontologo: {
+      nombres: raw.odontologo?.nombres ?? raw.odontologo?.nombre ?? "",
+      apellidos: raw.odontologo?.apellidos ?? raw.odontologo?.apellido ?? "",
+    },
+    consultorio: {
+      nombre: raw.consultorio?.nombre ?? raw.consultorio ?? "",
+    },
+    estado: String(raw.estado ?? "").toUpperCase(),
+    fecha_hora: raw.fecha_hora ?? raw.fecha ?? raw.fechaHora ?? "",
+    clinica,
+    tenant,
+  };
+};
 const Appointments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -57,7 +122,7 @@ const Appointments = () => {
         setTotalPages(Number(json?.totalPages) || 1);
 
         // Acepta varias formas: array plano, { data: [] }, { citas: [] }, { items: [] }
-        const list: Appointment[] = Array.isArray(json)
+        const list: any[] = Array.isArray(json)
           ? json
           : Array.isArray(json?.data)
             ? json.data
@@ -68,7 +133,7 @@ const Appointments = () => {
                 : [];
         // Fallback: si no hay totales y llega mAs de 'limit', recorta para simular paginado
         const normalized = list.length > limit && (!json?.total && !json?.totalPages) ? list.slice(0, limit) : list;
-        setAppointments(normalized);
+        setAppointments(normalized.map(mapAppointment));
       } catch (err: any) {
         console.error("Error al cargar citas:", err);
         setError(err?.message || "No se pudieron cargar las citas");
@@ -153,6 +218,7 @@ const Appointments = () => {
       <div className="grid gap-4">
         {filteredAppointments.map((appointment) => {
           const fechaStr = formatGuayaquilDate(appointment.fecha_hora, { dateStyle: "medium" }) || "";
+          const tenantLabel = appointment.tenant?.nombre || appointment.tenant?.slug || appointment.clinica?.tenant?.nombre || appointment.clinica?.tenant?.slug || "";
           const horaStr = formatGuayaquilTimeHM(appointment.fecha_hora);
           return (
             <Card key={appointment.id_cita} className="hover:shadow-md transition-shadow">
@@ -183,6 +249,18 @@ const Appointments = () => {
                       <div>
                         <span className="font-medium">Fecha:</span>{" "}
                         {fechaStr} {horaStr ? `- ${horaStr}` : ""}
+                      {appointment.clinica?.nombre ? (
+                        <div>
+                          <span className="font-medium">Clinica:</span>{" "}
+                          {appointment.clinica.nombre}
+                        </div>
+                      ) : null}
+                      {tenantLabel ? (
+                        <div>
+                          <span className="font-medium">Tenant:</span>{" "}
+                          {tenantLabel}
+                        </div>
+                      ) : null}
                       </div>
                     </div>
                   </div>
@@ -224,6 +302,3 @@ const Appointments = () => {
 };
 
 export default Appointments;
-
-
-

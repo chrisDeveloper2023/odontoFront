@@ -48,28 +48,32 @@ const API = API_BASE;
 /* --------------------------- helpers HTTP --------------------------- */
 
 import { API_BASE } from "@/lib/http";
+import { api } from "@/api/client";
 import { getTenantHeaders } from "@/lib/tenant";
 
 async function httpJson(url: string, init?: RequestInit) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...getTenantHeaders(),
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  const authHeader = api.defaults.headers.common?.Authorization;
+  if (typeof authHeader === 'string' && authHeader) {
+    headers.Authorization = authHeader;
+  }
+
   const res = await fetch(url, {
     ...(init || {}),
-    headers: { ...(init?.headers || {} as any), ...getTenantHeaders(), "Content-Type": "application/json", },
+    headers,
   });
   let json: any = null;
   try { json = await res.json(); } catch { /* puede no traer body */ }
-  /* if (!res.ok) {
-    const err: any = new Error(json?.mensaje || json?.error || res.statusText);
-    err.status = res.status;
-    err.payload = json;
-    throw err;
-  } */
   if (!res.ok) {
     const err: any = new Error(json?.mensaje || json?.error || res.statusText);
     err.status = res.status;
     err.payload = json;
-    err.url = url;                 //  ayuda a depurar
+    err.url = url;
     err.method = init?.method ?? "GET";
-    // log visible en consola del navegador
     console.error(`[API ${res.status}] ${err.method} ${url}`, { body: init?.body, payload: json });
     throw err;
   }
