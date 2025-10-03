@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,6 +43,7 @@ const UsersPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -77,6 +78,7 @@ const UsersPage = () => {
   };
 
   const openEditModal = (user: Usuario) => {
+    setSelectedUserId(user.id);
     setForm({
       id: user.id,
       nombres: user.nombres,
@@ -94,6 +96,7 @@ const UsersPage = () => {
     if (saving) return;
     setModalOpen(false);
     setForm(emptyForm);
+    setSelectedUserId(null);
   };
 
   const handleFormChange = (field: keyof FormState, value: string | number | null | boolean) => {
@@ -195,7 +198,10 @@ const UsersPage = () => {
               </TableHeader>
               <TableBody>
                 {usuarios.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow 
+                    key={user.id} 
+                    className={selectedUserId === user.id ? "bg-blue-50 border-blue-200" : ""}
+                  >
                     <TableCell>{user.nombres} {user.apellidos}</TableCell>
                     <TableCell>{user.correo}</TableCell>
                     <TableCell>{user.rol?.nombre_rol || "-"}</TableCell>
@@ -225,10 +231,16 @@ const UsersPage = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={modalOpen} onOpenChange={(open) => (open ? setModalOpen(true) : closeModal())}>
+      <Dialog open={modalOpen} onOpenChange={closeModal}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{form.id ? "Editar usuario" : "Crear usuario"}</DialogTitle>
+            <DialogDescription>
+              {form.id 
+                ? "Modifica la información del usuario seleccionado" 
+                : "Completa los datos para crear un nuevo usuario"
+              }
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -263,8 +275,8 @@ const UsersPage = () => {
               <div>
                 <Label>Rol</Label>
                 <Select
-                  value={form.rol_id ? String(form.rol_id) : ""}
-                  onValueChange={(value) => handleFormChange("rol_id", value ? Number(value) : null)}
+                  value={form.rol_id ? String(form.rol_id) : "none"}
+                  onValueChange={(value) => handleFormChange("rol_id", value === "none" ? null : Number(value))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona rol" />
@@ -275,26 +287,17 @@ const UsersPage = () => {
                         {nombre} (#{id})
                       </SelectItem>
                     ))}
-                    <SelectItem value="">Sin rol definido</SelectItem>
+                    <SelectItem value="none">Sin rol definido</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Rol ID manual</Label>
-                <Input
-                  type="number"
-                  value={form.rol_id ?? ""}
-                  onChange={(e) => handleFormChange("rol_id", e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Ingresa ID de rol"
-                />
               </div>
             </div>
             <div>
               <Label>Clinica</Label>
                 <Select
-                  value={form.id_clinica ? String(form.id_clinica) : ""}
+                  value={form.id_clinica ? String(form.id_clinica) : "none"}
                   onValueChange={(value) => {
-                    const clinicId = value ? Number(value) : null;
+                    const clinicId = value === "none" ? null : Number(value);
                     const clinic = clinicas.find((c) => c.id === clinicId);
                     handleFormChange("id_clinica", clinicId);
                     if (clinicId) {
@@ -306,7 +309,7 @@ const UsersPage = () => {
                     <SelectValue placeholder="Sin clinica" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin clinica</SelectItem>
+                    <SelectItem value="none">Sin clinica</SelectItem>
                     {clinicas.map((clinic) => (
                       <SelectItem key={clinic.id} value={String(clinic.id)}>
                         {clinic.nombre}

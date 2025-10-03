@@ -5,7 +5,7 @@ export type Doctor = Pick<Usuario, "id" | "nombres" | "apellidos" | "rol" | "cli
 
 const isOdontologo = (usuario: Usuario) => {
   const rolNombre = usuario.rol?.nombre_rol?.toUpperCase?.();
-  if (rolNombre && rolNombre.includes("ODONTO")) return true;
+  if (rolNombre && rolNombre.includes("ODONTÓLOGO")) return true;
   return Array.isArray(usuario.roles) && usuario.roles.some((role) => String(role).toUpperCase().includes("ODONTO"));
 };
 

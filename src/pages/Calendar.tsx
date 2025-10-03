@@ -14,11 +14,12 @@ import {
   HelpCircle,
   User,
   CheckCircle,
-  Clock
+  Clock,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NewAppointmentModal, { NewAppointmentPayload } from "@/components/NewAppointmentModal";
-import { apiGet, apiPost } from "@/api/client";
+import { apiGet, apiPost, apiDelete } from "@/api/client";
 import { toast } from "sonner";
 import CalendarSettingsModal from "@/components/CalendarSettingModal";
 import { getOdontologos } from "@/servicios/usuarios";
@@ -130,9 +131,10 @@ const sumarMinutos = (fecha: Date, minutos: number) => {
 };
 
 const formatearHoraDesdeFecha = (fecha: Date) => {
-  const formatted = formatGuayaquilTimeHM(fecha);
-  if (formatted) return formatted;
-  return fecha.toTimeString().slice(0, 5);
+  // Usar hora local directamente para evitar problemas de zona horaria
+  const horas = fecha.getHours().toString().padStart(2, '0');
+  const minutos = fecha.getMinutes().toString().padStart(2, '0');
+  return `${horas}:${minutos}`;
 };
 
 // Formato para eje horario (12h con am/pm limpio)
@@ -535,7 +537,9 @@ const Calendar: React.FC = () => {
   const obtenerPosicionEvento = (horaInicio: string) => {
     const [h, m] = horaInicio.split(':');
     const horaDecimal = parseInt(h) + (parseInt(m) / 60);
-    return ((horaDecimal - 10) * 60) + 20; // 10am = 20px, cada hora = 60px
+    // Las líneas están en i * 60, donde i = hora - 10
+    const indiceHora = horaDecimal - 10;
+    return indiceHora * 60;
   };
 
   const obtenerAlturaEvento = (horaInicio: string, horaFin: string) => {
@@ -561,7 +565,9 @@ const Calendar: React.FC = () => {
   const obtenerPosicionCita = (horaInicio: string) => {
     const [h, m] = horaInicio.split(':');
     const horaDecimal = parseInt(h) + (parseInt(m) / 60);
-    return ((horaDecimal - 10) * 60) + 20; // 10am = 20px, cada hora = 60px
+    // Las líneas están en (i * 60) + 20, donde i = hora - 10
+    const indiceHora = horaDecimal - 10;
+    return (indiceHora * 60) + 20;
   };
 
   const obtenerAlturaCita = (horaInicio: string, horaFin: string) => {
@@ -615,6 +621,23 @@ const Calendar: React.FC = () => {
       const odontologo = nuevosOdontologos.find(o => o.nombre === cita.odontologo);
       return odontologo ? { ...cita, color: odontologo.color } : cita;
     }));
+  };
+
+  const handleDeleteAppointment = async (cita: Cita) => {
+    const confirmMessage = `¿Estás seguro de que quieres eliminar la cita de ${cita.paciente}?\n\nFecha: ${formatGuayaquilDate(cita.fecha!, { dateStyle: 'long' })}\nHora: ${cita.horaInicio} - ${cita.horaFin}`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      await apiDelete(`/citas/${cita.id}`);
+      toast.success("Cita eliminada correctamente");
+      await fetchCitas();
+    } catch (error: any) {
+      console.error("Error eliminando cita:", error);
+      toast.error(error?.message || "No se pudo eliminar la cita");
+    }
   };
 
   return (
@@ -681,7 +704,7 @@ const Calendar: React.FC = () => {
                   size="sm"
                   onClick={() => cambiarVista('dia')}
                 >
-                  Da
+                  Día
                 </Button>
                 <Button
                   variant={vistaActual === 'semana' ? 'default' : 'outline'}
@@ -809,7 +832,7 @@ const Calendar: React.FC = () => {
                         const hora = 10 + i;
                         const esHoraActual = esHoy(fechaSeleccionada) && hora === Math.floor(obtenerHoraActual());
                         return (
-                          <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600 p-2 relative">
+                          <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600 p-2 relative" style={{ height: '60px' }}>
                             <div className={cn(
                               "text-xs text-gray-500 dark:text-gray-400",
                               esHoraActual && "text-blue-600 font-semibold"
@@ -828,7 +851,7 @@ const Calendar: React.FC = () => {
                         <div 
                           key={i} 
                           className="absolute left-0 right-0 border-t border-gray-200 dark:border-gray-600"
-                          style={{ top: `${(i * 60) + 20}px` }}
+                          style={{ top: `${i * 60}px` }}
                         />
                       ))}
 
@@ -836,7 +859,7 @@ const Calendar: React.FC = () => {
                       {esHoy(fechaSeleccionada) && (
                         <div 
                           className="absolute left-0 right-0 z-10 border-t-2 border-dashed border-blue-500"
-                          style={{ top: `${((obtenerHoraActual() - 10) * 60) + 20}px` }}
+                          style={{ top: `${(obtenerHoraActual() - 10) * 60}px` }}
                         >
                           <div className="absolute -left-2 -top-2 w-4 h-4 bg-blue-500 rounded-full"></div>
                           <div className="absolute -left-16 top-1 text-xs text-blue-600 font-semibold">
@@ -864,7 +887,7 @@ const Calendar: React.FC = () => {
                           <div
                             key={cita.id}
                             className={cn(
-                              "absolute left-2 right-2 rounded-md p-3 text-white text-sm cursor-pointer hover:opacity-80 transition-opacity shadow-md",
+                              "absolute left-2 right-2 rounded-md p-3 text-white text-sm hover:opacity-80 transition-opacity shadow-md group",
                               cita.color
                             )}
                             style={{
@@ -872,12 +895,24 @@ const Calendar: React.FC = () => {
                               height: `${altura}px`,
                             }}
                           >
-                            <div className="flex items-center space-x-2 mb-1">
-                              <span className="font-semibold text-lg">{cita.icono} {cita.paciente}</span>
-                              <span className="text-lg font-medium  text-sm" > {cita.descripcion} : {cita.tipo}
-                              - {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
-                              </span>
-                              <span className="font-semibold text-lg"></span>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-semibold text-lg">{cita.icono} {cita.paciente}</span>
+                                <span className="text-lg font-medium text-sm"> {cita.descripcion} : {cita.tipo}
+                                - {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAppointment(cita);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </div>
                             <div className="font-bold text-base mb-1">
                             </div>
@@ -944,14 +979,27 @@ const Calendar: React.FC = () => {
                               <div
                                 key={cita.id}
                                 className={cn(
-                                  "text-xs p-1 rounded cursor-pointer hover:opacity-80 transition-opacity",
+                                  "text-xs p-1 rounded hover:opacity-80 transition-opacity group",
                                   cita.color,
                                   "text-white"
                                 )}
                               >
-                                <div className="flex items-center space-x-1">
-                                  <span className="text-xs">{cita.icono}</span>
-                                  <span className="font-medium truncate">{formatearHora(cita.horaInicio)}</span>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-xs">{cita.icono}</span>
+                                    <span className="font-medium truncate">{formatearHora(cita.horaInicio)}</span>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity h-3 w-3 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteAppointment(cita);
+                                    }}
+                                  >
+                                    <Trash2 className="h-1.5 w-1.5" />
+                                  </Button>
                                 </div>
                                 <div className="truncate font-medium">{cita.paciente}</div>
                                 <div className="truncate opacity-90">{cita.descripcion}</div>
@@ -1040,7 +1088,7 @@ const Calendar: React.FC = () => {
                                 <div
                                   key={cita.id}
                                   className={cn(
-                                    "absolute left-1 right-1 rounded-md p-2 text-white text-xs cursor-pointer hover:opacity-80 transition-opacity",
+                                    "absolute left-1 right-1 rounded-md p-2 text-white text-xs hover:opacity-80 transition-opacity group",
                                     cita.color
                                   )}
                                   style={{
@@ -1048,9 +1096,22 @@ const Calendar: React.FC = () => {
                                     height: `${altura}px`,
                                   }}
                                 >
-                                  <div className="flex items-center space-x-1 mb-1">
-                                    <span>{cita.icono}</span>
-                                    <span className="font-medium truncate">{cita.paciente}</span>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center space-x-1">
+                                      <span>{cita.icono}</span>
+                                      <span className="font-medium truncate">{cita.paciente}</span>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity h-4 w-4 p-0"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteAppointment(cita);
+                                      }}
+                                    >
+                                      <Trash2 className="h-2 w-2" />
+                                    </Button>
                                   </div>
                                   <div className="text-xs opacity-90 truncate">{cita.descripcion}</div>
                                   <div className="text-xs opacity-75 mt-1">

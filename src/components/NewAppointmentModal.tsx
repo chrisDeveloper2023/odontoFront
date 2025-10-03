@@ -94,7 +94,24 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
   const [loadingDoctores, setLoadingDoctores] = useState(false);
 
+  const calcularHoraFin = (horaInicio: string): string => {
+    const [horas, minutos] = horaInicio.split(':').map(Number);
+    const totalMinutos = horas * 60 + minutos + 30; // Sumar 30 minutos
+    
+    const nuevasHoras = Math.floor(totalMinutos / 60);
+    const nuevosMinutos = totalMinutos % 60;
+    
+    // Formatear con ceros a la izquierda
+    const horasFormateadas = nuevasHoras.toString().padStart(2, '0');
+    const minutosFormateados = nuevosMinutos.toString().padStart(2, '0');
+    
+    return `${horasFormateadas}:${minutosFormateados}`;
+  };
+
   const resetFormState = () => {
+    const horaInicioDefault = "09:00";
+    const horaFinDefault = calcularHoraFin(horaInicioDefault);
+    
     setFormData({
       pacienteId: "",
       pacienteNombre: "",
@@ -105,8 +122,8 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       tipo: "",
       descripcion: "",
       fecha: new Date(),
-      horaInicio: "09:00",
-      horaFin: "10:00",
+      horaInicio: horaInicioDefault,
+      horaFin: horaFinDefault,
       color: "bg-blue-500",
     });
   };
@@ -122,7 +139,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
     descripcion: "",
     fecha: new Date(),
     horaInicio: "09:00",
-    horaFin: "10:00",
+    horaFin: "09:30",
     color: "bg-blue-500",
   });
 
@@ -226,7 +243,17 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   };
 
   const handleFieldChange = (field: keyof typeof formData, value: string | Date) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+      
+      // Si se cambia la hora de inicio, calcular automáticamente la hora de fin (+30 minutos)
+      if (field === "horaInicio" && typeof value === "string") {
+        const horaFinCalculada = calcularHoraFin(value);
+        newData.horaFin = horaFinCalculada;
+      }
+      
+      return newData;
+    });
   };
 
   const handlePatientChange = (value: string) => {

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet } from "lucide-react";
+import { Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet, Shield, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSelector from "@/components/TenantSelector";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const { session, logout } = useAuth();
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
   const fullName = session ? `${session.usuario.nombres} ${session.usuario.apellidos}`.trim() : "Invitado";
   const initials = fullName
@@ -47,11 +49,15 @@ const Layout = ({ children }: LayoutProps) => {
     { name: "Dashboard", href: "/", icon: Heart },
     { name: "Pacientes", href: "/patients", icon: Users },
     { name: "Historias Clinicas", href: "/medical-records", icon: FileText },
-    { name: "Clinicas", href: "/clinics", icon: Building2 },
-    { name: "Usuarios", href: "/users", icon: Users },
     { name: "Pagos", href: "/payments", icon: Wallet },
     { name: "Citas", href: "/appointments", icon: Calendar },
     { name: "Calendario", href: "/calendar", icon: CalendarDays },
+    { name: "Administrar", href: "#", icon: Shield, hasSubmenu: true },
+  ];
+
+  const adminSubmenu = [
+    { name: "Gestión de usuarios", href: "/users" },
+    { name: "Gestión de clínicas", href: "/clinics" },
   ];
 
   return (
@@ -165,6 +171,48 @@ const Layout = ({ children }: LayoutProps) => {
           <div className="flex space-x-8">
             {navigation.map((item) => {
               const Icon = item.icon;
+              
+              // Si tiene submenú, renderizar dropdown
+              if (item.hasSubmenu) {
+                return (
+                  <DropdownMenu key={item.name} open={isAdminMenuOpen} onOpenChange={setIsAdminMenuOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className={cn(
+                          "flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors h-auto",
+                          adminSubmenu.some(subItem => location.pathname === subItem.href)
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                        )}
+                      >
+                        <Icon className="h-4 w-4 mr-2" />
+                        {item.name}
+                        <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      <DropdownMenuLabel>Administración</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {adminSubmenu.map((subItem) => (
+                        <DropdownMenuItem key={subItem.name} asChild>
+                          <Link
+                            to={subItem.href}
+                            className={cn(
+                              "flex items-center w-full",
+                              location.pathname === subItem.href && "bg-accent"
+                            )}
+                          >
+                            {subItem.name}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
+              
+              // Renderizar enlace normal
               return (
                 <Link
                   key={item.name}
