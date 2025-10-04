@@ -67,11 +67,20 @@ const Layout = ({ children }: LayoutProps) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-              <div className="bg-primary p-2 rounded-lg">
-                <Heart className="h-6 w-6 text-primary-foreground" />
+              <div className="bg-primary p-2 rounded-lg animate-pulse-glow">
+                <Heart className="h-6 w-6 text-primary-foreground animate-float" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">ClinicSoft</h1>
+                <h1 className="text-xl font-bold relative overflow-hidden">
+                  <span className="relative z-10 flex">
+                    {['C', 'l', 'i', 'n', 'i', 'c', 'S', 'o', 'f', 't'].map((letter, index) => (
+                      <span key={index} className="animate-letter-wave">
+                        {letter}
+                      </span>
+                    ))}
+                  </span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-shimmer"></span>
+                </h1>
                 <p className="text-sm text-muted-foreground">Sistema de Historias Clinicas</p>
               </div>
             </div>

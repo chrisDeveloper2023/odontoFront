@@ -118,7 +118,7 @@ const NewMedicalRecord = () => {
         setClinicas(mapClinicas(clinRes));
       } catch (error) {
         console.error(error);
-        toast.error('No se pudieron cargar pacientes o cl?nicas');
+        toast.error('No se pudieron cargar pacientes o clínicas');
       } finally {
         setLoading(false);
       }
@@ -287,11 +287,10 @@ const NewMedicalRecord = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Informaci?n cl?nica</CardTitle>
-            <CardDescription>Completa la informaci?n relevante del paciente</CardDescription>
+            <CardTitle>Antecedentes Patologicos Personales</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div>
                 <Label>Antecedentes cardiacos</Label>
               <Select
@@ -315,8 +314,18 @@ const NewMedicalRecord = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Alteraci?n de presi?n</Label>
+                <div className="md:col-span-5">
+                  <Label>Detalle antecedentes cardiacos</Label>
+                <Textarea
+                  rows={2}
+                  value={form.antecedentesCardiacosDetalle}
+                  onChange={(e) => updateField('antecedentesCardiacosDetalle', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                          <div>
+                <Label>Alteración presión</Label>
                 <Select
                   value={form.alteracionPresion ?? EMPTY_OPTION_VALUE}
                   onValueChange={(value) =>
@@ -338,18 +347,9 @@ const NewMedicalRecord = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Detalle antecedentes cardiacos</Label>
-                <Textarea
-                  rows={3}
-                  value={form.antecedentesCardiacosDetalle}
-                  onChange={(e) => updateField('antecedentesCardiacosDetalle', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Detalle presi?n arterial</Label>
+ 
+              <div className="md:col-span-5">
+                <Label>Detalle presión arterial</Label>
                 <Textarea
                   rows={3}
                   value={form.presionDetalle}
@@ -357,33 +357,47 @@ const NewMedicalRecord = () => {
                 />
               </div>
             </div>
-            <div>
-              <Label>Detalles generales</Label>
-              <Textarea
-                rows={4}
-                value={form.detallesGenerales}
-                onChange={(e) => updateField('detallesGenerales', e.target.value)}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              <div>
+                <Label>Detalles generales</Label>
+              </div>
+              <div className="md:col-span-5">
+                <Textarea
+                  rows={4}
+                  value={form.detallesGenerales}
+                  onChange={(e) => updateField('detallesGenerales', e.target.value)}
+                />
+              </div>
             </div>
-            <div>
-              <Label>Motivo de consulta</Label>
-              <Textarea
-                rows={3}
-                value={form.motivoConsulta}
-                onChange={(e) => updateField('motivoConsulta', e.target.value)}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              <div>
+                <Label>Motivo de consulta</Label>
+              </div>
+              <div className="md:col-span-5">
+                <Textarea
+                  rows={3}
+                  value={form.motivoConsulta}
+                  onChange={(e) => updateField('motivoConsulta', e.target.value)}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div>
                 <Label>Alergias</Label>
+              </div>
+              <div className="md:col-span-5">
                 <Textarea
                   rows={3}
                   value={form.alergias}
                   onChange={(e) => updateField('alergias', e.target.value)}
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div>
                 <Label>Medicamentos actuales</Label>
+              </div>
+              <div className="md:col-span-5">
                 <Textarea
                   rows={3}
                   value={form.medicamentosActuales}
@@ -391,13 +405,17 @@ const NewMedicalRecord = () => {
                 />
               </div>
             </div>
-            <div>
-              <Label>Observaciones</Label>
-              <Textarea
-                rows={3}
-                value={form.observaciones}
-                onChange={(e) => updateField('observaciones', e.target.value)}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              <div>
+                <Label>Observaciones</Label>
+              </div>
+              <div className="md:col-span-5">
+                <Textarea
+                  rows={3}
+                  value={form.observaciones}
+                  onChange={(e) => updateField('observaciones', e.target.value)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

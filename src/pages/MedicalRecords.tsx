@@ -101,30 +101,24 @@ const MedicalRecords = () => {
       {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por cualquier campo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cualquier campo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-medium">Total Historias:</span>
+              <span className="font-bold text-primary">{totalBackend || filteredRecords.length}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      {/* Stats basicos */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Total Historias</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{totalBackend || filteredRecords.length}</div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Medical Records List */}
       {loadingList && (
@@ -142,6 +136,8 @@ const MedicalRecords = () => {
         {filteredRecords.map((record, idx) => {
           const rid = Number(record?.id_historia ?? 0);
           const ridStr = rid > 0 ? String(rid) : "";
+          const clinicName = record.clinica?.nombre || "Sin clínica";
+          const tenantLabel = record.tenant?.nombre || record.tenant?.slug || "Sin tenant";
           return (
           <Card key={`${rid || "row"}-${idx}`} className="hover:shadow-md transition-shadow">
             <CardContent className="pt-6 space-y-4">
@@ -149,13 +145,13 @@ const MedicalRecords = () => {
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3 flex-wrap">
                     <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || ""}</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       <span className="font-medium">Creacion:</span> {record.fecha_creacion || ""}
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <User className="h-4 w-4" />
                       <span className="font-medium">Paciente:</span> #{record.id_paciente}
