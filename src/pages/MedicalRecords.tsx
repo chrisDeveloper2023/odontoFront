@@ -16,6 +16,24 @@ const MedicalRecords = () => {
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
 
+  // Función para formatear fecha y hora
+  const formatDateTime = (dateString: string | null | undefined): string => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
   // Estado para odontograma embebido
   const [selectedHistoriaId, setSelectedHistoriaId] = useState<string | null>(null);
   const [ogData, setOgData] = useState<OdontogramaResponse | null>(null);
@@ -93,7 +111,7 @@ const MedicalRecords = () => {
         <Link to="/medical-records/new" state={{ background: location }}>
           <Button className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
-            Nueva Historia Clinica
+            Historia Clinica
           </Button>
         </Link>
       </div>
@@ -147,7 +165,7 @@ const MedicalRecords = () => {
                     <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || ""}</h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span className="font-medium">Creacion:</span> {record.fecha_creacion || ""}
+                      <span className="font-medium">Creacion:</span> {formatDateTime(record.fecha_creacion)}
                     </div>
                   </div>
 
@@ -158,7 +176,7 @@ const MedicalRecords = () => {
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span className="font-medium">Actualizacion:</span> {record.fecha_modificacion || ""}
+                      <span className="font-medium">Actualizacion:</span> {formatDateTime(record.fecha_modificacion)}
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Building2 className="h-4 w-4" />
@@ -227,7 +245,7 @@ const MedicalRecords = () => {
                       }
                     }}
                   >
-                    Abrir Odontograma
+                    Odontograma
                   </Button>
                   <Button
                     size="sm"
@@ -247,7 +265,7 @@ const MedicalRecords = () => {
                       }
                     }}
                   >
-                    Abrir desde ultimo consolidado
+                    consolidado
                   </Button>
                 </div>
               </div>
