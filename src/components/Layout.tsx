@@ -19,10 +19,278 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+// Interfaces para la configuración del menú
+interface MenuItem {
+  id: string;
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description?: string;
+  isActive?: boolean;
+  hasSubmenu?: boolean;
+  submenu?: SubMenuItem[];
+  permissions?: string[];
+  roles?: string[];
+  visible?: boolean;
+}
+
+interface SubMenuItem {
+  id: string;
+  name: string;
+  href: string;
+  description?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  permissions?: string[];
+  roles?: string[];
+  visible?: boolean;
+}
+
+interface UserMenuConfig {
+  profile: {
+    showAvatar: boolean;
+    showName: boolean;
+    showEmail: boolean;
+    showTenant: boolean;
+    showRoles: boolean;
+  };
+  actions: {
+    logout: {
+      enabled: boolean;
+      icon: React.ComponentType<{ className?: string }>;
+      label: string;
+    };
+  };
+}
+
+// Clase de configuración del menú
+class MenuConfig {
+  private static instance: MenuConfig;
+  private menuItems: MenuItem[] = [];
+  private userMenuConfig: UserMenuConfig;
+
+  private constructor() {
+    this.initializeMenuItems();
+    this.initializeUserMenuConfig();
+  }
+
+  public static getInstance(): MenuConfig {
+    if (!MenuConfig.instance) {
+      MenuConfig.instance = new MenuConfig();
+    }
+    return MenuConfig.instance;
+  }
+
+  private initializeMenuItems(): void {
+    this.menuItems = [
+      {
+        id: "dashboard",
+        name: "Dashboard",
+        href: "/",
+        icon: Heart,
+        description: "Panel principal del sistema",
+        permissions: ["dashboard:view"],
+        roles: ["admin", "doctor", "recepcionista"],
+        visible: true
+      },
+      {
+        id: "patients",
+        name: "Pacientes",
+        href: "/patients",
+        icon: Users,
+        description: "Gestión de pacientes",
+        permissions: ["patients:view", "patients:create", "patients:edit"],
+        roles: ["admin", "doctor", "recepcionista"],
+        visible: true
+      },
+      {
+        id: "medical-records",
+        name: "Historias Clinicas",
+        href: "/medical-records",
+        icon: FileText,
+        description: "Gestión de historias clínicas",
+        permissions: ["medical-records:view", "medical-records:create", "medical-records:edit"],
+        roles: ["admin", "doctor"],
+        visible: true
+      },
+      {
+        id: "payments",
+        name: "Pagos",
+        href: "/payments",
+        icon: Wallet,
+        description: "Gestión de pagos y facturación",
+        permissions: ["payments:view", "payments:create", "payments:edit"],
+        roles: ["admin", "recepcionista"],
+        visible: true
+      },
+      {
+        id: "appointments",
+        name: "Citas",
+        href: "/appointments",
+        icon: Calendar,
+        description: "Gestión de citas médicas",
+        permissions: ["appointments:view", "appointments:create", "appointments:edit"],
+        roles: ["admin", "doctor", "recepcionista"],
+        visible: true
+      },
+      {
+        id: "calendar",
+        name: "Calendario",
+        href: "/calendar",
+        icon: CalendarDays,
+        description: "Vista de calendario de citas",
+        permissions: ["calendar:view"],
+        roles: ["admin", "doctor", "recepcionista"],
+        visible: true
+      },
+      {
+        id: "admin",
+        name: "Administrar",
+        href: "#",
+        icon: Shield,
+        description: "Herramientas de administración",
+        hasSubmenu: true,
+        permissions: ["admin:access"],
+        roles: ["admin"],
+        visible: true,
+        submenu: [
+          {
+            id: "users-management",
+            name: "Gestión de usuarios",
+            href: "/users",
+            description: "Administrar usuarios del sistema",
+            icon: Users,
+            permissions: ["users:view", "users:create", "users:edit", "users:delete"],
+            roles: ["admin"],
+            visible: true
+          },
+          {
+            id: "clinics-management",
+            name: "Gestión de clínicas",
+            href: "/clinics",
+            description: "Administrar clínicas",
+            icon: Building2,
+            permissions: ["clinics:view", "clinics:create", "clinics:edit", "clinics:delete"],
+            roles: ["admin"],
+            visible: true
+          }
+        ]
+      }
+    ];
+  }
+
+  private initializeUserMenuConfig(): void {
+    this.userMenuConfig = {
+      profile: {
+        showAvatar: true,
+        showName: true,
+        showEmail: true,
+        showTenant: true,
+        showRoles: true
+      },
+      actions: {
+        logout: {
+          enabled: true,
+          icon: LogOut,
+          label: "Cerrar sesión"
+        }
+      }
+    };
+  }
+
+  public getMenuItems(): MenuItem[] {
+    return this.menuItems;
+  }
+
+  public getMenuItemById(id: string): MenuItem | undefined {
+    return this.menuItems.find(item => item.id === id);
+  }
+
+  public getSubmenuItems(parentId: string): SubMenuItem[] {
+    const parentItem = this.getMenuItemById(parentId);
+    return parentItem?.submenu || [];
+  }
+
+  public getUserMenuConfig(): UserMenuConfig {
+    return this.userMenuConfig;
+  }
+
+  public getMenuItemsByRole(role: string): MenuItem[] {
+    return this.menuItems.filter(item => 
+      !item.roles || item.roles.includes(role)
+    );
+  }
+
+  public getMenuItemsByPermission(permission: string): MenuItem[] {
+    return this.menuItems.filter(item => 
+      !item.permissions || item.permissions.includes(permission)
+    );
+  }
+
+  public getVisibleMenuItems(): MenuItem[] {
+    return this.menuItems.filter(item => item.visible !== false);
+  }
+
+  public getVisibleMenuItemsByRole(role: string): MenuItem[] {
+    return this.menuItems.filter(item => 
+      item.visible !== false && (!item.roles || item.roles.includes(role))
+    );
+  }
+
+  public getVisibleMenuItemsByPermission(permission: string): MenuItem[] {
+    return this.menuItems.filter(item => 
+      item.visible !== false && (!item.permissions || item.permissions.includes(permission))
+    );
+  }
+
+  public setMenuItemVisibility(id: string, visible: boolean): void {
+    const index = this.menuItems.findIndex(item => item.id === id);
+    if (index !== -1) {
+      this.menuItems[index].visible = visible;
+    }
+  }
+
+  public setSubmenuItemVisibility(parentId: string, submenuId: string, visible: boolean): void {
+    const parentItem = this.getMenuItemById(parentId);
+    if (parentItem?.submenu) {
+      const submenuIndex = parentItem.submenu.findIndex(item => item.id === submenuId);
+      if (submenuIndex !== -1) {
+        parentItem.submenu[submenuIndex].visible = visible;
+      }
+    }
+  }
+
+  public toggleMenuItemVisibility(id: string): void {
+    const item = this.getMenuItemById(id);
+    if (item) {
+      item.visible = !item.visible;
+    }
+  }
+
+  public addMenuItem(item: MenuItem): void {
+    this.menuItems.push(item);
+  }
+
+  public updateMenuItem(id: string, updates: Partial<MenuItem>): void {
+    const index = this.menuItems.findIndex(item => item.id === id);
+    if (index !== -1) {
+      this.menuItems[index] = { ...this.menuItems[index], ...updates };
+    }
+  }
+
+  public removeMenuItem(id: string): void {
+    this.menuItems = this.menuItems.filter(item => item.id !== id);
+  }
+}
+
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const { session, logout } = useAuth();
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+
+  // Obtener configuración del menú
+  const menuConfig = MenuConfig.getInstance();
+  const navigation = menuConfig.getVisibleMenuItems();
+  const userMenuConfig = menuConfig.getUserMenuConfig();
 
   const fullName = session ? `${session.usuario.nombres} ${session.usuario.apellidos}`.trim() : "Invitado";
   const initials = fullName
@@ -44,21 +312,6 @@ const Layout = ({ children }: LayoutProps) => {
     )
   );
   const rolesLabel = roleNames.length ? roleNames.join(", ") : null;
-
-  const navigation = [
-    { name: "Dashboard", href: "/", icon: Heart },
-    { name: "Pacientes", href: "/patients", icon: Users },
-    { name: "Historias Clinicas", href: "/medical-records", icon: FileText },
-    { name: "Pagos", href: "/payments", icon: Wallet },
-    { name: "Citas", href: "/appointments", icon: Calendar },
-    { name: "Calendario", href: "/calendar", icon: CalendarDays },
-    { name: "Administrar", href: "#", icon: Shield, hasSubmenu: true },
-  ];
-
-  const adminSubmenu = [
-    { name: "Gestión de usuarios", href: "/users" },
-    { name: "Gestión de clínicas", href: "/clinics" },
-  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,78 +342,94 @@ const Layout = ({ children }: LayoutProps) => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="hidden items-center gap-2 px-2 py-1.5 sm:flex">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
+                    {userMenuConfig.profile.showAvatar && (
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>{initials}</AvatarFallback>
+                      </Avatar>
+                    )}
                     <div className="flex flex-col text-left leading-tight">
-                      <span className="text-sm font-medium">{fullName}</span>
-                      <span className="text-xs text-muted-foreground">{tenantLabel}</span>
+                      {userMenuConfig.profile.showName && (
+                        <span className="text-sm font-medium">{fullName}</span>
+                      )}
+                      {userMenuConfig.profile.showTenant && (
+                        <span className="text-xs text-muted-foreground">{tenantLabel}</span>
+                      )}
                     </div>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-60">
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold">{fullName}</span>
-                      {email ? (
+                      {userMenuConfig.profile.showName && (
+                        <span className="text-sm font-semibold">{fullName}</span>
+                      )}
+                      {userMenuConfig.profile.showEmail && email && (
                         <span className="text-xs text-muted-foreground">{email}</span>
-                      ) : null}
+                      )}
                     </div>
                   </DropdownMenuLabel>
-                  {rolesLabel ? (
+                  {userMenuConfig.profile.showRoles && rolesLabel && (
                     <DropdownMenuLabel className="pt-0 text-xs font-normal text-muted-foreground">
                       {rolesLabel}
                     </DropdownMenuLabel>
-                  ) : null}
+                  )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      logout();
-                    }}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Cerrar sesion
-                  </DropdownMenuItem>
+                  {userMenuConfig.actions.logout.enabled && (
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        logout();
+                      }}
+                    >
+                      <userMenuConfig.actions.logout.icon className="mr-2 h-4 w-4" />
+                      {userMenuConfig.actions.logout.label}
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="flex items-center gap-2 px-2 py-1.5 sm:hidden">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
+                    {userMenuConfig.profile.showAvatar && (
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>{initials}</AvatarFallback>
+                      </Avatar>
+                    )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold">{fullName}</span>
-                      {email ? (
+                      {userMenuConfig.profile.showName && (
+                        <span className="text-sm font-semibold">{fullName}</span>
+                      )}
+                      {userMenuConfig.profile.showEmail && email && (
                         <span className="text-xs text-muted-foreground">{email}</span>
-                      ) : null}
+                      )}
                     </div>
                   </DropdownMenuLabel>
-                  {tenantLabel ? (
+                  {userMenuConfig.profile.showTenant && tenantLabel && (
                     <DropdownMenuLabel className="pt-0 text-xs font-normal text-muted-foreground">
                       Tenant: {tenantLabel}
                     </DropdownMenuLabel>
-                  ) : null}
-                  {rolesLabel ? (
+                  )}
+                  {userMenuConfig.profile.showRoles && rolesLabel && (
                     <DropdownMenuLabel className="pt-0 text-xs font-normal text-muted-foreground">
                       {rolesLabel}
                     </DropdownMenuLabel>
-                  ) : null}
+                  )}
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      logout();
-                    }}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Cerrar sesion
-                  </DropdownMenuItem>
+                  {userMenuConfig.actions.logout.enabled && (
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        logout();
+                      }}
+                    >
+                      <userMenuConfig.actions.logout.icon className="mr-2 h-4 w-4" />
+                      {userMenuConfig.actions.logout.label}
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               
@@ -178,14 +447,15 @@ const Layout = ({ children }: LayoutProps) => {
               
               // Si tiene submenú, renderizar dropdown
               if (item.hasSubmenu) {
+                const submenuItems = menuConfig.getSubmenuItems(item.id).filter(subItem => subItem.visible !== false);
                 return (
-                  <DropdownMenu key={item.name} open={isAdminMenuOpen} onOpenChange={setIsAdminMenuOpen}>
+                  <DropdownMenu key={item.id} open={isAdminMenuOpen} onOpenChange={setIsAdminMenuOpen}>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         className={cn(
                           "flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors h-auto",
-                          adminSubmenu.some(subItem => location.pathname === subItem.href)
+                          submenuItems.some(subItem => location.pathname === subItem.href)
                             ? "border-primary text-primary"
                             : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                         )}
@@ -196,17 +466,19 @@ const Layout = ({ children }: LayoutProps) => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>Administración</DropdownMenuLabel>
+                      <DropdownMenuLabel>{item.description || "Administración"}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {adminSubmenu.map((subItem) => (
-                        <DropdownMenuItem key={subItem.name} asChild>
+                      {submenuItems.map((subItem) => (
+                        <DropdownMenuItem key={subItem.id} asChild>
                           <Link
                             to={subItem.href}
                             className={cn(
                               "flex items-center w-full",
                               location.pathname === subItem.href && "bg-accent"
                             )}
+                            title={subItem.description}
                           >
+                            {subItem.icon && <subItem.icon className="h-4 w-4 mr-2" />}
                             {subItem.name}
                           </Link>
                         </DropdownMenuItem>
@@ -219,7 +491,7 @@ const Layout = ({ children }: LayoutProps) => {
               // Renderizar enlace normal
               return (
                 <Link
-                  key={item.name}
+                  key={item.id}
                   to={item.href}
                   className={cn(
                     "flex items-center px-3 py-4 text-sm font-medium border-b-2 transition-colors",
@@ -227,6 +499,7 @@ const Layout = ({ children }: LayoutProps) => {
                       ? "border-primary text-primary"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                   )}
+                  title={item.description}
                 >
                   <Icon className="h-4 w-4 mr-2" />
                   {item.name}
