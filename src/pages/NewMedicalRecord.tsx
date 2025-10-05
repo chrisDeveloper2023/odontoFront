@@ -42,6 +42,7 @@ type FormState = {
   presionDetalle: string;
   alergias: string;
   medicamentosActuales: string;
+  habitos: string;
   observaciones: string;
 };
 
@@ -57,6 +58,7 @@ const initialForm: FormState = {
   presionDetalle: "",
   alergias: "",
   medicamentosActuales: "",
+  habitos: "",
   observaciones: "",
 };
 
@@ -178,6 +180,7 @@ const NewMedicalRecord = () => {
         presion_detalle: form.presionDetalle || null,
         alergias: form.alergias || null,
         medicamentos_actuales: form.medicamentosActuales || null,
+        habitos: form.habitos || null,
         observaciones: form.observaciones || null,
       };
 
@@ -402,6 +405,18 @@ const NewMedicalRecord = () => {
                   rows={3}
                   value={form.medicamentosActuales}
                   onChange={(e) => updateField('medicamentosActuales', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              <div>
+                <Label>Hábitos</Label>
+              </div>
+              <div className="md:col-span-5">
+                <Textarea
+                  rows={3}
+                  value={form.habitos}
+                  onChange={(e) => updateField('habitos', e.target.value)}
                 />
               </div>
             </div>

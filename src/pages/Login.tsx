@@ -42,6 +42,13 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted">
       <Card className="w-full max-w-md">
         <CardHeader>
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/images.jpg" 
+              alt="Diente dental" 
+              className="w-20 h-20"
+            />
+          </div>
           <CardTitle className="text-center">Iniciar sesion</CardTitle>
         </CardHeader>
         <form onSubmit={onSubmit}>
