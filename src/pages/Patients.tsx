@@ -9,6 +9,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { apiGet, apiDelete } from "@/api/client";
 import PatientDetailModal from "@/components/PatientDetailModal";
 import PatientEditModal from "@/components/PatientEditModal";
+import NewPatientModal from "@/components/NewPatientModal";
 
 interface Patient {
   id: string;
@@ -51,6 +52,7 @@ const Patients: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchPacientes() {
@@ -170,6 +172,13 @@ const Patients: React.FC = () => {
     );
   };
 
+  const handleNewPatientCreated = (newPatient: any) => {
+    // Recargar la lista de pacientes
+    setPage(1);
+    // También podrías agregar el nuevo paciente directamente a la lista
+    // pero es más seguro recargar desde el servidor
+  };
+
   const term = searchTerm.toLowerCase();
   const filtered = patients.filter(
     (p) =>
@@ -189,11 +198,9 @@ const Patients: React.FC = () => {
           <h1 className="text-3xl font-bold">Pacientes</h1>
           <p className="text-muted-foreground">Gestiona los registros de todos los pacientes</p>
         </div>
-        <Link to="/patients/new">
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nuevo
-          </Button>
-        </Link>
+        <Button className="flex items-center gap-2" onClick={() => setIsNewPatientModalOpen(true)}>
+          <Plus className="h-4 w-4" /> Nuevo
+        </Button>
       </div>
 
       {/* Search */}
@@ -418,6 +425,11 @@ const Patients: React.FC = () => {
         isOpen={isEditModalOpen}
         onClose={closeEditModal}
         onPatientUpdated={handlePatientUpdated}
+      />
+      <NewPatientModal
+        isOpen={isNewPatientModalOpen}
+        onClose={() => setIsNewPatientModalOpen(false)}
+        onPatientCreated={handleNewPatientCreated}
       />
     </div>
   );
