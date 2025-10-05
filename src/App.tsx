@@ -32,6 +32,7 @@ import LoginPage from "./pages/Login";
 import { AuthProvider, useAuth, useIsAuthenticated } from "@/context/AuthContext";
 import { loadStoredAuth, clearAuth } from "@/lib/auth";
 import { addUnauthorizedHandler } from "@/lib/auth-events";
+import PermissionRoute from "@/components/PermissionRoute";
 
 const queryClient = new QueryClient();
 
@@ -67,23 +68,23 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Layout><Dashboard /></Layout>} />
-          <Route path="/patients" element={<Layout><Patients /></Layout>} />
+          <Route path="/patients" element={<Layout><PermissionRoute permissions="patients:view"><Patients /></PermissionRoute></Layout>} />
           <Route path="/patients/:id" element={<Layout><PatientDetail /></Layout>} />
-          <Route path="/patients/new" element={<Layout><NewPatient /></Layout>} />
-          <Route path="/patients/:id/edit" element={<Layout><NewPatient /></Layout>} />
-          <Route path="/medical-records" element={<Layout><MedicalRecords /></Layout>} />
-          <Route path="/medical-records/new" element={<Layout><NewMedicalRecord /></Layout>} />
-          <Route path="/medical-records/:id" element={<Layout><MedicalRecordDetail /></Layout>} />
+          <Route path="/patients/new" element={<Layout><PermissionRoute permissions="patients:create"><NewPatient /></PermissionRoute></Layout>} />
+          <Route path="/patients/:id/edit" element={<Layout><PermissionRoute permissions={['patients:edit', 'patients:update']}><NewPatient /></PermissionRoute></Layout>} />
+          <Route path="/medical-records" element={<Layout><PermissionRoute permissions="medical-records:view"><MedicalRecords /></PermissionRoute></Layout>} />
+          <Route path="/medical-records/new" element={<Layout><PermissionRoute permissions="medical-records:create"><NewMedicalRecord /></PermissionRoute></Layout>} />
+          <Route path="/medical-records/:id" element={<Layout><PermissionRoute permissions="medical-records:view"><MedicalRecordDetail /></PermissionRoute></Layout>} />
           <Route path="/NuevosPacientes" element={<Layout><Patients /></Layout>} />
           <Route path="/NuevosPacientes/new" element={<Layout><NewPaciente /></Layout>} />
-          <Route path="/appointments" element={<Layout><Appointments /></Layout>} />
-          <Route path="/appointments/new" element={<Layout><NewAppointmentForm /></Layout>} />
-          <Route path="/calendar" element={<Layout><CalendarPage /></Layout>} />
-          <Route path="/clinics" element={<Layout><ListaClinicas /></Layout>} />
-          <Route path="/clinics/new" element={<Layout><NewClinicForm /></Layout>} />
-          <Route path="/clinics/:id/edit" element={<Layout><NewClinicForm /></Layout>} />
-          <Route path="/users" element={<Layout><UsersPage /></Layout>} />
-          <Route path="/payments" element={<Layout><PaymentsPage /></Layout>} />
+          <Route path="/appointments" element={<Layout><PermissionRoute permissions="appointments:view"><Appointments /></PermissionRoute></Layout>} />
+          <Route path="/appointments/new" element={<Layout><PermissionRoute permissions="appointments:create"><NewAppointmentForm /></PermissionRoute></Layout>} />
+          <Route path="/calendar" element={<Layout><PermissionRoute permissions="calendar:view"><CalendarPage /></PermissionRoute></Layout>} />
+          <Route path="/clinics" element={<Layout><PermissionRoute permissions="clinics:view"><ListaClinicas /></PermissionRoute></Layout>} />
+          <Route path="/clinics/new" element={<Layout><PermissionRoute permissions="clinics:create"><NewClinicForm /></PermissionRoute></Layout>} />
+          <Route path="/clinics/:id/edit" element={<Layout><PermissionRoute permissions={['clinics:edit', 'clinics:update']}><NewClinicForm /></PermissionRoute></Layout>} />
+          <Route path="/users" element={<Layout><PermissionRoute permissions="users:view"><UsersPage /></PermissionRoute></Layout>} />
+          <Route path="/payments" element={<Layout><PermissionRoute permissions="payments:view"><PaymentsPage /></PermissionRoute></Layout>} />
           <Route path="/ListaClinicas" element={<Navigate to="/clinics" replace />} />
           <Route path="appointments/:id" element={<AppointmentDetail />} />
           <Route path="appointments/:id/edit" element={<AppointmentEdit />} />
@@ -190,19 +191,31 @@ const App = () => {
     return removeHandler;
   }, []);
 
-  const authValue = useMemo(() => ({
-    session,
-    setSession: (next: typeof session) => {
-      setSessionState(next);
-      if (!next) {
+  const authValue = useMemo(() => {
+    const permissions = session?.usuario?.permissions || session?.usuario?.rol?.permissions || [];
+    
+    const hasPermission = (code: string | string[]): boolean => {
+      if (!permissions || permissions.length === 0) return false;
+      const required = Array.isArray(code) ? code : [code];
+      return required.some((perm) => permissions.includes(perm));
+    };
+
+    return {
+      session,
+      permissions,
+      setSession: (next: typeof session) => {
+        setSessionState(next);
+        if (!next) {
+          clearAuth();
+        }
+      },
+      logout: () => {
         clearAuth();
-      }
-    },
-    logout: () => {
-      clearAuth();
-      setSessionState(null);
-    },
-  }), [session]);
+        setSessionState(null);
+      },
+      hasPermission,
+    };
+  }, [session]);
 
   return (
     <QueryClientProvider client={queryClient}>

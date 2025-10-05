@@ -15,6 +15,7 @@ export interface Usuario {
   tenant?: Tenant | null;
   roles?: string[]; // compat: login puede enviar arreglo de roles
   tenantSlug?: string | null; // compat: login devuelve slug directo
+  permissions?: string[]; // permisos del usuario
 }
 
 export interface UsuarioPayload {

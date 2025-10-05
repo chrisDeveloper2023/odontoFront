@@ -10,6 +10,7 @@ import { apiGet, apiDelete } from "@/api/client";
 import PatientDetailModal from "@/components/PatientDetailModal";
 import PatientEditModal from "@/components/PatientEditModal";
 import NewPatientModal from "@/components/NewPatientModal";
+import { useAuth } from "@/context/AuthContext";
 
 interface Patient {
   id: string;
@@ -35,6 +36,7 @@ const calculateAge = (dob: string): number => {
 };
 
 const Patients: React.FC = () => {
+  const { hasPermission } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "");
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -198,9 +200,11 @@ const Patients: React.FC = () => {
           <h1 className="text-3xl font-bold">Pacientes</h1>
           <p className="text-muted-foreground">Gestiona los registros de todos los pacientes</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => setIsNewPatientModalOpen(true)}>
-          <Plus className="h-4 w-4" /> Nuevo
-        </Button>
+        {hasPermission('patients:create') && (
+          <Button className="flex items-center gap-2" onClick={() => setIsNewPatientModalOpen(true)}>
+            <Plus className="h-4 w-4" /> Nuevo
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -350,20 +354,28 @@ const Patients: React.FC = () => {
                   </div>
 
                   <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="outline" size="sm" onClick={() => openPatientModal(patient.id)}>
-                      <Eye />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => openEditModal(patient.id)}>
-                      <Edit />
-                    </Button>
-                    <Link to={`/medical-records/new?patientId=${patient.id}`}>
-                      <Button size="sm"><FileText /></Button>
-                    </Link>
-                    <Link to={`/appointments?id_paciente=${patient.id}`}>
-                      <Button size="sm"><Calendar /></Button>
-                    </Link>
+                    {hasPermission('patients:view') && (
+                      <Button variant="outline" size="sm" onClick={() => openPatientModal(patient.id)}>
+                        <Eye />
+                      </Button>
+                    )}
+                    {hasPermission(['patients:edit', 'patients:update']) && (
+                      <Button variant="outline" size="sm" onClick={() => openEditModal(patient.id)}>
+                        <Edit />
+                      </Button>
+                    )}
+                    {hasPermission('medical-records:create') && (
+                      <Link to={`/medical-records/new?patientId=${patient.id}`}>
+                        <Button size="sm"><FileText /></Button>
+                      </Link>
+                    )}
+                    {hasPermission('appointments:create') && (
+                      <Link to={`/appointments?id_paciente=${patient.id}`}>
+                        <Button size="sm"><Calendar /></Button>
+                      </Link>
+                    )}
 
-                    {!mostrarInactivos && (
+                    {!mostrarInactivos && hasPermission('patients:delete') && (
                       <Button
                         variant="destructive"
                         size="sm"

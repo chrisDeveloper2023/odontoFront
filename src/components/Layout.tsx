@@ -289,8 +289,21 @@ const Layout = ({ children }: LayoutProps) => {
 
   // Obtener configuración del menú
   const menuConfig = MenuConfig.getInstance();
-  const navigation = menuConfig.getVisibleMenuItems();
   const userMenuConfig = menuConfig.getUserMenuConfig();
+  
+  // Filtrar menús por permisos
+  const can = (needed?: string[]) =>
+    !needed?.length || needed.some((perm) => session?.usuario?.permissions?.includes(perm) || session?.usuario?.rol?.permissions?.includes(perm));
+
+  const navigation = menuConfig
+    .getMenuItems()
+    .filter((item) => item.visible !== false && can(item.permissions))
+    .map((item) =>
+      item.hasSubmenu
+        ? { ...item, submenu: item.submenu?.filter((sub) => can(sub.permissions)) }
+        : item
+    )
+    .filter((item) => !item.hasSubmenu || (item.submenu && item.submenu.length > 0));
 
   const fullName = session ? `${session.usuario.nombres} ${session.usuario.apellidos}`.trim() : "Invitado";
   const initials = fullName
