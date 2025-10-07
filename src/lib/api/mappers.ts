@@ -117,6 +117,11 @@ export const mapUsuario = (raw: any): Usuario => {
     clinica,
     tenant,
     roles: Array.isArray(raw.roles) ? raw.roles.map((r: any) => String(r)) : undefined,
+    permissions: Array.isArray(raw.permissions)
+      ? raw.permissions.map((perm: any) => String(perm))
+      : Array.isArray(raw.rol?.permissions)
+      ? raw.rol.permissions.map((perm: any) => String(perm))
+      : undefined,
     tenantSlug: raw.tenantSlug ?? raw.tenant_slug ?? tenant?.slug ?? null,
   };
 };
@@ -195,3 +200,4 @@ export const mapPago = (raw: any): Pago => {
     metodo_pago: raw.metodo_pago ?? raw.metodoPago ?? raw.payment_method ?? null,
   } as Pago;
 };
+

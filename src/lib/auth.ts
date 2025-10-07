@@ -1,4 +1,4 @@
-import { setAuthToken } from "@/api/client";
+import { setAuthToken, setTenant } from "@/api/client";
 import { clearTenant, setTenantSlug } from "@/lib/tenant";
 import type { Usuario } from "@/types/usuario";
 
@@ -21,6 +21,11 @@ const resolveTenantSlug = (usuario: Usuario | null | undefined) => {
   return usuario.tenantSlug ?? usuario.tenant?.slug ?? null;
 };
 
+const resolveTenantId = (usuario: Usuario | null | undefined) => {
+  if (!usuario) return null;
+  return usuario.tenant_id ?? usuario.tenant?.id ?? null;
+};
+
 export function loadStoredAuth(): StoredAuth | null {
   try {
     const raw = localStorage.getItem(AUTH_USER_KEY);
@@ -36,7 +41,9 @@ export function clearAuth() {
   setAuthToken(null);
   try {
     localStorage.removeItem(AUTH_USER_KEY);
-  } catch {}
+  } catch {
+    /* noop */
+  }
   clearTenant();
 }
 
@@ -48,6 +55,11 @@ export function persistAuth(session: AuthSession): StoredAuth {
     setTenantSlug(tenantSlug);
   }
 
+  const tenantId = resolveTenantId(session.usuario);
+  if (tenantId !== null && tenantId !== undefined) {
+    setTenant(String(tenantId));
+  }
+
   const expiresAt = session.expiresIn ? Date.now() + session.expiresIn * 1000 : undefined;
   const stored: StoredAuth = {
     token: session.token,
@@ -57,7 +69,9 @@ export function persistAuth(session: AuthSession): StoredAuth {
 
   try {
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(stored));
-  } catch {}
+  } catch {
+    /* noop */
+  }
 
   return stored;
 }

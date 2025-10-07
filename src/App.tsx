@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,13 +26,11 @@ import OdontogramPage from "./pages/Odontograma";
 import RouteModal from "@/components/RouteModal";
 import UsersPage from "./pages/Users";
 import PaymentsPage from "./pages/Payments";
-import { setTenant, setAuthToken } from "@/api/client";
+import { setTenant } from "@/api/client";
 import { initTenant } from "@/lib/tenant";
 import LoginPage from "./pages/Login";
 import { AuthProvider, useAuth, useIsAuthenticated } from "@/context/AuthContext";
-import { loadStoredAuth, clearAuth } from "@/lib/auth";
-import { addUnauthorizedHandler } from "@/lib/auth-events";
-import PermissionRoute from "@/components/PermissionRoute";
+import ProtectedRoute from "@/routes/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -41,8 +39,10 @@ initTenant();
 function useBootTenant() {
   useEffect(() => {
     try {
-      const slug = localStorage.getItem("tenantSlug") || "default";
-      setTenant(slug);
+      const tenantId = localStorage.getItem("tenantId");
+      if (tenantId) {
+        setTenant(tenantId);
+      }
     } catch {
       /* noop */
     }
@@ -68,23 +68,23 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Layout><Dashboard /></Layout>} />
-          <Route path="/patients" element={<Layout><PermissionRoute permissions="patients:view"><Patients /></PermissionRoute></Layout>} />
+          <Route path="/patients" element={<Layout><ProtectedRoute requiredPermissions="patients:view"><Patients /></ProtectedRoute></Layout>} />
           <Route path="/patients/:id" element={<Layout><PatientDetail /></Layout>} />
-          <Route path="/patients/new" element={<Layout><PermissionRoute permissions="patients:create"><NewPatient /></PermissionRoute></Layout>} />
-          <Route path="/patients/:id/edit" element={<Layout><PermissionRoute permissions={['patients:edit', 'patients:update']}><NewPatient /></PermissionRoute></Layout>} />
-          <Route path="/medical-records" element={<Layout><PermissionRoute permissions="medical-records:view"><MedicalRecords /></PermissionRoute></Layout>} />
-          <Route path="/medical-records/new" element={<Layout><PermissionRoute permissions="medical-records:create"><NewMedicalRecord /></PermissionRoute></Layout>} />
-          <Route path="/medical-records/:id" element={<Layout><PermissionRoute permissions="medical-records:view"><MedicalRecordDetail /></PermissionRoute></Layout>} />
+          <Route path="/patients/new" element={<Layout><ProtectedRoute requiredPermissions="patients:create"><NewPatient /></ProtectedRoute></Layout>} />
+          <Route path="/patients/:id/edit" element={<Layout><ProtectedRoute requiredPermissions={['patients:edit', 'patients:update']}><NewPatient /></ProtectedRoute></Layout>} />
+          <Route path="/medical-records" element={<Layout><ProtectedRoute requiredPermissions="medical-records:view"><MedicalRecords /></ProtectedRoute></Layout>} />
+          <Route path="/medical-records/new" element={<Layout><ProtectedRoute requiredPermissions="medical-records:create"><NewMedicalRecord /></ProtectedRoute></Layout>} />
+          <Route path="/medical-records/:id" element={<Layout><ProtectedRoute requiredPermissions="medical-records:view"><MedicalRecordDetail /></ProtectedRoute></Layout>} />
           <Route path="/NuevosPacientes" element={<Layout><Patients /></Layout>} />
           <Route path="/NuevosPacientes/new" element={<Layout><NewPaciente /></Layout>} />
-          <Route path="/appointments" element={<Layout><PermissionRoute permissions="appointments:view"><Appointments /></PermissionRoute></Layout>} />
-          <Route path="/appointments/new" element={<Layout><PermissionRoute permissions="appointments:create"><NewAppointmentForm /></PermissionRoute></Layout>} />
-          <Route path="/calendar" element={<Layout><PermissionRoute permissions="calendar:view"><CalendarPage /></PermissionRoute></Layout>} />
-          <Route path="/clinics" element={<Layout><PermissionRoute permissions="clinics:view"><ListaClinicas /></PermissionRoute></Layout>} />
-          <Route path="/clinics/new" element={<Layout><PermissionRoute permissions="clinics:create"><NewClinicForm /></PermissionRoute></Layout>} />
-          <Route path="/clinics/:id/edit" element={<Layout><PermissionRoute permissions={['clinics:edit', 'clinics:update']}><NewClinicForm /></PermissionRoute></Layout>} />
-          <Route path="/users" element={<Layout><PermissionRoute permissions="users:view"><UsersPage /></PermissionRoute></Layout>} />
-          <Route path="/payments" element={<Layout><PermissionRoute permissions="payments:view"><PaymentsPage /></PermissionRoute></Layout>} />
+          <Route path="/appointments" element={<Layout><ProtectedRoute requiredPermissions="appointments:view"><Appointments /></ProtectedRoute></Layout>} />
+          <Route path="/appointments/new" element={<Layout><ProtectedRoute requiredPermissions="appointments:create"><NewAppointmentForm /></ProtectedRoute></Layout>} />
+          <Route path="/calendar" element={<Layout><ProtectedRoute requiredPermissions="calendar:view"><CalendarPage /></ProtectedRoute></Layout>} />
+          <Route path="/clinics" element={<Layout><ProtectedRoute requiredPermissions="clinics:view"><ListaClinicas /></ProtectedRoute></Layout>} />
+          <Route path="/clinics/new" element={<Layout><ProtectedRoute requiredPermissions="clinics:create"><NewClinicForm /></ProtectedRoute></Layout>} />
+          <Route path="/clinics/:id/edit" element={<Layout><ProtectedRoute requiredPermissions={['clinics:edit', 'clinics:update']}><NewClinicForm /></ProtectedRoute></Layout>} />
+          <Route path="/users" element={<Layout><ProtectedRoute requiredPermissions="users:view"><UsersPage /></ProtectedRoute></Layout>} />
+          <Route path="/payments" element={<Layout><ProtectedRoute requiredPermissions="payments:view"><PaymentsPage /></ProtectedRoute></Layout>} />
           <Route path="/ListaClinicas" element={<Navigate to="/clinics" replace />} />
           <Route path="appointments/:id" element={<AppointmentDetail />} />
           <Route path="appointments/:id/edit" element={<AppointmentEdit />} />
@@ -169,60 +169,13 @@ function AppRoutes() {
 
 const App = () => {
   useBootTenant();
-  const [session, setSessionState] = useState(() => loadStoredAuth());
-
-  useEffect(() => {
-    if (!session) return;
-    if (session.expiresAt && session.expiresAt <= Date.now()) {
-      setSessionState(null);
-      clearAuth();
-    }
-  }, [session]);
-
-  useEffect(() => {
-    setAuthToken(session?.token ?? null);
-  }, [session?.token]);
-
-  useEffect(() => {
-    const removeHandler = addUnauthorizedHandler(() => {
-      setSessionState(null);
-      clearAuth();
-    });
-    return removeHandler;
-  }, []);
-
-  const authValue = useMemo(() => {
-    const permissions = session?.usuario?.permissions || session?.usuario?.rol?.permissions || [];
-    
-    const hasPermission = (code: string | string[]): boolean => {
-      if (!permissions || permissions.length === 0) return false;
-      const required = Array.isArray(code) ? code : [code];
-      return required.some((perm) => permissions.includes(perm));
-    };
-
-    return {
-      session,
-      permissions,
-      setSession: (next: typeof session) => {
-        setSessionState(next);
-        if (!next) {
-          clearAuth();
-        }
-      },
-      logout: () => {
-        clearAuth();
-        setSessionState(null);
-      },
-      hasPermission,
-    };
-  }, [session]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <AuthProvider value={authValue}>
+        <AuthProvider>
           <BrowserRouter>
             <AppRoutes />
           </BrowserRouter>
@@ -233,8 +186,3 @@ const App = () => {
 };
 
 export default App;
-
-
-
-
-
