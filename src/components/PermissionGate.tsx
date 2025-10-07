@@ -1,33 +1,14 @@
-import React from "react";
+import { ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 interface PermissionGateProps {
-  children: React.ReactNode;
   permissions: string | string[];
-  fallback?: React.ReactNode;
-  requireAll?: boolean;
+  children: ReactNode;
 }
 
-/**
- * Componente que renderiza contenido solo si el usuario tiene los permisos necesarios
- */
-export const PermissionGate: React.FC<PermissionGateProps> = ({
-  children,
-  permissions,
-  fallback = null,
-  requireAll = false
-}) => {
+export function PermissionGate({ permissions, children }: PermissionGateProps) {
   const { hasPermission } = useAuth();
-
-  const hasRequiredPermissions = requireAll
-    ? Array.isArray(permissions)
-      ? permissions.every(perm => hasPermission(perm))
-      : hasPermission(permissions)
-    : Array.isArray(permissions)
-    ? permissions.some(perm => hasPermission(perm))
-    : hasPermission(permissions);
-
-  return hasRequiredPermissions ? <>{children}</> : <>{fallback}</>;
-};
+  return hasPermission(permissions) ? <>{children}</> : null;
+}
 
 export default PermissionGate;

@@ -284,7 +284,7 @@ class MenuConfig {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
-  const { session, logout } = useAuth();
+  const { session, logout, hasPermission } = useAuth();
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
   // Obtener configuración del menú
@@ -292,8 +292,7 @@ const Layout = ({ children }: LayoutProps) => {
   const userMenuConfig = menuConfig.getUserMenuConfig();
   
   // Filtrar menús por permisos
-  const can = (needed?: string[]) =>
-    !needed?.length || needed.some((perm) => session?.usuario?.permissions?.includes(perm) || session?.usuario?.rol?.permissions?.includes(perm));
+  const can = (needed?: string[]) => !needed?.length || hasPermission(needed ?? []);
 
   const navigation = menuConfig
     .getMenuItems()

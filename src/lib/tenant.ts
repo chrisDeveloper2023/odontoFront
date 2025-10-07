@@ -1,48 +1,78 @@
-// src/lib/tenant.ts
-import { setTenant as setAxiosTenant, clearTenant as clearAxiosTenant } from "@/api/client";
+import { setTenant as setTenantHeader, clearTenant as clearTenantHeader } from "@/api/client";
 
-const KEY = "tenantSlug";
+const SLUG_KEY = "tenantSlug";
+const ID_KEY = "tenantId";
+
+const safeGet = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeSet = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* noop */
+  }
+};
+
+const safeRemove = (key: string) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* noop */
+  }
+};
 
 export function getTenantSlug(): string | null {
-  try { return localStorage.getItem(KEY); } catch { return null; }
+  return safeGet(SLUG_KEY);
+}
+
+export function getTenantId(): string | null {
+  return safeGet(ID_KEY);
 }
 
 export function setTenantSlug(slug: string) {
-  try { localStorage.setItem(KEY, slug); } catch {}
-  setAxiosTenant(slug);
+  safeSet(SLUG_KEY, slug);
+}
+
+export function setTenantId(id: string | number) {
+  const value = String(id);
+  safeSet(ID_KEY, value);
+  setTenantHeader(value);
 }
 
 export function getTenantHeaders(): Record<string, string> {
-  const slug = getTenantSlug() || (import.meta.env.DEV ? "default" : "");
-  return slug ? { "X-Tenant": slug } : {};
+  const tenantId = getTenantId();
+  return tenantId ? { "X-Tenant-ID": tenantId } : {};
 }
 
 export function clearTenant() {
-  try { localStorage.removeItem(KEY); } catch {}
-  clearAxiosTenant();
+  clearTenantHeader();
+  safeRemove(SLUG_KEY);
+  safeRemove(ID_KEY);
 }
 
-// Parche global para fetch: anade X-Tenant automaticamente
 let patched = false;
 export function initTenant() {
-  const stored = getTenantSlug();
-  if (!stored && import.meta.env.DEV) {
-    // Config default para desarrollo
-    setTenantSlug("default");
-  } else if (stored) {
-    setAxiosTenant(stored);
+  const tenantId = getTenantId();
+  if (tenantId) {
+    setTenantHeader(tenantId);
   }
 
   if (typeof window !== "undefined" && !patched) {
     patched = true;
-    const origFetch = window.fetch.bind(window);
+    const originalFetch = window.fetch.bind(window);
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const hdrs: Record<string, string> = {
-        ...(init?.headers as any || {}),
+      const nextHeaders: Record<string, string> = {
+        ...(init?.headers as Record<string, string> | undefined ?? {}),
         ...getTenantHeaders(),
       };
-      const next: RequestInit = { ...(init || {}), headers: hdrs };
-      return origFetch(input, next);
+      const nextInit: RequestInit = { ...(init || {}), headers: nextHeaders };
+      return originalFetch(input, nextInit);
     };
   }
 }
