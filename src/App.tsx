@@ -26,6 +26,7 @@ import OdontogramPage from "./pages/Odontograma";
 import RouteModal from "@/components/RouteModal";
 import UsersPage from "./pages/Users";
 import PaymentsPage from "./pages/Payments";
+import NotificationsPage from "@/modules/notifications/pages/NotificationsPage";
 import { setTenant } from "@/api/client";
 import { initTenant } from "@/lib/tenant";
 import LoginPage from "./pages/Login";
@@ -85,6 +86,16 @@ function AppRoutes() {
           <Route path="/clinics/:id/edit" element={<Layout><ProtectedRoute requiredPermissions={['clinics:edit', 'clinics:update']}><NewClinicForm /></ProtectedRoute></Layout>} />
           <Route path="/users" element={<Layout><ProtectedRoute requiredPermissions="users:view"><UsersPage /></ProtectedRoute></Layout>} />
           <Route path="/payments" element={<Layout><ProtectedRoute requiredPermissions="payments:view"><PaymentsPage /></ProtectedRoute></Layout>} />
+          <Route
+            path="/notificaciones"
+            element={
+              <Layout>
+                <ProtectedRoute requiredPermissions={["NOTIFICACIONES_VER", "notifications:view"]}>
+                  <NotificationsPage />
+                </ProtectedRoute>
+              </Layout>
+            }
+          />
           <Route path="/ListaClinicas" element={<Navigate to="/clinics" replace />} />
           <Route path="appointments/:id" element={<AppointmentDetail />} />
           <Route path="appointments/:id/edit" element={<AppointmentEdit />} />
