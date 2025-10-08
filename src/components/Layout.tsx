@@ -1,6 +1,6 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet, Shield, ChevronDown } from "lucide-react";
+import { Bell, Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet, Shield, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSelector from "@/components/TenantSelector";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,6 +13,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
+import { NotificationProvider } from "@/modules/notifications/context/NotificationContext";
+import { NotificationBell } from "@/modules/notifications/components/NotificationBell";
 import { useState } from "react";
 
 interface LayoutProps {
@@ -139,6 +141,16 @@ class MenuConfig {
         icon: CalendarDays,
         description: "Vista de calendario de citas",
         permissions: ["calendar:view"],
+        roles: ["admin", "doctor", "recepcionista"],
+        visible: true
+      },
+      {
+        id: "notifications",
+        name: "Notificaciones",
+        href: "/notificaciones",
+        icon: Bell,
+        description: "Centro de notificaciones y alertas",
+        permissions: ["NOTIFICACIONES_VER"],
         roles: ["admin", "doctor", "recepcionista"],
         visible: true
       },
@@ -284,6 +296,7 @@ class MenuConfig {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { session, logout, hasPermission } = useAuth();
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
@@ -326,31 +339,33 @@ const Layout = ({ children }: LayoutProps) => {
   const rolesLabel = roleNames.length ? roleNames.join(", ") : null;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="bg-primary p-2 rounded-lg animate-pulse-glow">
-                <Heart className="h-6 w-6 text-primary-foreground animate-float" />
+    <NotificationProvider>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="bg-card border-b shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-primary p-2 rounded-lg animate-pulse-glow">
+                  <Heart className="h-6 w-6 text-primary-foreground animate-float" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold relative overflow-hidden">
+                    <span className="relative z-10 flex">
+                      {['C', 'l', 'i', 'n', 'i', 'c', 'S', 'o', 'f', 't'].map((letter, index) => (
+                        <span key={index} className="animate-letter-wave">
+                          {letter}
+                        </span>
+                      ))}
+                    </span>
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-shimmer"></span>
+                  </h1>
+                  <p className="text-sm text-muted-foreground">Sistema de Historias Clinicas</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold relative overflow-hidden">
-                  <span className="relative z-10 flex">
-                    {['C', 'l', 'i', 'n', 'i', 'c', 'S', 'o', 'f', 't'].map((letter, index) => (
-                      <span key={index} className="animate-letter-wave">
-                        {letter}
-                      </span>
-                    ))}
-                  </span>
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-shimmer"></span>
-                </h1>
-                <p className="text-sm text-muted-foreground">Sistema de Historias Clinicas</p>
-              </div>
-            </div>
             <div className="flex items-center gap-3">
               <TenantSelector />
+              <NotificationBell onClick={() => navigate("/notificaciones")} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="hidden items-center gap-2 px-2 py-1.5 sm:flex">
@@ -527,16 +542,9 @@ const Layout = ({ children }: LayoutProps) => {
         {children}
       </main>
     </div>
+    </NotificationProvider>
   );
 };
 
 export default Layout;
-
-
-
-
-
-
-
-
 
