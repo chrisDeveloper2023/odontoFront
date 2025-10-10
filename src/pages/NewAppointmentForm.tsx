@@ -17,9 +17,8 @@ import { ArrowLeft, User } from "lucide-react";
 
 // Servicio para disponibilidad
 import { getDisponibilidad } from "@/servicios/citas";
-import { getOdontologos } from "@/servicios/usuarios";
-
 import { apiGet, apiPost } from "@/api/client";
+import { getOdontologos } from "@/lib/api/catalog";
 import { combineDateAndTimeGuayaquil, formatGuayaquilTimeHM } from "@/lib/timezone";
 
 interface Paciente {
@@ -28,15 +27,12 @@ interface Paciente {
   apellidos: string;
 }
 
-interface Doctor {
+type OdontologoOption = {
   id: number;
-  nombres: string;
-  apellidos: string;
-  rol?: {
-    id_rol: number;
-    nombre: string;
-  };
-}
+  nombre: string;
+  correo: string;
+  id_clinica: number;
+};
 
 interface Consultorio {
   id_consultorio: number;
@@ -47,8 +43,6 @@ function buildISOWithOffset(fecha: string, hora: string): string {
   return combineDateAndTimeGuayaquil(fecha, hora);
 }
 
-
-const ODONTOLOGO_ROLE_ID = 1; // ajusta si tu rol de odontologo tuviese otro id
 
 const NewAppointmentForm = () => {
   const navigate = useNavigate();
@@ -69,12 +63,9 @@ const NewAppointmentForm = () => {
   const [slotsError, setSlotsError] = useState<string | null>(null);
 
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
-  const [doctores, setDoctores] = useState<Doctor[]>([]);
+  const [odontologos, setOdontologos] = useState<OdontologoOption[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
-  const [clinicas, setClinicas] = useState<{ id: number; nombre: string }[]>([
-    { id: 1, nombre: "Sucursal 1" },
-    { id: 2, nombre: "Sucursal 2" },
-  ]);
+  const [clinicas, setClinicas] = useState<{ id: number; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,26 +80,37 @@ const NewAppointmentForm = () => {
         setPacientes(Array.isArray(pacData) ? pacData : pacData?.data || []);
         setConsultorios(Array.isArray(conData) ? conData : conData?.data || []);
 
-        try {
-          const clinRes = await apiGet<any>("/clinicas").catch(() => ({ data: [] }));
+        const clinRes = await apiGet<any>("/clinicas").catch(() => null);
+        if (clinRes) {
           const list = Array.isArray(clinRes?.data) ? clinRes.data : Array.isArray(clinRes) ? clinRes : [];
           const mapped = list
             .map((c: any) => ({
-              id: c.id ?? c.id_clinica ?? c.idClinica,
-              nombre: c.nombre ?? c.nombre_clinica ?? c.name,
+              id: Number(c?.id ?? c?.id_clinica ?? c?.idClinica ?? 0),
+              nombre: String(c?.nombre ?? c?.nombre_clinica ?? c?.name ?? ""),
             }))
-            .filter((c: any) => c.id);
-          if (mapped.length >= 2) setClinicas(mapped);
-        } catch (e) {
-          // mantener defaults si falla
+            .filter((c) => Number.isFinite(c.id) && c.nombre.length > 0);
+          setClinicas(mapped);
+        } else {
+          setClinicas([]);
         }
 
         try {
-          const docs = await getOdontologos();
-          setDoctores(docs);
-          console.debug("Odontologos detectados:", docs);
+          const res = await getOdontologos();
+          const arr = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+          const mappedOdontologos: OdontologoOption[] = arr
+            .map((o: any) => ({
+              id: Number(o?.id ?? o?.id_usuario ?? 0),
+              nombre: `${String(o?.apellidos ?? "").trim()} ${String(o?.nombres ?? "").trim()}`
+                .trim()
+                || String(o?.correo ?? ""),
+              correo: String(o?.correo ?? ""),
+              id_clinica: Number(o?.id_clinica ?? 0),
+            }))
+            .filter((o) => Number.isFinite(o.id));
+          setOdontologos(mappedOdontologos);
         } catch (docsErr) {
           console.error("No se pudieron cargar odontologos:", docsErr);
+          setOdontologos([]);
         }
       } catch (err) {
         console.error("Error cargando listas:", err);
@@ -285,15 +287,15 @@ const NewAppointmentForm = () => {
                   <SelectTrigger className="w-full">
                     {formData.id_odontologo
                       ? (() => {
-                        const d = doctores.find((x) => String(x.id) === formData.id_odontologo);
-                        return d ? `${d.nombres} ${d.apellidos}` : "Seleccionar medico";
+                        const d = odontologos.find((x) => String(x.id) === formData.id_odontologo);
+                        return d ? d.nombre : "Seleccionar medico";
                       })()
                       : "Seleccionar medico"}
                   </SelectTrigger>
                   <SelectContent>
-                    {doctores.map((d) => (
+                    {odontologos.map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
-                        {d.nombres} {d.apellidos}
+                        {d.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>
