@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPut } from "@/api/client";
+﻿import { apiDelete, apiGet, apiPost, apiPut } from "@/api/client";
 import { ensureArray, mapUsuario } from "./mappers";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
 
@@ -20,6 +20,10 @@ const buildUsuarioPayload = (payload: UsuarioPayload) => {
     body.tenant_id = payload.tenant_id;
   }
 
+  if (payload.password) {
+    body.password = payload.password;
+  }
+
   return body;
 };
 
@@ -36,21 +40,29 @@ export async function fetchUsuario(id: number): Promise<Usuario | null> {
 
 export interface CreateUsuarioResult {
   usuario: Usuario;
-  generatedPassword?: string;
+  tempPassword?: string;
 }
 
 export async function createUsuario(payload: UsuarioPayload): Promise<CreateUsuarioResult> {
   const res = await apiPost<any>("/usuarios", buildUsuarioPayload(payload));
-  const generatedPassword = typeof res === "object" ? res?.generatedPassword : undefined;
+  const rawUser = res?.user ?? res;
+  const possiblePassword =
+    res?.tempPassword ??
+    res?.generatedPassword ??
+    res?.passwordTemporal ??
+    res?.password_plain;
+  const tempPassword = typeof possiblePassword === "string" && possiblePassword.length > 0 ? possiblePassword : undefined;
+
   return {
-    usuario: mapUsuario(res),
-    generatedPassword: generatedPassword ? String(generatedPassword) : undefined,
+    usuario: mapUsuario(rawUser),
+    tempPassword,
   };
 }
 
 export async function updateUsuario(id: number, payload: UsuarioPayload): Promise<Usuario> {
-  const res = await apiPut<unknown>(`/usuarios/${id}`, buildUsuarioPayload(payload));
-  return mapUsuario(res);
+  const res = await apiPut<any>(`/usuarios/${id}`, buildUsuarioPayload(payload));
+  const raw = res?.user ?? res;
+  return mapUsuario(raw);
 }
 
 export async function deleteUsuario(id: number): Promise<void> {

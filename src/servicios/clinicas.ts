@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/api/client";
 import { ensureArray, mapClinica } from "@/lib/api/mappers";
+import { getClinicas as getClinicasApi } from "@/lib/api/clinicas";
 import type { Clinica } from "@/types/clinica";
 
 export type Clinic = Clinica;
@@ -27,8 +28,8 @@ const buildPayload = (payload: ClinicaPayload) => {
 };
 
 export async function fetchClinics(): Promise<Clinica[]> {
-  const data = await apiGet<unknown>("/clinicas");
-  return ensureArray(data).map(mapClinica);
+  const data = await getClinicasApi();
+  return data.map(mapClinica);
 }
 
 export async function fetchClinic(id: number): Promise<Clinica | null> {

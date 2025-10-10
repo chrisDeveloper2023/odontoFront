@@ -1,13 +1,25 @@
-import { fetchUsuario, fetchUsuarios, createUsuario as createUsuarioApi, updateUsuario as updateUsuarioApi, deleteUsuario as deleteUsuarioApi } from "@/lib/api/usuarios";
+import {
+  fetchUsuario,
+  fetchUsuarios,
+  createUsuario as createUsuarioApi,
+  updateUsuario as updateUsuarioApi,
+  deleteUsuario as deleteUsuarioApi,
+} from "@/lib/api/usuarios";
 import type { CreateUsuarioResult } from "@/lib/api/usuarios";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
 
-export type Doctor = Pick<Usuario, "id" | "nombres" | "apellidos" | "rol" | "clinica" | "tenant" | "id_clinica" | "tenant_id">;
+export type Doctor = Pick<
+  Usuario,
+  "id" | "nombres" | "apellidos" | "rol" | "clinica" | "tenant" | "id_clinica" | "tenant_id"
+>;
 
 const isOdontologo = (usuario: Usuario) => {
-  const rolNombre = usuario.rol?.nombre_rol?.toUpperCase?.();
-  if (rolNombre && rolNombre.includes("ODONTÓLOGO")) return true;
-  return Array.isArray(usuario.roles) && usuario.roles.some((role) => String(role).toUpperCase().includes("ODONTO"));
+  const rolNombre = usuario.rol?.nombre_rol?.toUpperCase?.() ?? "";
+  if (rolNombre.includes("ODONTO")) return true;
+  return (
+    Array.isArray(usuario.roles) &&
+    usuario.roles.some((role) => String(role).toUpperCase().includes("ODONTO"))
+  );
 };
 
 export async function getOdontologos(): Promise<Doctor[]> {
@@ -34,3 +46,4 @@ export async function updateUsuario(id: number, payload: UsuarioPayload): Promis
 export async function deleteUsuario(id: number): Promise<void> {
   return deleteUsuarioApi(id);
 }
+

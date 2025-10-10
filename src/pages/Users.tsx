@@ -13,7 +13,7 @@ import { listUsuarios, createUsuario, updateUsuario, deleteUsuario } from "@/ser
 import { fetchClinics, type Clinic } from "@/servicios/clinicas";
 import { getRoles } from "@/lib/api/permisos";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
-import type { Rol } from "@/types/rol";
+
 
 interface FormState {
   id: number | null;
@@ -25,6 +25,11 @@ interface FormState {
   tenant_id: number | null;
   activo: boolean;
 }
+
+type RoleOption = {
+  id_rol: number;
+  nombre_rol: string;
+};
 
 const emptyForm: FormState = {
   id: null,
@@ -40,7 +45,7 @@ const emptyForm: FormState = {
 const UsersPage = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [clinicas, setClinicas] = useState<Clinic[]>([]);
-  const [roles, setRoles] = useState<Rol[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -59,7 +64,18 @@ const UsersPage = () => {
         ]);
         setUsuarios(usersRes);
         setClinicas(clinicsRes);
-        setRoles(rolesRes.data ?? []);
+        const rolesPayload = Array.isArray((rolesRes as any)?.data)
+          ? (rolesRes as any).data
+          : Array.isArray(rolesRes)
+          ? rolesRes
+          : [];
+        const mappedRoles: RoleOption[] = rolesPayload
+          .map((rol: any) => ({
+            id_rol: Number(rol?.id_rol ?? rol?.id ?? 0),
+            nombre_rol: String(rol?.nombre_rol ?? rol?.nombre ?? ""),
+          }))
+          .filter((rol) => Number.isFinite(rol.id_rol) && rol.nombre_rol.length > 0);
+        setRoles(mappedRoles);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -70,7 +86,7 @@ const UsersPage = () => {
     })();
   }, []);
 
-  const roleOptions = useMemo(() => roles.map((role) => [role.id_rol, role.nombre_rol] as const), [roles]);
+  const roleOptions = useMemo(() => roles.map((rol) => [rol.id_rol, rol.nombre_rol] as const), [roles]);
 
   const openCreateModal = () => {
     setForm(emptyForm);
@@ -136,17 +152,27 @@ const UsersPage = () => {
         await updateUsuario(form.id, payload);
         toast.success("Usuario actualizado");
       } else {
-        const { generatedPassword } = await createUsuario(payload);
-        if (generatedPassword) {
-          toast.success("Usuario creado", {
-            description: `Contrasena temporal: ${generatedPassword}`,
-          });
+        const { usuario, tempPassword } = await createUsuario(payload);
+        if (tempPassword) {
+          toast.success(`Usuario creado. Contrasena temporal: ${tempPassword}`, { duration: 12000 });
+          try {
+            await navigator.clipboard.writeText(tempPassword);
+            toast.info("Contrasena copiada al portapapeles");
+          } catch {
+            /* sin accion */
+          }
         } else {
           toast.success("Usuario creado");
         }
+        if (usuario) {
+          setUsuarios((prev) => [...prev, usuario]);
+        }
       }
-      closeModal();
+
       await refreshUsuarios();
+      setModalOpen(false);
+      setForm(emptyForm);
+      setSelectedUserId(null);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "No se pudo guardar el usuario");
@@ -243,7 +269,7 @@ const UsersPage = () => {
             <DialogTitle>{form.id ? "Editar usuario" : "Crear usuario"}</DialogTitle>
             <DialogDescription>
               {form.id 
-                ? "Modifica la información del usuario seleccionado" 
+                ? "Modifica la informacion del usuario seleccionado" 
                 : "Completa los datos para crear un nuevo usuario"
               }
             </DialogDescription>
@@ -360,5 +386,3 @@ const UsersPage = () => {
 };
 
 export default UsersPage;
-
-

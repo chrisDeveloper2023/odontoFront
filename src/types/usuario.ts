@@ -25,7 +25,7 @@ export interface UsuarioPayload {
   activo?: boolean;
   id_clinica?: number | null;
   tenant_id?: number | null;
-  rol_id?: number;
+  rol_id?: number;\n  password?: string;
 }
 
 export type UsuarioCreatePayload = UsuarioPayload;
@@ -36,3 +36,4 @@ export interface UsuariosResponse {
   total?: number;
   totalPages?: number;
 }
+

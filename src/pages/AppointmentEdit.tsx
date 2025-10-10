@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, User } from "lucide-react";
 import { apiGet, apiPut } from "@/api/client";
+import { getClinicas } from "@/lib/api/clinicas";
 import { combineDateAndTimeGuayaquil, formatGuayaquilDateISO, formatGuayaquilTimeHM, parseDateInGuayaquil } from "@/lib/timezone";
 import { getDisponibilidad } from "@/servicios/citas";
 import { getOdontologos } from "@/servicios/usuarios";
@@ -177,24 +178,21 @@ export default function AppointmentEdit() {
         }
 
         try {
-          const clinRes = await apiGet<any>("/clinicas").catch(() => null);
-          if (clinRes) {
-            const list = Array.isArray(clinRes?.data) ? clinRes.data : Array.isArray(clinRes) ? clinRes : [];
-            const mapped = list
-              .map((c: any) => ({
-                id: Number(c.id ?? c.id_clinica ?? c.idClinica),
-                nombre: c.nombre ?? c.nombre_clinica ?? c.alias ?? `Clinica ${c.id ?? ""}`,
-              }))
-              .filter((c: ClinicaOption) => Number.isFinite(c.id));
-            if (mapped.length) {
-              setClinicas((prev) => {
-                const merged = [...prev];
-                mapped.forEach((clinic) => {
-                  if (!merged.some((c) => c.id === clinic.id)) merged.push(clinic);
-                });
-                return merged;
+          const clinRes = await getClinicas();
+          const mapped = clinRes
+            .map((c: any) => ({
+              id: Number(c.id ?? c.id_clinica ?? c.idClinica ?? c.clinica_id),
+              nombre: c.nombre ?? c.nombre_clinica ?? c.alias ?? c.name ?? `Clinica ${c.id ?? ""}`,
+            }))
+            .filter((c: ClinicaOption) => Number.isFinite(c.id));
+          if (mapped.length) {
+            setClinicas((prev) => {
+              const merged = [...prev];
+              mapped.forEach((clinic) => {
+                if (!merged.some((c) => c.id === clinic.id)) merged.push(clinic);
               });
-            }
+              return merged;
+            });
           }
         } catch (err) {
           console.warn("Clinicas no disponibles:", err);

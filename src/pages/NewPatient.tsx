@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
+import { getClinicas } from "@/lib/api/clinicas";
 
 interface FormData {
   documentType: string;
@@ -59,13 +60,13 @@ const NewPatient: React.FC = () => {
   useEffect(() => {
     async function loadClinicas() {
       try {
-        const response = await apiGet<any>("/clinicas");
-        const list: ClinicaOption[] = Array.isArray(response?.data)
-          ? response.data.map((c: any) => ({ id: c.id ?? c.id_clinica, nombre: c.nombre ?? c.nombre_clinica }))
-          : Array.isArray(response)
-          ? response.map((c: any) => ({ id: c.id ?? c.id_clinica, nombre: c.nombre ?? c.nombre_clinica }))
-          : [];
-        const validList = list.filter((c) => Number.isFinite(c.id));
+        const response = await getClinicas();
+        const validList: ClinicaOption[] = response
+          .map((c: any) => ({
+            id: Number(c.id ?? c.id_clinica ?? c.idClinica ?? c.clinica_id),
+            nombre: c.nombre ?? c.nombre_clinica ?? c.name ?? `Clinica ${c.id ?? ""}`,
+          }))
+          .filter((c: ClinicaOption) => Number.isFinite(c.id));
         setClinicas(validList);
         setFormData((prev) => ({
           ...prev,
@@ -202,19 +203,30 @@ const NewPatient: React.FC = () => {
             <CardDescription>Datos basicos *</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Clinica *</Label>
-              <Select value={formData.clinicId ? String(formData.clinicId) : undefined} onValueChange={(val) => handleInputChange("clinicId", Number(val))}>
-                <SelectTrigger><SelectValue placeholder="Selecciona una clinica" /></SelectTrigger>
-                <SelectContent>
-                  {clinicas.map((clinica) => (
-                    <SelectItem key={clinica.id} value={String(clinica.id)}>
-                      {clinica.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label>Clinica *</Label>
+                <Select
+                  value={formData.clinicId ? String(formData.clinicId) : undefined}
+                  onValueChange={(val) => handleInputChange("clinicId", Number(val))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una clinica" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clinicas.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        No hay clinicas disponibles en tu tenant o estan inactivas. Contacta al administrador.
+                      </div>
+                    ) : (
+                      clinicas.map((clinica) => (
+                        <SelectItem key={clinica.id} value={String(clinica.id)}>
+                          {clinica.nombre}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             <div>
               <Label>Nombres *</Label>
               <Input
