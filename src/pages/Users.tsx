@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { listUsuarios, createUsuario, updateUsuario, deleteUsuario } from "@/servicios/usuarios";
 import { fetchClinics, type Clinic } from "@/servicios/clinicas";
+import { getRoles } from "@/lib/api/permisos";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
 
 interface FormState {
@@ -23,6 +24,11 @@ interface FormState {
   tenant_id: number | null;
   activo: boolean;
 }
+
+type RoleOption = {
+  id_rol: number;
+  nombre_rol: string;
+};
 
 const emptyForm: FormState = {
   id: null,
@@ -38,6 +44,7 @@ const emptyForm: FormState = {
 const UsersPage = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [clinicas, setClinicas] = useState<Clinic[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -49,9 +56,20 @@ const UsersPage = () => {
     (async () => {
       try {
         setLoading(true);
-        const [usersRes, clinicsRes] = await Promise.all([listUsuarios(), fetchClinics()]);
+        const [usersRes, clinicsRes, rolesRes] = await Promise.all([
+          listUsuarios(),
+          fetchClinics(),
+          getRoles(),
+        ]);
         setUsuarios(usersRes);
         setClinicas(clinicsRes);
+        const mappedRoles: RoleOption[] = Array.isArray(rolesRes)
+          ? rolesRes.map((rol: any) => ({
+              id_rol: Number(rol?.id_rol ?? rol?.id ?? 0),
+              nombre_rol: String(rol?.nombre_rol ?? rol?.nombre ?? ""),
+            }))
+          : [];
+        setRoles(mappedRoles.filter((rol) => Number.isFinite(rol.id_rol) && rol.nombre_rol.length > 0));
         setError(null);
       } catch (err) {
         console.error(err);
@@ -62,15 +80,7 @@ const UsersPage = () => {
     })();
   }, []);
 
-  const roleOptions = useMemo(() => {
-    const entries = new Map<number, string>();
-    usuarios.forEach((user) => {
-      if (user.rol?.id_rol) {
-        entries.set(user.rol.id_rol, user.rol.nombre_rol);
-      }
-    });
-    return Array.from(entries.entries());
-  }, [usuarios]);
+  const roleOptions = useMemo(() => roles.map((rol) => [rol.id_rol, rol.nombre_rol] as const), [roles]);
 
   const openCreateModal = () => {
     setForm(emptyForm);
@@ -136,11 +146,27 @@ const UsersPage = () => {
         await updateUsuario(form.id, payload);
         toast.success("Usuario actualizado");
       } else {
-        await createUsuario(payload);
-        toast.success("Usuario creado");
+        const { usuario, tempPassword } = await createUsuario(payload);
+        if (tempPassword) {
+          toast.success(`Usuario creado. Contraseña temporal: ${tempPassword}`, { duration: 12000 });
+          try {
+            await navigator.clipboard.writeText(tempPassword);
+            toast.info("Contraseña copiada al portapapeles");
+          } catch {
+            /* sin acción */
+          }
+        } else {
+          toast.success("Usuario creado");
+        }
+        if (usuario) {
+          setUsuarios((prev) => [...prev, usuario]);
+        }
       }
-      closeModal();
+
       await refreshUsuarios();
+      setModalOpen(false);
+      setForm(emptyForm);
+      setSelectedUserId(null);
     } catch (err) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : "No se pudo guardar el usuario");
@@ -354,5 +380,13 @@ const UsersPage = () => {
 };
 
 export default UsersPage;
+
+
+
+
+
+
+
+
 
 
