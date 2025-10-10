@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { getOdontologos } from "@/servicios/usuarios";
 import { apiGet } from "@/api/client";
 import { toast } from "sonner";
+import { getClinicas } from "@/lib/api/clinicas";
 
 type PatientOption = {
   id: number;
@@ -154,7 +155,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       try {
         const [pacRes, clinRes, consRes] = await Promise.all([
           apiGet<any>("/pacientes", { page: 1, limit: 200 }),
-          apiGet<any>("/clinicas", { page: 1, limit: 100 }),
+          getClinicas(),
           apiGet<any>("/consultorios"),
         ]);
 
@@ -163,11 +164,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
           : Array.isArray(pacRes)
             ? pacRes
             : [];
-        const clinicas = Array.isArray(clinRes?.data)
-          ? clinRes.data
-          : Array.isArray(clinRes)
-            ? clinRes
-            : [];
+        const clinicas = Array.isArray(clinRes) ? clinRes : [];
         const consultoriosData = Array.isArray(consRes?.data)
           ? consRes.data
           : Array.isArray(consRes)
@@ -183,10 +180,12 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
         );
 
         setClinics(
-          clinicas.map((c: any) => ({
-            id: Number(c.id ?? c.id_clinica ?? 0),
-            nombre: c.nombre ?? c.nombre_clinica ?? `Clinica ${c.id ?? ""}`,
-          })).filter((c: ClinicOption) => Number.isFinite(c.id))
+          clinicas
+            .map((c: any) => ({
+              id: Number(c.id ?? c.id_clinica ?? c.idClinica ?? c.clinica_id),
+              nombre: c.nombre ?? c.nombre_clinica ?? c.name ?? `Clinica ${c.id ?? ""}`,
+            }))
+            .filter((c: ClinicOption) => Number.isFinite(c.id))
         );
 
         setConsultorios(
@@ -403,7 +402,9 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
                 <Label>Clinica *</Label>
                 <Select value={formData.idClinica} onValueChange={handleClinicaChange} disabled={loadingCatalogs}>
                   <SelectTrigger>
-                    <SelectValue placeholder={loadingCatalogs ? "Cargando clinicas..." : "Seleccionar clinica"} />
+                    <SelectValue
+                      placeholder={loadingCatalogs ? "Cargando clinicas..." : "Seleccionar clinica"}
+                    />
                   </SelectTrigger>
                   <SelectContent className="max-h-64">
                     {clinics.map((clinica) => (
@@ -413,6 +414,11 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                {clinics.length === 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No hay clinicas disponibles en tu tenant o estan inactivas. Contacta al administrador.
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Consultorio *</Label>

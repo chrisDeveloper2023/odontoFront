@@ -242,6 +242,11 @@ const NewAppointmentForm = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {clinicas.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No hay clinicas disponibles en tu tenant o estan inactivas. Contacta al administrador.
+                  </p>
+                )}
               </div>
               {/* Paciente */}
               <div>

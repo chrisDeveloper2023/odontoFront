@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { apiGet, apiPost } from "@/api/client";
 import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
+import { getClinicas } from "@/lib/api/clinicas";
 
 const EMPTY_OPTION_VALUE = "__none__";
 
@@ -91,7 +92,7 @@ const NewMedicalRecord = () => {
         setLoading(true);
         const [pacRes, clinRes] = await Promise.all([
           apiGet<any>('/pacientes', { page: 1, limit: 100 }),
-          apiGet<any>('/clinicas', { page: 1, limit: 100 }),
+          getClinicas(),
         ]);
 
         const mapRows = (raw: any): Option[] => {
@@ -105,13 +106,12 @@ const NewMedicalRecord = () => {
             .filter((opt) => Number.isFinite(opt.id));
         };
 
-        const mapClinicas = (raw: any): Option[] => {
+        const mapClinicas = (raw: any[]): Option[] => {
           if (!raw) return [];
-          const list = Array.isArray(raw?.data) ? raw.data : Array.isArray(raw) ? raw : [];
-          return list
+          return raw
             .map((item: any) => ({
-              id: Number(item.id ?? item.id_clinica ?? 0),
-              nombre: item.nombre ?? item.nombre_clinica ?? item.alias ?? `Cl?nica ${item.id ?? ''}`,
+              id: Number(item.id ?? item.id_clinica ?? item.idClinica ?? item.clinica_id),
+              nombre: item.nombre ?? item.nombre_clinica ?? item.alias ?? item.name ?? `Clinica ${item.id ?? ""}`,
             }))
             .filter((opt) => Number.isFinite(opt.id));
         };
@@ -254,6 +254,9 @@ const NewMedicalRecord = () => {
                   ))}
                 </SelectContent>
               </Select>
+                {clinicas.length === 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">No hay clinicas disponibles en tu tenant o estan inactivas. Contacta al administrador.</p>
+                )}
             </div>
             <div className="md:col-span-2">
               <Label>Cita asociada (opcional)</Label>
@@ -449,3 +452,6 @@ const NewMedicalRecord = () => {
 };
 
 export default NewMedicalRecord;
+
+
+

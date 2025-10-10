@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Save, X } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
+import { getClinicas } from "@/lib/api/clinicas";
 
 interface FormData {
   documentType: string;
@@ -93,13 +94,13 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
     
     async function loadClinicas() {
       try {
-        const response = await apiGet<any>("/clinicas");
-        const list: ClinicaOption[] = Array.isArray(response?.data)
-          ? response.data.map((c: any) => ({ id: c.id ?? c.id_clinica, nombre: c.nombre ?? c.nombre_clinica }))
-          : Array.isArray(response)
-          ? response.map((c: any) => ({ id: c.id ?? c.id_clinica, nombre: c.nombre ?? c.nombre_clinica }))
-          : [];
-        const validList = list.filter((c) => Number.isFinite(c.id));
+        const response = await getClinicas();
+        const validList: ClinicaOption[] = response
+          .map((c: any) => ({
+            id: Number(c.id ?? c.id_clinica ?? c.idClinica ?? c.clinica_id),
+            nombre: c.nombre ?? c.nombre_clinica ?? c.name ?? `Clinica ${c.id ?? ""}`,
+          }))
+          .filter((c: ClinicaOption) => Number.isFinite(c.id));
         setClinicas(validList);
         setFormData((prev) => ({
           ...prev,
@@ -253,6 +254,11 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
+                {clinicas.length === 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    No hay clinicas disponibles en tu tenant o estan inactivas. Contacta al administrador.
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Nombres *</Label>
