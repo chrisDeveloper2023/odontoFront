@@ -47,7 +47,17 @@ export const getPermiso = async (id: number): Promise<Permiso> => {
  * Obtiene todos los roles disponibles
  */
 export const getRoles = async (params?: Record<string, any>): Promise<RolesResponse> => {
-  return apiGet<RolesResponse>("/roles", params);
+  const res = await apiGet<unknown>("/roles", params);
+  if (Array.isArray(res)) {
+    return { data: res as Rol[] };
+  }
+  if (res && typeof res === "object" && Array.isArray((res as any).data)) {
+    const data = (res as any).data as Rol[];
+    const rest = { ...res } as RolesResponse;
+    rest.data = data;
+    return rest;
+  }
+  return { data: [] };
 };
 
 /**

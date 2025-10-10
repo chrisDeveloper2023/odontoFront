@@ -1,4 +1,5 @@
 import { fetchUsuario, fetchUsuarios, createUsuario as createUsuarioApi, updateUsuario as updateUsuarioApi, deleteUsuario as deleteUsuarioApi } from "@/lib/api/usuarios";
+import type { CreateUsuarioResult } from "@/lib/api/usuarios";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
 
 export type Doctor = Pick<Usuario, "id" | "nombres" | "apellidos" | "rol" | "clinica" | "tenant" | "id_clinica" | "tenant_id">;
@@ -22,7 +23,7 @@ export async function getUsuario(id: number): Promise<Usuario | null> {
   return fetchUsuario(id);
 }
 
-export async function createUsuario(payload: UsuarioPayload): Promise<Usuario> {
+export async function createUsuario(payload: UsuarioPayload): Promise<CreateUsuarioResult> {
   return createUsuarioApi(payload);
 }
 
