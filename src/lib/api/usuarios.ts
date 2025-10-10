@@ -46,10 +46,16 @@ export interface CreateUsuarioResult {
 export async function createUsuario(payload: UsuarioPayload): Promise<CreateUsuarioResult> {
   const res = await apiPost<any>("/usuarios", buildUsuarioPayload(payload));
   const rawUser = res?.user ?? res;
-  const tempPassword = res?.tempPassword ?? res?.generatedPassword ?? res?.passwordTemporal;
+  const possiblePassword =
+    res?.tempPassword ??
+    res?.generatedPassword ??
+    res?.passwordTemporal ??
+    res?.password_plain;
+  const tempPassword = typeof possiblePassword === "string" && possiblePassword.length > 0 ? possiblePassword : undefined;
+
   return {
     usuario: mapUsuario(rawUser),
-    tempPassword: typeof tempPassword === "string" && tempPassword.length > 0 ? tempPassword : undefined,
+    tempPassword,
   };
 }
 

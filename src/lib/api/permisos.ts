@@ -1,4 +1,4 @@
-﻿import { apiGet, apiPost, apiPut, apiDelete } from "@/api/client";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/api/client";
 
 export interface Permiso {
   id: number;
@@ -37,15 +37,22 @@ export const getPermiso = async (id: number): Promise<Permiso> => {
   return apiGet<Permiso>(`/permisos/${id}`);
 };
 
-export const getRoles = async (): Promise<Rol[]> => {
-  const res = await apiGet<unknown>("/roles");
+/**
+ * Obtiene todos los roles disponibles.
+ * Devuelve un objeto homogeneo aunque la API responda con un array plano.
+ */
+export const getRoles = async (params?: Record<string, any>): Promise<RolesResponse> => {
+  const res = await apiGet<unknown>("/roles", params);
   if (Array.isArray(res)) {
-    return res as Rol[];
+    return { data: res as Rol[] };
   }
-  if (res && typeof res === "object" && Array.isArray((res as any).data)) {
-    return (res as any).data as Rol[];
+  if (res && typeof res === "object") {
+    const payload = res as Partial<RolesResponse> & { data?: unknown };
+    if (Array.isArray(payload.data)) {
+      return { ...payload, data: payload.data as Rol[] };
+    }
   }
-  return [];
+  return { data: [] };
 };
 
 export const getRol = async (id: number): Promise<Rol> => {

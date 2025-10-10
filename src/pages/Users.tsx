@@ -14,6 +14,7 @@ import { fetchClinics, type Clinic } from "@/servicios/clinicas";
 import { getRoles } from "@/lib/api/permisos";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
 
+
 interface FormState {
   id: number | null;
   nombres: string;
@@ -63,13 +64,18 @@ const UsersPage = () => {
         ]);
         setUsuarios(usersRes);
         setClinicas(clinicsRes);
-        const mappedRoles: RoleOption[] = Array.isArray(rolesRes)
-          ? rolesRes.map((rol: any) => ({
-              id_rol: Number(rol?.id_rol ?? rol?.id ?? 0),
-              nombre_rol: String(rol?.nombre_rol ?? rol?.nombre ?? ""),
-            }))
+        const rolesPayload = Array.isArray((rolesRes as any)?.data)
+          ? (rolesRes as any).data
+          : Array.isArray(rolesRes)
+          ? rolesRes
           : [];
-        setRoles(mappedRoles.filter((rol) => Number.isFinite(rol.id_rol) && rol.nombre_rol.length > 0));
+        const mappedRoles: RoleOption[] = rolesPayload
+          .map((rol: any) => ({
+            id_rol: Number(rol?.id_rol ?? rol?.id ?? 0),
+            nombre_rol: String(rol?.nombre_rol ?? rol?.nombre ?? ""),
+          }))
+          .filter((rol) => Number.isFinite(rol.id_rol) && rol.nombre_rol.length > 0);
+        setRoles(mappedRoles);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -148,12 +154,12 @@ const UsersPage = () => {
       } else {
         const { usuario, tempPassword } = await createUsuario(payload);
         if (tempPassword) {
-          toast.success(`Usuario creado. ContraseÒa temporal: ${tempPassword}`, { duration: 12000 });
+          toast.success(`Usuario creado. Contrasena temporal: ${tempPassword}`, { duration: 12000 });
           try {
             await navigator.clipboard.writeText(tempPassword);
-            toast.info("ContraseÒa copiada al portapapeles");
+            toast.info("Contrasena copiada al portapapeles");
           } catch {
-            /* sin acciÛn */
+            /* sin accion */
           }
         } else {
           toast.success("Usuario creado");
@@ -263,7 +269,7 @@ const UsersPage = () => {
             <DialogTitle>{form.id ? "Editar usuario" : "Crear usuario"}</DialogTitle>
             <DialogDescription>
               {form.id 
-                ? "Modifica la informaci√≥n del usuario seleccionado" 
+                ? "Modifica la informacion del usuario seleccionado" 
                 : "Completa los datos para crear un nuevo usuario"
               }
             </DialogDescription>
@@ -380,13 +386,3 @@ const UsersPage = () => {
 };
 
 export default UsersPage;
-
-
-
-
-
-
-
-
-
-
