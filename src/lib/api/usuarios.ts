@@ -34,9 +34,18 @@ export async function fetchUsuario(id: number): Promise<Usuario | null> {
   return mapUsuario(res);
 }
 
-export async function createUsuario(payload: UsuarioPayload): Promise<Usuario> {
-  const res = await apiPost<unknown>("/usuarios", buildUsuarioPayload(payload));
-  return mapUsuario(res);
+export interface CreateUsuarioResult {
+  usuario: Usuario;
+  generatedPassword?: string;
+}
+
+export async function createUsuario(payload: UsuarioPayload): Promise<CreateUsuarioResult> {
+  const res = await apiPost<any>("/usuarios", buildUsuarioPayload(payload));
+  const generatedPassword = typeof res === "object" ? res?.generatedPassword : undefined;
+  return {
+    usuario: mapUsuario(res),
+    generatedPassword: generatedPassword ? String(generatedPassword) : undefined,
+  };
 }
 
 export async function updateUsuario(id: number, payload: UsuarioPayload): Promise<Usuario> {

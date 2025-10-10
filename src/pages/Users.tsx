@@ -11,7 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { listUsuarios, createUsuario, updateUsuario, deleteUsuario } from "@/servicios/usuarios";
 import { fetchClinics, type Clinic } from "@/servicios/clinicas";
+import { getRoles } from "@/lib/api/permisos";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
+import type { Rol } from "@/types/rol";
 
 interface FormState {
   id: number | null;
@@ -38,6 +40,7 @@ const emptyForm: FormState = {
 const UsersPage = () => {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [clinicas, setClinicas] = useState<Clinic[]>([]);
+  const [roles, setRoles] = useState<Rol[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -49,9 +52,14 @@ const UsersPage = () => {
     (async () => {
       try {
         setLoading(true);
-        const [usersRes, clinicsRes] = await Promise.all([listUsuarios(), fetchClinics()]);
+        const [usersRes, clinicsRes, rolesRes] = await Promise.all([
+          listUsuarios(),
+          fetchClinics(),
+          getRoles(),
+        ]);
         setUsuarios(usersRes);
         setClinicas(clinicsRes);
+        setRoles(rolesRes.data ?? []);
         setError(null);
       } catch (err) {
         console.error(err);
@@ -62,15 +70,7 @@ const UsersPage = () => {
     })();
   }, []);
 
-  const roleOptions = useMemo(() => {
-    const entries = new Map<number, string>();
-    usuarios.forEach((user) => {
-      if (user.rol?.id_rol) {
-        entries.set(user.rol.id_rol, user.rol.nombre_rol);
-      }
-    });
-    return Array.from(entries.entries());
-  }, [usuarios]);
+  const roleOptions = useMemo(() => roles.map((role) => [role.id_rol, role.nombre_rol] as const), [roles]);
 
   const openCreateModal = () => {
     setForm(emptyForm);
@@ -136,8 +136,14 @@ const UsersPage = () => {
         await updateUsuario(form.id, payload);
         toast.success("Usuario actualizado");
       } else {
-        await createUsuario(payload);
-        toast.success("Usuario creado");
+        const { generatedPassword } = await createUsuario(payload);
+        if (generatedPassword) {
+          toast.success("Usuario creado", {
+            description: `Contrasena temporal: ${generatedPassword}`,
+          });
+        } else {
+          toast.success("Usuario creado");
+        }
       }
       closeModal();
       await refreshUsuarios();
