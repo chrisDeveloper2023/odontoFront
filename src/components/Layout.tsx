@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+﻿import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bell, Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet, Shield, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,7 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-// Interfaces para la configuración del menú
+// Interfaces para la configuraciÃ³n del menÃº
 interface MenuItem {
   id: string;
   name: string;
@@ -64,7 +64,7 @@ interface UserMenuConfig {
   };
 }
 
-// Clase de configuración del menú
+// Clase de configuraciÃ³n del menÃº
 class MenuConfig {
   private static instance: MenuConfig;
   private menuItems: MenuItem[] = [];
@@ -99,7 +99,7 @@ class MenuConfig {
         name: "Pacientes",
         href: "/patients",
         icon: Users,
-        description: "Gestión de pacientes",
+        description: "GestiÃ³n de pacientes",
         permissions: ["patients:view", "patients:create", "patients:edit"],
         roles: ["admin", "doctor", "recepcionista"],
         visible: true
@@ -109,7 +109,7 @@ class MenuConfig {
         name: "Historias Clinicas",
         href: "/medical-records",
         icon: FileText,
-        description: "Gestión de historias clínicas",
+        description: "GestiÃ³n de historias clÃ­nicas",
         permissions: ["medical-records:view", "medical-records:create", "medical-records:edit"],
         roles: ["admin", "doctor"],
         visible: true
@@ -119,7 +119,7 @@ class MenuConfig {
         name: "Pagos",
         href: "/payments",
         icon: Wallet,
-        description: "Gestión de pagos y facturación",
+        description: "GestiÃ³n de pagos y facturaciÃ³n",
         permissions: ["payments:view", "payments:create", "payments:edit"],
         roles: ["admin", "recepcionista"],
         visible: true
@@ -129,7 +129,7 @@ class MenuConfig {
         name: "Citas",
         href: "/appointments",
         icon: Calendar,
-        description: "Gestión de citas médicas",
+        description: "GestiÃ³n de citas mÃ©dicas",
         permissions: ["appointments:view", "appointments:create", "appointments:edit"],
         roles: ["admin", "doctor", "recepcionista"],
         visible: true
@@ -159,7 +159,7 @@ class MenuConfig {
         name: "Administrar",
         href: "#",
         icon: Shield,
-        description: "Herramientas de administración",
+        description: "Herramientas de administraciÃ³n",
         hasSubmenu: true,
         permissions: ["admin:access"],
         roles: ["admin"],
@@ -167,7 +167,7 @@ class MenuConfig {
         submenu: [
           {
             id: "users-management",
-            name: "Gestión de usuarios",
+            name: "GestiÃ³n de usuarios",
             href: "/users",
             description: "Administrar usuarios del sistema",
             icon: Users,
@@ -177,9 +177,9 @@ class MenuConfig {
           },
           {
             id: "clinics-management",
-            name: "Gestión de clínicas",
+            name: "GestiÃ³n de clÃ­nicas",
             href: "/clinics",
-            description: "Administrar clínicas",
+            description: "Administrar clÃ­nicas",
             icon: Building2,
             permissions: ["clinics:view", "clinics:create", "clinics:edit", "clinics:delete"],
             roles: ["admin"],
@@ -203,7 +203,7 @@ class MenuConfig {
         logout: {
           enabled: true,
           icon: LogOut,
-          label: "Cerrar sesión"
+          label: "Cerrar sesiÃ³n"
         }
       }
     };
@@ -300,11 +300,11 @@ const Layout = ({ children }: LayoutProps) => {
   const { session, logout, hasPermission } = useAuth();
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
-  // Obtener configuración del menú
+  // Obtener configuraciÃ³n del menÃº
   const menuConfig = MenuConfig.getInstance();
   const userMenuConfig = menuConfig.getUserMenuConfig();
   
-  // Filtrar menús por permisos
+  // Filtrar menÃºs por permisos
   const can = (needed?: string[]) => !needed?.length || hasPermission(needed ?? []);
 
   const navigation = menuConfig
@@ -472,7 +472,7 @@ const Layout = ({ children }: LayoutProps) => {
             {navigation.map((item) => {
               const Icon = item.icon;
               
-              // Si tiene submenú, renderizar dropdown
+              // Si tiene submenÃº, renderizar dropdown
               if (item.hasSubmenu) {
                 const submenuItems = menuConfig.getSubmenuItems(item.id).filter(subItem => subItem.visible !== false);
                 return (
@@ -493,7 +493,7 @@ const Layout = ({ children }: LayoutProps) => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
-                      <DropdownMenuLabel>{item.description || "Administración"}</DropdownMenuLabel>
+                      <DropdownMenuLabel>{item.description || "AdministraciÃ³n"}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       {submenuItems.map((subItem) => (
                         <DropdownMenuItem key={subItem.id} asChild>
@@ -547,4 +547,6 @@ const Layout = ({ children }: LayoutProps) => {
 };
 
 export default Layout;
+
+
 

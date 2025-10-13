@@ -1,4 +1,4 @@
-// src/App.tsx
+﻿// src/App.tsx
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -27,6 +27,7 @@ import RouteModal from "@/components/RouteModal";
 import UsersPage from "./pages/Users";
 import PaymentsPage from "./pages/Payments";
 import NotificationsPage from "@/modules/notifications/pages/NotificationsPage";
+import TenantsAdmin from "./pages/TenantsAdmin";
 import { setTenant } from "@/api/client";
 import { initTenant } from "@/lib/tenant";
 import LoginPage from "./pages/Login";
@@ -67,6 +68,7 @@ function AppRoutes() {
     <>
       <Routes location={state?.background || location}>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin/tenants" element={<TenantsAdmin />} />
         <Route element={<RequireAuth />}>
           <Route path="/" element={<Layout><Dashboard /></Layout>} />
           <Route path="/patients" element={<Layout><ProtectedRoute requiredPermissions="patients:view"><Patients /></ProtectedRoute></Layout>} />
@@ -85,6 +87,7 @@ function AppRoutes() {
           <Route path="/clinics/new" element={<Layout><ProtectedRoute requiredPermissions="clinics:create"><NewClinicForm /></ProtectedRoute></Layout>} />
           <Route path="/clinics/:id/edit" element={<Layout><ProtectedRoute requiredPermissions={['clinics:edit', 'clinics:update']}><NewClinicForm /></ProtectedRoute></Layout>} />
           <Route path="/users" element={<Layout><ProtectedRoute requiredPermissions="users:view"><UsersPage /></ProtectedRoute></Layout>} />
+          <Route path="/admin/tenants" element={<Layout><TenantsAdmin /></Layout>} />
           <Route path="/payments" element={<Layout><ProtectedRoute requiredPermissions="payments:view"><PaymentsPage /></ProtectedRoute></Layout>} />
           <Route
             path="/notificaciones"
@@ -197,3 +200,6 @@ const App = () => {
 };
 
 export default App;
+
+
+
