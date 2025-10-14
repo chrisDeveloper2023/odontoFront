@@ -8,12 +8,12 @@ import { Pieza, patchPiezaEstado, withDraftRetry } from "@/lib/api/odontograma";
 export default function ToothSidePanel({
   pieza,
   idOdonto,
-  draftCtx,
+  ensureDraft,
   onSaved,
 }: {
   pieza?: Pieza;
   idOdonto: number;
-  draftCtx?: { citaId?: string; historiaId?: number };
+  ensureDraft?: () => Promise<void>;
   onSaved?: () => void;
 }) {
   const [presente, setPresente] = useState<boolean>(pieza?.esta_presente !== false);
@@ -30,17 +30,27 @@ export default function ToothSidePanel({
 
   const save = async () => {
     try {
-      await withDraftRetry(
-        () =>
-          patchPiezaEstado({
-            idOdontograma: idOdonto,
-            fdi: pieza.numero_fdi,
-            presente,
-            estado,
-            notas,
-          }),
-        draftCtx
-      );
+      if (ensureDraft) {
+        await withDraftRetry(
+          () =>
+            patchPiezaEstado({
+              idOdontograma: idOdonto,
+              fdi: pieza.numero_fdi,
+              presente,
+              estado,
+              notas,
+            }),
+          ensureDraft,
+        );
+      } else {
+        await patchPiezaEstado({
+          idOdontograma: idOdonto,
+          fdi: pieza.numero_fdi,
+          presente,
+          estado,
+          notas,
+        });
+      }
       onSaved?.();
     } catch (e) {
       console.error("Error guardando pieza:", e);

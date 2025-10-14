@@ -1,4 +1,5 @@
-// src/lib/api/odontograma.ts
+import { api } from "@/api/client";
+
 export type EstadoPieza = "SANO" | "AUSENTE" | string;
 
 export type SuperficieCode =
@@ -24,102 +25,97 @@ export type Superficie = {
   hallazgo?: string | null;
   detalle?: string | null;
   id_tratamiento_sugerido?: number | null;
-  fdi?: number; // opcional si backend lo incluye
+  fdi?: number;
 };
 
 export type OdontogramaEntity = {
-  id_odontograma?: number;
-  id_historia?: number;
-  is_draft?: boolean;
-  // compat
-  id?: number;
-  idHistoria?: number;
+  id_odontograma: number;
+  id_historia: number;
+  is_draft: boolean;
+  version: number;
 };
 
 export type OdontogramaResponse = {
   odontograma: OdontogramaEntity | null;
   piezas: Pieza[];
   superficies: Superficie[];
-  estadoBucal?: any | null;
+  estadoBucal?: Record<string, unknown> | null;
 };
 
-const API = API_BASE;
+const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
-/* --------------------------- helpers HTTP --------------------------- */
-
-import { API_BASE } from "@/lib/http";
-import { api } from "@/api/client";
-import { getTenantHeaders } from "@/lib/tenant";
-
-async function httpJson(url: string, init?: RequestInit) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...getTenantHeaders(),
-    ...(init?.headers as Record<string, string> | undefined),
-  };
-  const authHeader = api.defaults.headers.common?.Authorization;
-  if (typeof authHeader === 'string' && authHeader) {
-    headers.Authorization = authHeader;
+async function parseJson(res: Response) {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
   }
+}
 
-  const res = await fetch(url, {
-    ...(init || {}),
-    headers,
-  });
-  let json: any = null;
-  try { json = await res.json(); } catch { /* puede no traer body */ }
+async function handleResponse<T>(res: Response): Promise<T> {
+  const data = await parseJson(res);
   if (!res.ok) {
-    const err: any = new Error(json?.mensaje || json?.error || res.statusText);
-    err.status = res.status;
-    err.payload = json;
-    err.url = url;
-    err.method = init?.method ?? "GET";
-    console.error(`[API ${res.status}] ${err.method} ${url}`, { body: init?.body, payload: json });
-    throw err;
+    const error: any = new Error(
+      (data && typeof data === "object" && "mensaje" in data && (data as any).mensaje) ||
+        res.statusText ||
+        "Error en la petición",
+    );
+    error.status = res.status;
+    error.payload = data;
+    throw error;
   }
-
-  return json;
+  return data as T;
 }
 
-/* ------------------------------- API ------------------------------- */
-
-export async function getOdontogramaByHistoria(historiaId: string): Promise<OdontogramaResponse> {
-  // Alineado a prefijo real de backend
-  return httpJson(`${API}/historias-clinicas/${historiaId}/odontograma`);
+function withAuthHeaders(init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers as HeadersInit | undefined);
+  headers.set("Content-Type", "application/json");
+  const authHeader = api.defaults.headers.common?.Authorization;
+  if (authHeader) {
+    headers.set("Authorization", authHeader as string);
+  }
+  const tenantHeader = api.defaults.headers.common?.["X-Tenant-ID"];
+  if (tenantHeader) {
+    headers.set("X-Tenant-ID", tenantHeader as string);
+  }
+  return {
+    ...init,
+    headers,
+    credentials: "include",
+  };
 }
 
-// Overloads para compatibilidad y nuevo endpoint solicitado
+export async function getOdontogramaByHistoria(
+  idHistoria: number,
+  opts?: { vigente?: boolean },
+): Promise<OdontogramaResponse> {
+  const query = opts?.vigente ? "?vigente=true" : "";
+  const res = await fetch(
+    `${API_BASE}/historias-clinicas/${idHistoria}/odontograma${query}`,
+    withAuthHeaders(),
+  );
+  return handleResponse<OdontogramaResponse>(res);
+}
+
 export async function abrirDraftOdontograma(
   idHistoria: number,
-  mode?: "empty" | "from_last"
-): Promise<any>;
-export async function abrirDraftOdontograma(params: {
-  citaId: string | number;
-  historiaId: number;
-  userId?: number; // si usas JWT, puedes omitir
-}): Promise<any>;
-export async function abrirDraftOdontograma(
-  a: number | { citaId: string | number; historiaId: number; userId?: number },
-  b: "empty" | "from_last" = "empty"
-) {
-  // Nueva firma solicitada: (idHistoria, mode)
-  if (typeof a === "number") {
-    const idHistoria = a;
-    const mode = b ?? "empty";
-    return httpJson(`${API}/historias-clinicas/${idHistoria}/odontograma/abrir`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode }),
-    });
-  }
+  mode: "empty" | "from_last" = "from_last",
+): Promise<OdontogramaEntity> {
+  const res = await fetch(
+    `${API_BASE}/historias-clinicas/${idHistoria}/odontograma/abrir?mode=${mode}`,
+    withAuthHeaders({ method: "POST" }),
+  );
+  return handleResponse<OdontogramaEntity>(res);
+}
 
-  // Compatibilidad: firma previa con citaId + historiaId
-  const { citaId, historiaId, userId = 1 } = a;
-  return httpJson(`${API}/citas/${citaId}/odontograma/abrir`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ historiaId, userId }),
-  });
+export async function consolidarOdontograma(idOdontograma: number): Promise<any> {
+  const res = await fetch(
+    `${API_BASE}/odontogramas/${idOdontograma}/consolidar`,
+    withAuthHeaders({ method: "POST" }),
+  );
+  return handleResponse(res);
 }
 
 export async function patchPiezaEstado(params: {
@@ -130,11 +126,11 @@ export async function patchPiezaEstado(params: {
   notas?: string | null;
 }) {
   const { idOdontograma, fdi, ...body } = params;
-  return httpJson(`${API}/odontogramas/${idOdontograma}/piezas/${fdi}/estado`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const res = await fetch(
+    `${API_BASE}/odontogramas/${idOdontograma}/piezas/${fdi}/estado`,
+    withAuthHeaders({ method: "PATCH", body: JSON.stringify(body) }),
+  );
+  return handleResponse(res);
 }
 
 export async function patchSuperficie(params: {
@@ -142,58 +138,50 @@ export async function patchSuperficie(params: {
   fdi: number;
   superficie: SuperficieCode;
   hallazgo?: string | null;
+  id_tratamiento_sugerido?: number | null;
   detalle?: string | null;
 }) {
   const { idOdontograma, fdi, superficie, ...body } = params;
-  return httpJson(`${API}/odontogramas/${idOdontograma}/piezas/${fdi}/superficies/${superficie}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const res = await fetch(
+    `${API_BASE}/odontogramas/${idOdontograma}/piezas/${fdi}/superficies/${superficie}`,
+    withAuthHeaders({ method: "PATCH", body: JSON.stringify(body) }),
+  );
+  return handleResponse(res);
 }
 
-/** Ejecuta `op()` y, si falla por consolidado u otros errores tipicos, abre draft y reintenta una vez. */
-export async function withDraftRetry<T>(
-  op: () => Promise<T>,
-  ctx?: { citaId?: string | number; historiaId?: number }
-): Promise<T> {
+export async function upsertEstadoBucal(idOdontograma: number, data: Record<string, any>) {
+  const res = await fetch(
+    `${API_BASE}/odontogramas/${idOdontograma}/estado-bucal`,
+    withAuthHeaders({ method: "PUT", body: JSON.stringify(data ?? {}) }),
+  );
+  return handleResponse(res);
+}
+
+export async function withDraftRetry<T>(fn: () => Promise<T>, retryOpen: () => Promise<void>): Promise<T> {
   try {
-    return await op();
-  } catch (e: any) {
-    const status: number | undefined = e?.status;
-    const msg = String(e?.payload?.mensaje || e?.message || "").toLowerCase();
-
-    const looksConsolidated =
-      /consolidad/.test(msg) || /no se puede editar.*consolidado/.test(msg);
-
-    // Algunos backends mal mapeados devuelven 500 para casos de estado invalido.
-    const retriableStatus = status === 400 || status === 404 || status === 409 || (status === 500 && looksConsolidated);
-
-    const canOpen = Boolean(ctx?.citaId && ctx?.historiaId);
-
-    if (retriableStatus && canOpen) {
-      // Abre draft y reintenta una unica vez
-      await abrirDraftOdontograma(ctx!.historiaId!);
-      return op();
+    return await fn();
+  } catch (error: any) {
+    const status = error?.status ?? error?.response?.status;
+    if (status === 409 || status === 412) {
+      await retryOpen();
+      return fn();
     }
-
-    // No es caso de consolidado o no tenemos datos para abrir draft
-    throw e;
+    throw error;
   }
 }
 
-
-/* ------------------------- helpers de UI --------------------------- */
-
 export function superficiesPorFDI(piezas: Pieza[], superficies: Superficie[]) {
   const idPiezaToFDI = new Map<number, number>();
-  piezas.forEach((p) => idPiezaToFDI.set(p.id_pieza, p.numero_fdi));
-  const map = new Map<number, Superficie[]>();
-  superficies.forEach((s) => {
-    const fdi = s.fdi ?? idPiezaToFDI.get(s.id_pieza);
+  piezas.forEach((pieza) => idPiezaToFDI.set(pieza.id_pieza, pieza.numero_fdi));
+
+  const bucket = new Map<number, Superficie[]>();
+  superficies.forEach((superficie) => {
+    const fdi = superficie.fdi ?? idPiezaToFDI.get(superficie.id_pieza);
     if (!fdi) return;
-    if (!map.has(fdi)) map.set(fdi, []);
-    map.get(fdi)!.push({ ...s, fdi });
+    if (!bucket.has(fdi)) bucket.set(fdi, []);
+    bucket.get(fdi)!.push({ ...superficie, fdi });
   });
-  return map;
+
+  return bucket;
 }
+

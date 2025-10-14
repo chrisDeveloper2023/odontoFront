@@ -1,4 +1,3 @@
-// src/components/OdontogramaView.tsx
 import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ToothTile from "@/components/ToothTile";
@@ -19,6 +18,7 @@ const filasPermanentes = {
   infDerecha: [48, 47, 46, 45, 44, 43, 42, 41],
   infIzquierda: [31, 32, 33, 34, 35, 36, 37, 38],
 };
+
 const filasTemporales = {
   supDerecha: [55, 54, 53, 52, 51],
   supIzquierda: [61, 62, 63, 64, 65],
@@ -26,26 +26,24 @@ const filasTemporales = {
   infIzquierda: [71, 72, 73, 74, 75],
 };
 
-export default function OdontogramaView({
-  data,
-  draftCtx,
-  onReload,
-}: {
+type Props = {
   data: OdontogramaResponse;
-  draftCtx?: { citaId?: string; historiaId?: number };
+  ensureDraft?: () => Promise<void>;
   onReload?: () => void;
-}) {
+  mode: "tablero" | "fauces";
+};
+
+export default function OdontogramaView({ data, ensureDraft, onReload, mode }: Props) {
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
 
   const idOdonto = data?.odontograma?.id_odontograma ?? (data?.odontograma as any)?.id ?? 0;
-  const idHistoriaNum = (data?.odontograma?.id_historia ?? (data?.odontograma as any)?.idHistoria) as
-    | number
-    | undefined;
+  const idHistoriaNum =
+    data?.odontograma?.id_historia ?? (data?.odontograma as any)?.idHistoria ?? undefined;
 
   const piezasPorFDI = useMemo(() => {
-    const m = new Map<number, Pieza>();
-    data?.piezas?.forEach((p) => m.set(p.numero_fdi, p));
-    return m;
+    const mapa = new Map<number, Pieza>();
+    data?.piezas?.forEach((pieza) => mapa.set(pieza.numero_fdi, pieza));
+    return mapa;
   }, [data]);
 
   const superficiesPorFDI = useMemo(() => {
@@ -53,20 +51,15 @@ export default function OdontogramaView({
     return mapSuperficiesPorFDI(data.piezas, data.superficies);
   }, [data]);
 
-  const ctx = useMemo(
-    () => ({ citaId: draftCtx?.citaId, historiaId: draftCtx?.historiaId ?? idHistoriaNum }),
-    [draftCtx?.citaId, draftCtx?.historiaId, idHistoriaNum]
-  );
-
-  const renderFila = (nums: number[]) => (
+  const renderFila = (numeros: number[]) => (
     <div className="grid grid-cols-8 gap-2">
-      {nums.map((fdi) => (
+      {numeros.map((fdi) => (
         <ToothTile
           key={fdi}
           pieza={piezasPorFDI.get(fdi)}
           superfs={superficiesPorFDI.get(fdi) || []}
           idOdonto={idOdonto}
-          draftCtx={ctx}
+          ensureDraft={ensureDraft}
           onAfterChange={onReload}
           onSelect={setSelectedFdi}
         />
@@ -77,69 +70,83 @@ export default function OdontogramaView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Dentición permanente</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {renderFila(filasPermanentes.supDerecha)}
-            {renderFila(filasPermanentes.supIzquierda)}
-            <div className="h-1" />
-            {renderFila(filasPermanentes.infDerecha)}
-            {renderFila(filasPermanentes.infIzquierda)}
-          </CardContent>
-        </Card>
+        {mode === "tablero" ? (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Dentición permanente</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {renderFila(filasPermanentes.supDerecha)}
+                {renderFila(filasPermanentes.supIzquierda)}
+                <div className="h-1" />
+                {renderFila(filasPermanentes.infDerecha)}
+                {renderFila(filasPermanentes.infIzquierda)}
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Dentición temporal (decidua)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {renderFila(filasTemporales.supDerecha)}
-            {renderFila(filasTemporales.supIzquierda)}
-            <div className="h-1" />
-            {renderFila(filasTemporales.infDerecha)}
-            {renderFila(filasTemporales.infIzquierda)}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Vista con fauces</CardTitle>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <FaucesView
-              piezasPorFDI={piezasPorFDI}
-              superficiesPorPieza={superficiesPorFDI}
-              onSelect={setSelectedFdi}
-              onDoubleTogglePresence={async (fdi) => {
-                if (!idOdonto) return;
-                const pieza = piezasPorFDI.get(fdi);
-                const nuevoPresente = !(pieza?.esta_presente !== false);
-                const nuevoEstado = nuevoPresente ? "SANO" : "AUSENTE";
-                try {
-                  await withDraftRetry(
-                    () =>
-                      patchPiezaEstado({
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Dentición temporal (decidua)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {renderFila(filasTemporales.supDerecha)}
+                {renderFila(filasTemporales.supIzquierda)}
+                <div className="h-1" />
+                {renderFila(filasTemporales.infDerecha)}
+                {renderFila(filasTemporales.infIzquierda)}
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Vista con fauces</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <FaucesView
+                piezasPorFDI={piezasPorFDI}
+                superficiesPorPieza={superficiesPorFDI}
+                onSelect={setSelectedFdi}
+                onDoubleTogglePresence={async (fdi) => {
+                  if (!idOdonto) return;
+                  const pieza = piezasPorFDI.get(fdi);
+                  const nuevoPresente = !(pieza?.esta_presente === false);
+                  const nuevoEstado = nuevoPresente ? "SANO" : "AUSENTE";
+                  try {
+                    if (ensureDraft) {
+                      await withDraftRetry(
+                        () =>
+                          patchPiezaEstado({
+                            idOdontograma: idOdonto,
+                            fdi,
+                            presente: nuevoPresente,
+                            estado: nuevoEstado,
+                          }),
+                        ensureDraft,
+                      );
+                    } else {
+                      await patchPiezaEstado({
                         idOdontograma: idOdonto,
                         fdi,
                         presente: nuevoPresente,
                         estado: nuevoEstado,
-                      }),
-                    ctx
-                  );
-                  onReload?.();
-                } catch (e) {
-                  console.error("Error toggle presencia (fauces):", e);
-                }
-              }}
-            />
-          </CardContent>
-        </Card>
+                      });
+                    }
+                    onReload?.();
+                  } catch (error) {
+                    console.error("Error toggle presencia (fauces):", error);
+                  }
+                }}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {data && (
           <div className="text-xs text-muted-foreground pt-2">
-            Odontograma #{idOdonto || "—"} · Historia #{idHistoriaNum || "—"} {data.odontograma?.is_draft ? "· DRAFT" : ""}
+            Odontograma #{idOdonto || "—"} · Historia #{idHistoriaNum || "—"}{" "}
+            {data.odontograma?.is_draft ? "· DRAFT" : ""}
           </div>
         )}
       </div>
@@ -148,7 +155,7 @@ export default function OdontogramaView({
         <ToothSidePanel
           pieza={selectedFdi ? piezasPorFDI.get(selectedFdi) : undefined}
           idOdonto={idOdonto}
-          draftCtx={ctx}
+          ensureDraft={ensureDraft}
           onSaved={onReload}
         />
         {!selectedFdi && (
@@ -166,4 +173,3 @@ export default function OdontogramaView({
     </div>
   );
 }
-

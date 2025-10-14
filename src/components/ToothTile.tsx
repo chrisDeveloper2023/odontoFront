@@ -21,14 +21,14 @@ export default function ToothTile({
   pieza,
   superfs,
   idOdonto,
-  draftCtx, // { citaId?, historiaId? } para withDraftRetry
+  ensureDraft,
   onAfterChange,
   onSelect,
 }: {
   pieza?: Pieza;
   superfs: Superficie[];
   idOdonto: number;
-  draftCtx?: { citaId?: string; historiaId?: number };
+  ensureDraft?: () => Promise<void>;
   onAfterChange?: () => void;
   onSelect?: (fdi: number) => void;
 }) {
@@ -66,17 +66,27 @@ export default function ToothTile({
     const nextVal = !activeSurfaces[code];
     setActiveSurfaces((prev) => ({ ...prev, [code]: nextVal }));
     try {
-      await withDraftRetry(
-        () =>
-          patchSuperficie({
-            idOdontograma: idOdonto,
-            fdi: fdi || Number(etiqueta),
-            superficie: code,
-            hallazgo: nextVal ? "CARIES" : null,
-            detalle: nextVal ? "Marcado desde UI" : null,
-          }),
-        draftCtx
-      );
+      if (ensureDraft) {
+        await withDraftRetry(
+          () =>
+            patchSuperficie({
+              idOdontograma: idOdonto,
+              fdi: fdi || Number(etiqueta),
+              superficie: code,
+              hallazgo: nextVal ? "CARIES" : null,
+              detalle: nextVal ? "Marcado desde UI" : null,
+            }),
+          ensureDraft,
+        );
+      } else {
+        await patchSuperficie({
+          idOdontograma: idOdonto,
+          fdi: fdi || Number(etiqueta),
+          superficie: code,
+          hallazgo: nextVal ? "CARIES" : null,
+          detalle: nextVal ? "Marcado desde UI" : null,
+        });
+      }
       onAfterChange?.();
     } catch (e) {
       setActiveSurfaces((prev) => ({ ...prev, [code]: !nextVal }));
@@ -91,16 +101,25 @@ export default function ToothTile({
     setEstadoShown(nuevoEstado);
     if (!nuevoPresente) setActiveSurfaces({});
     try {
-      await withDraftRetry(
-        () =>
-          patchPiezaEstado({
-            idOdontograma: idOdonto,
-            fdi: fdi || Number(etiqueta),
-            presente: nuevoPresente,
-            estado: nuevoEstado,
-          }),
-        draftCtx
-      );
+      if (ensureDraft) {
+        await withDraftRetry(
+          () =>
+            patchPiezaEstado({
+              idOdontograma: idOdonto,
+              fdi: fdi || Number(etiqueta),
+              presente: nuevoPresente,
+              estado: nuevoEstado,
+            }),
+          ensureDraft,
+        );
+      } else {
+        await patchPiezaEstado({
+          idOdontograma: idOdonto,
+          fdi: fdi || Number(etiqueta),
+          presente: nuevoPresente,
+          estado: nuevoEstado,
+        });
+      }
       onAfterChange?.();
     } catch (e) {
       setPresentShown(!nuevoPresente);
