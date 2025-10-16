@@ -31,9 +31,12 @@ api.interceptors.request.use((config) => {
   }
 
   if (tenantId) {
-    config.headers["X-Tenant-Id"] = String(tenantId);
+    const value = String(tenantId);
+    config.headers["X-Tenant-Id"] = value;
+    config.headers["X-Tenant-ID"] = value;
   } else {
     delete config.headers["X-Tenant-Id"];
+    delete config.headers["X-Tenant-ID"];
   }
   return config;
 });

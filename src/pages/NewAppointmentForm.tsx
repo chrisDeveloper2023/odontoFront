@@ -71,10 +71,7 @@ const NewAppointmentForm = () => {
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
-  const [clinicas, setClinicas] = useState<{ id: number; nombre: string }[]>([
-    { id: 1, nombre: "Sucursal 1" },
-    { id: 2, nombre: "Sucursal 2" },
-  ]);
+  const [clinicas, setClinicas] = useState<{ id: number; nombre: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,24 +86,19 @@ const NewAppointmentForm = () => {
         setPacientes(Array.isArray(pacData) ? pacData : pacData?.data || []);
         setConsultorios(Array.isArray(conData) ? conData : conData?.data || []);
 
-        try {
-          const clinRes = await apiGet<any>("/clinicas").catch(() => ({ data: [] }));
-          const list = Array.isArray(clinRes?.data) ? clinRes.data : Array.isArray(clinRes) ? clinRes : [];
-          const mapped = list
-            .map((c: any) => ({
-              id: c.id ?? c.id_clinica ?? c.idClinica,
-              nombre: c.nombre ?? c.nombre_clinica ?? c.name,
-            }))
-            .filter((c: any) => c.id);
-          if (mapped.length >= 2) setClinicas(mapped);
-        } catch (e) {
-          // mantener defaults si falla
-        }
+        const clinRes = await apiGet<any>("/clinicas").catch(() => ({ data: [] }));
+        const list = Array.isArray(clinRes?.data) ? clinRes.data : Array.isArray(clinRes) ? clinRes : [];
+        const mapped = list
+          .map((c: any) => ({
+            id: c.id ?? c.id_clinica ?? c.idClinica,
+            nombre: c.nombre ?? c.nombre_clinica ?? c.name,
+          }))
+          .filter((c: any) => c.id);
+        setClinicas(mapped);
 
         try {
           const docs = await getOdontologos();
           setDoctores(docs);
-          console.debug("Odontologos detectados:", docs);
         } catch (docsErr) {
           console.error("No se pudieron cargar odontologos:", docsErr);
         }
@@ -117,6 +109,13 @@ const NewAppointmentForm = () => {
       }
     })();
   }, []);
+
+  // Seleccionar automáticamente clínica si sólo hay una
+  useEffect(() => {
+    if (clinicas.length === 1 && !formData.id_clinica) {
+      setFormData((prev) => ({ ...prev, id_clinica: String(clinicas[0].id) }));
+    }
+  }, [clinicas, formData.id_clinica]);
 
 
   // Helper: sacar "HH:mm" de un ISO (evita corrimientos por zona horaria)
