@@ -55,81 +55,33 @@ export interface OdontoEventoDTO {
   fecha_creacion: string;
 }
 
-
-const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
-
-async function parseJson(res: Response) {
-  const text = await res.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
-async function handleResponse<T>(res: Response): Promise<T> {
-  const data = await parseJson(res);
-  if (!res.ok) {
-    const error: any = new Error(
-      (data && typeof data === "object" && "mensaje" in data && (data as any).mensaje) ||
-        res.statusText ||
-        "Error en la petición",
-    );
-    error.status = res.status;
-    error.payload = data;
-    throw error;
-  }
-  return data as T;
-}
-
-function withAuthHeaders(init?: RequestInit): RequestInit {
-  const headers = new Headers(init?.headers as HeadersInit | undefined);
-  headers.set("Content-Type", "application/json");
-  const authHeader = api.defaults.headers.common?.Authorization;
-  if (authHeader) {
-    headers.set("Authorization", authHeader as string);
-  }
-  const tenantHeader = api.defaults.headers.common?.["X-Tenant-ID"];
-  if (tenantHeader) {
-    headers.set("X-Tenant-ID", tenantHeader as string);
-  }
-  return {
-    ...init,
-    headers,
-    credentials: "include",
-  };
-}
-
 export async function getOdontogramaByHistoria(
   idHistoria: number,
   opts?: { vigente?: boolean },
 ): Promise<OdontogramaResponse> {
-  const query = opts?.vigente ? "?vigente=true" : "";
-  const res = await fetch(
-    `${API_BASE}/historias-clinicas/${idHistoria}/odontograma${query}`,
-    withAuthHeaders(),
+  const config = opts?.vigente ? { params: { vigente: true } } : undefined;
+  const res = await api.get<OdontogramaResponse>(
+    `/historias-clinicas/${idHistoria}/odontograma`,
+    config,
   );
-  return handleResponse<OdontogramaResponse>(res);
+  return res.data;
 }
 
 export async function abrirDraftOdontograma(
   idHistoria: number,
   mode: "empty" | "from_last" = "from_last",
 ): Promise<OdontogramaEntity> {
-  const res = await fetch(
-    `${API_BASE}/historias-clinicas/${idHistoria}/odontograma/abrir?mode=${mode}`,
-    withAuthHeaders({ method: "POST" }),
+  const res = await api.post<OdontogramaEntity>(
+    `/historias-clinicas/${idHistoria}/odontograma/abrir`,
+    null,
+    { params: { mode } },
   );
-  return handleResponse<OdontogramaEntity>(res);
+  return res.data;
 }
 
 export async function consolidarOdontograma(idOdontograma: number): Promise<any> {
-  const res = await fetch(
-    `${API_BASE}/odontogramas/${idOdontograma}/consolidar`,
-    withAuthHeaders({ method: "POST" }),
-  );
-  return handleResponse(res);
+  const res = await api.post(`/odontogramas/${idOdontograma}/consolidar`);
+  return res.data;
 }
 
 export async function patchPiezaEstado(params: {
@@ -140,11 +92,8 @@ export async function patchPiezaEstado(params: {
   notas?: string | null;
 }) {
   const { idOdontograma, fdi, ...body } = params;
-  const res = await fetch(
-    `${API_BASE}/odontogramas/${idOdontograma}/piezas/${fdi}/estado`,
-    withAuthHeaders({ method: "PATCH", body: JSON.stringify(body) }),
-  );
-  return handleResponse(res);
+  const res = await api.patch(`/odontogramas/${idOdontograma}/piezas/${fdi}/estado`, body);
+  return res.data;
 }
 
 export async function patchSuperficie(params: {
@@ -156,40 +105,27 @@ export async function patchSuperficie(params: {
   detalle?: string | null;
 }) {
   const { idOdontograma, fdi, superficie, ...body } = params;
-  const res = await fetch(
-    `${API_BASE}/odontogramas/${idOdontograma}/piezas/${fdi}/superficies/${superficie}`,
-    withAuthHeaders({ method: "PATCH", body: JSON.stringify(body) }),
+  const res = await api.patch(
+    `/odontogramas/${idOdontograma}/piezas/${fdi}/superficies/${superficie}`,
+    body,
   );
-  return handleResponse(res);
+  return res.data;
 }
-
 
 export async function fetchEventosOdontograma(
   historiaId: number,
-  params?: { fdi?: number; limit?: number }
+  params?: { fdi?: number; limit?: number },
 ): Promise<{ eventos: OdontoEventoDTO[] }> {
-  const search = new URLSearchParams();
-  if (params?.fdi != null) search.set("fdi", String(params.fdi));
-  if (params?.limit != null) search.set("limit", String(params.limit));
-
-  const query = search.toString();
-  const url = `${API_BASE}/historias-clinicas/${historiaId}/odontograma/eventos${query ? `?${query}` : ""}`;
-
-  const authInit = withAuthHeaders();
-  const headers = new Headers(authInit.headers as HeadersInit | undefined);
-  const res = await fetch(url, {
-    headers,
-    credentials: "include",
-  });
-  return handleResponse<{ eventos: OdontoEventoDTO[] }>(res);
+  const res = await api.get<{ eventos: OdontoEventoDTO[] }>(
+    `/historias-clinicas/${historiaId}/odontograma/eventos`,
+    { params },
+  );
+  return res.data;
 }
 
 export async function upsertEstadoBucal(idOdontograma: number, data: Record<string, any>) {
-  const res = await fetch(
-    `${API_BASE}/odontogramas/${idOdontograma}/estado-bucal`,
-    withAuthHeaders({ method: "PUT", body: JSON.stringify(data ?? {}) }),
-  );
-  return handleResponse(res);
+  const res = await api.put(`/odontogramas/${idOdontograma}/estado-bucal`, data ?? {});
+  return res.data;
 }
 
 export async function withDraftRetry<T>(fn: () => Promise<T>, retryOpen: () => Promise<void>): Promise<T> {
@@ -219,4 +155,3 @@ export function superficiesPorFDI(piezas: Pieza[], superficies: Superficie[]) {
 
   return bucket;
 }
-

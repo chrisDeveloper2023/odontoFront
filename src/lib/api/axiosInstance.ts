@@ -22,13 +22,18 @@ api.interceptors.request.use((config) => {
     }
   })();
 
+  config.headers = config.headers ?? {};
+
   if (token) {
-    config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    delete config.headers.Authorization;
   }
+
   if (tenantId) {
-    config.headers = config.headers ?? {};
-    config.headers["X-Tenant-ID"] = tenantId;
+    config.headers["X-Tenant-Id"] = String(tenantId);
+  } else {
+    delete config.headers["X-Tenant-Id"];
   }
   return config;
 });
