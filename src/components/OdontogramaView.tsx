@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ToothTile from "@/components/ToothTile";
 import ToothSidePanel from "@/components/ToothSidePanel";
@@ -35,6 +35,7 @@ type Props = {
 
 export default function OdontogramaView({ data, ensureDraft, onReload, mode }: Props) {
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
+  const [eventosRefreshKey, setEventosRefreshKey] = useState(0);
 
   const idOdonto = data?.odontograma?.id_odontograma ?? (data?.odontograma as any)?.id ?? 0;
   const idHistoriaNum =
@@ -51,6 +52,15 @@ export default function OdontogramaView({ data, ensureDraft, onReload, mode }: P
     return mapSuperficiesPorFDI(data.piezas, data.superficies);
   }, [data]);
 
+  const triggerEventosRefresh = useCallback(() => {
+    setEventosRefreshKey((prev) => prev + 1);
+  }, []);
+
+  const handleAfterChange = useCallback(() => {
+    onReload?.();
+    triggerEventosRefresh();
+  }, [onReload, triggerEventosRefresh]);
+
   const renderFila = (numeros: number[]) => (
     <div className="grid grid-cols-8 gap-2">
       {numeros.map((fdi) => (
@@ -60,7 +70,7 @@ export default function OdontogramaView({ data, ensureDraft, onReload, mode }: P
           superfs={superficiesPorFDI.get(fdi) || []}
           idOdonto={idOdonto}
           ensureDraft={ensureDraft}
-          onAfterChange={onReload}
+          onAfterChange={handleAfterChange}
           onSelect={setSelectedFdi}
         />
       ))}
@@ -134,6 +144,7 @@ export default function OdontogramaView({ data, ensureDraft, onReload, mode }: P
                       });
                     }
                     onReload?.();
+                    triggerEventosRefresh();
                   } catch (error) {
                     console.error("Error toggle presencia (fauces):", error);
                   }
@@ -155,8 +166,10 @@ export default function OdontogramaView({ data, ensureDraft, onReload, mode }: P
         <ToothSidePanel
           pieza={selectedFdi ? piezasPorFDI.get(selectedFdi) : undefined}
           idOdonto={idOdonto}
+          historiaId={idHistoriaNum}
           ensureDraft={ensureDraft}
           onSaved={onReload}
+          refreshKey={eventosRefreshKey}
         />
         {!selectedFdi && (
           <Card>

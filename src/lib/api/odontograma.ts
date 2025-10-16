@@ -42,6 +42,20 @@ export type OdontogramaResponse = {
   estadoBucal?: Record<string, unknown> | null;
 };
 
+export type OdontoEventoTipo = "DIAGNOSTICO" | "PROCEDIMIENTO" | "NOTA" | "ESTADO_PIEZA";
+export interface OdontoEventoDTO {
+  id: number;
+  tenant_id: number | null;
+  historia_id: number;
+  cita_id: number | null;
+  fdi: number | null;
+  tipo: OdontoEventoTipo;
+  payload: any;
+  created_by: number | null;
+  fecha_creacion: string;
+}
+
+
 const API_BASE = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
 
 async function parseJson(res: Response) {
@@ -147,6 +161,27 @@ export async function patchSuperficie(params: {
     withAuthHeaders({ method: "PATCH", body: JSON.stringify(body) }),
   );
   return handleResponse(res);
+}
+
+
+export async function fetchEventosOdontograma(
+  historiaId: number,
+  params?: { fdi?: number; limit?: number }
+): Promise<{ eventos: OdontoEventoDTO[] }> {
+  const search = new URLSearchParams();
+  if (params?.fdi != null) search.set("fdi", String(params.fdi));
+  if (params?.limit != null) search.set("limit", String(params.limit));
+
+  const query = search.toString();
+  const url = `${API_BASE}/historias-clinicas/${historiaId}/odontograma/eventos${query ? `?${query}` : ""}`;
+
+  const authInit = withAuthHeaders();
+  const headers = new Headers(authInit.headers as HeadersInit | undefined);
+  const res = await fetch(url, {
+    headers,
+    credentials: "include",
+  });
+  return handleResponse<{ eventos: OdontoEventoDTO[] }>(res);
 }
 
 export async function upsertEstadoBucal(idOdontograma: number, data: Record<string, any>) {
