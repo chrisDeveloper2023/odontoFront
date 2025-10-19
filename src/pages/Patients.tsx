@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search, Plus, Eye, Edit, FileText, Calendar, X, Check } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiGet, apiDelete } from "@/api/client";
@@ -343,8 +344,8 @@ const Patients: React.FC = () => {
                       <div><strong>Género:</strong> {patient.gender}</div>
                       <div><strong>Teléfono:</strong> {patient.phone}</div>
                       <div><strong>Email:</strong> {patient.email}</div>
-                      <div><strong>Clinica:</strong> {patient.clinic || "Sin clinica"}</div>
-                      <div><strong>Tenant:</strong> {patient.tenant || "Sin tenant"}</div>
+                      {/* <div><strong>Clinica:</strong> {patient.clinic || "Sin clinica"}</div>
+                      <div><strong>Tenant:</strong> {patient.tenant || "Sin tenant"}</div> */}
                       <div><strong>Ocupación:</strong> {patient.occupation || "No registrada"}</div>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -355,24 +356,65 @@ const Patients: React.FC = () => {
 
                   <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     {hasPermission('patients:view') && (
-                      <Button variant="outline" size="sm" onClick={() => openPatientModal(patient.id)}>
-                        <Eye />
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPatientModal(patient.id)}
+                              aria-label="Ver paciente"
+                            >
+                              <Eye />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Datos del Paciente</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                     {hasPermission(['patients:edit', 'patients:update']) && (
-                      <Button variant="outline" size="sm" onClick={() => openEditModal(patient.id)}>
-                        <Edit />
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="outline" size="sm" onClick={() => openEditModal(patient.id)}>
+                              <Edit />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Editar Paciente</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                     {hasPermission('medical-records:create') && (
                       <Link to={`/medical-records/new?patientId=${patient.id}`}>
-                        <Button size="sm"><FileText /></Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm"><FileText /></Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Agregar Historia Clínica</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </Link>
                     )}
                     {hasPermission('appointments:create') && (
-                      <Link to={`/appointments?id_paciente=${patient.id}`}>
-                        <Button size="sm"><Calendar /></Button>
-                      </Link>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link to={`/appointments?id_paciente=${patient.id}`}>
+                              <Button size="sm"><Calendar /></Button>
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Agregar Cita</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
 
                     {!mostrarInactivos && hasPermission('patients:delete') && (
