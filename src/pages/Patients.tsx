@@ -11,6 +11,8 @@ import { apiGet, apiDelete } from "@/api/client";
 import PatientDetailModal from "@/components/PatientDetailModal";
 import PatientEditModal from "@/components/PatientEditModal";
 import NewPatientModal from "@/components/NewPatientModal";
+import NewMedicalRecordModal from "@/components/NewMedicalRecordModal";
+import NewAppointmentModal from "@/components/NewAppointmentModal";
 import { useAuth } from "@/context/AuthContext";
 
 interface Patient {
@@ -49,13 +51,17 @@ const Patients: React.FC = () => {
   const [mostrarInactivos, setMostrarInactivos] = useState(false);
   const [totalBackend, setTotalBackend] = useState(0);
 
-  // Estados para selección múltiple y modales
-  const [selectedPatients, setSelectedPatients] = useState<Set<string>>(new Set());
+  // Estados para selección única y modales
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
+  const [isNewMedicalRecordModalOpen, setIsNewMedicalRecordModalOpen] = useState(false);
+  const [selectedPatientForMedicalRecord, setSelectedPatientForMedicalRecord] = useState<string | null>(null);
+  const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
+  const [selectedPatientForAppointment, setSelectedPatientForAppointment] = useState<string | null>(null);
+  const [isSubmittingAppointment, setIsSubmittingAppointment] = useState(false);
 
   useEffect(() => {
     async function fetchPacientes() {
@@ -130,20 +136,10 @@ const Patients: React.FC = () => {
   };
 
   const togglePatientSelection = (patientId: string) => {
-    setSelectedPatients((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(patientId)) {
-        newSet.delete(patientId);
-      } else {
-        newSet.add(patientId);
-      }
-      return newSet;
-    });
+    setSelectedPatientId(prev => prev === patientId ? null : patientId);
   };
 
-  const clearSelections = () => setSelectedPatients(new Set());
-  const selectAllVisible = (filtered: Patient[]) =>
-    setSelectedPatients(new Set(filtered.map((p) => p.id)));
+  const clearSelection = () => setSelectedPatientId(null);
 
   const openPatientModal = (id: string) => {
     setSelectedPatientId(id);
@@ -163,11 +159,9 @@ const Patients: React.FC = () => {
   };
   const handlePatientDeleted = (id: string) => {
     setPatients((prev) => prev.filter((p) => p.id !== id));
-    setSelectedPatients((prev) => {
-      const newSet = new Set(prev);
-      newSet.delete(id);
-      return newSet;
-    });
+    if (selectedPatientId === id) {
+      setSelectedPatientId(null);
+    }
   };
   const handlePatientUpdated = (updated: any) => {
     setPatients((prev) =>
@@ -180,6 +174,48 @@ const Patients: React.FC = () => {
     setPage(1);
     // También podrías agregar el nuevo paciente directamente a la lista
     // pero es más seguro recargar desde el servidor
+  };
+
+  const openMedicalRecordModal = (patientId: string) => {
+    setSelectedPatientForMedicalRecord(patientId);
+    setIsNewMedicalRecordModalOpen(true);
+  };
+
+  const closeMedicalRecordModal = () => {
+    setSelectedPatientForMedicalRecord(null);
+    setIsNewMedicalRecordModalOpen(false);
+  };
+
+  const handleMedicalRecordCreated = (medicalRecord: any) => {
+    // Recargar la lista de pacientes para actualizar el contador de historias clínicas
+    setPage(1);
+  };
+
+  const openAppointmentModal = (patientId: string) => {
+    setSelectedPatientForAppointment(patientId);
+    setIsNewAppointmentModalOpen(true);
+  };
+
+  const closeAppointmentModal = () => {
+    setSelectedPatientForAppointment(null);
+    setIsNewAppointmentModalOpen(false);
+    setIsSubmittingAppointment(false);
+  };
+
+  const handleAppointmentCreated = async (payload: any) => {
+    setIsSubmittingAppointment(true);
+    try {
+      // Aquí podrías hacer una llamada a la API para crear la cita
+      // await apiPost('/citas', payload);
+      console.log('Cita creada:', payload);
+      // Recargar la lista de pacientes si es necesario
+      setPage(1);
+    } catch (error) {
+      console.error('Error creando cita:', error);
+      throw error; // Re-lanzar para que el modal maneje el error
+    } finally {
+      setIsSubmittingAppointment(false);
+    }
   };
 
   const term = searchTerm.toLowerCase();
@@ -235,25 +271,15 @@ const Patients: React.FC = () => {
             {filtered.length > 0 && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => selectAllVisible(filtered)}
-                    disabled={selectedPatients.size === filtered.length}
-                  >
-                    <Check className="h-4 w-4 mr-1" /> Seleccionar Todos
-                  </Button>
-                  {selectedPatients.size > 0 && (
-                    <Button variant="outline" size="sm" onClick={clearSelections}>
-                      <X className="h-4 w-4 mr-1" /> Limpiar ({selectedPatients.size})
+                  {selectedPatientId && (
+                    <Button variant="outline" size="sm" onClick={clearSelection}>
+                      <X className="h-4 w-4 mr-1" /> Limpiar selección
                     </Button>
                   )}
                 </div>
-                {selectedPatients.size > 0 && (
+                {selectedPatientId && (
                   <div className="text-sm text-muted-foreground">
-                    {selectedPatients.size} paciente
-                    {selectedPatients.size !== 1 ? "s" : ""} seleccionado
-                    {selectedPatients.size !== 1 ? "s" : ""}
+                    1 paciente seleccionado
                   </div>
                 )}
               </div>
@@ -310,7 +336,7 @@ const Patients: React.FC = () => {
       {/* Patients List */}
       <div className="grid gap-4">
         {filtered.map((patient) => {
-          const isSelected = selectedPatients.has(patient.id);
+          const isSelected = selectedPatientId === patient.id;
           return (
             <Card
               key={patient.id}
@@ -378,7 +404,12 @@ const Patients: React.FC = () => {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => openEditModal(patient.id)}>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => openEditModal(patient.id)}
+                              disabled={!isSelected}
+                            >
                               <Edit />
                             </Button>
                           </TooltipTrigger>
@@ -389,26 +420,34 @@ const Patients: React.FC = () => {
                       </TooltipProvider>
                     )}
                     {hasPermission('medical-records:create') && (
-                      <Link to={`/medical-records/new?patientId=${patient.id}`}>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button size="sm"><FileText /></Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Agregar Historia Clínica</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </Link>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              onClick={() => openMedicalRecordModal(patient.id)}
+                              disabled={!isSelected}
+                            >
+                              <FileText />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Agregar Historia Clínica</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                     {hasPermission('appointments:create') && (
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Link to={`/appointments?id_paciente=${patient.id}`}>
-                              <Button size="sm"><Calendar /></Button>
-                            </Link>
+                            <Button 
+                              size="sm" 
+                              onClick={() => openAppointmentModal(patient.id)}
+                              disabled={!isSelected}
+                            >
+                              <Calendar />
+                            </Button>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p>Agregar Cita</p>
@@ -484,6 +523,19 @@ const Patients: React.FC = () => {
         isOpen={isNewPatientModalOpen}
         onClose={() => setIsNewPatientModalOpen(false)}
         onPatientCreated={handleNewPatientCreated}
+      />
+      <NewMedicalRecordModal
+        isOpen={isNewMedicalRecordModalOpen}
+        onClose={closeMedicalRecordModal}
+        preselectedPatientId={selectedPatientForMedicalRecord || undefined}
+        onMedicalRecordCreated={handleMedicalRecordCreated}
+      />
+      <NewAppointmentModal
+        isOpen={isNewAppointmentModalOpen}
+        onClose={closeAppointmentModal}
+        onSave={handleAppointmentCreated}
+        isSubmitting={isSubmittingAppointment}
+        preselectedPatientId={selectedPatientForAppointment || undefined}
       />
     </div>
   );
