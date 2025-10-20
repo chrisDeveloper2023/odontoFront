@@ -52,6 +52,7 @@ const UsersPage = () => {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [filtroRol, setFiltroRol] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -87,6 +88,12 @@ const UsersPage = () => {
   }, []);
 
   const roleOptions = useMemo(() => roles.map((rol) => [rol.id_rol, rol.nombre_rol] as const), [roles]);
+
+  // Filtrar usuarios por rol seleccionado
+  const usuariosFiltrados = useMemo(() => {
+    if (!filtroRol) return usuarios;
+    return usuarios.filter(user => user.rol?.id_rol === filtroRol);
+  }, [usuarios, filtroRol]);
 
   const openCreateModal = () => {
     setForm(emptyForm);
@@ -207,6 +214,36 @@ const UsersPage = () => {
         <Button onClick={openCreateModal}>Nuevo usuario</Button>
       </div>
 
+      {/* Filtro por tipo de usuario */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Label htmlFor="filtro-rol">Filtrar por tipo de usuario</Label>
+              <Select
+                value={filtroRol ? String(filtroRol) : "all"}
+                onValueChange={(value) => setFiltroRol(value === "all" ? null : Number(value))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todos los usuarios" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los usuarios</SelectItem>
+                  {roleOptions.map(([id, nombre]) => (
+                    <SelectItem key={id} value={String(id)}>
+                      {nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {usuariosFiltrados.length} de {usuarios.length} usuarios
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Listado</CardTitle>
@@ -229,7 +266,7 @@ const UsersPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {usuarios.map((user) => (
+                {usuariosFiltrados.map((user) => (
                   <TableRow 
                     key={user.id} 
                     className={selectedUserId === user.id ? "bg-blue-50 border-blue-200" : ""}
@@ -250,10 +287,10 @@ const UsersPage = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {!usuarios.length && !loading ? (
+                {!usuariosFiltrados.length && !loading ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-6">
-                      No hay usuarios registrados.
+                      {filtroRol ? "No hay usuarios con el tipo seleccionado." : "No hay usuarios registrados."}
                     </TableCell>
                   </TableRow>
                 ) : null}

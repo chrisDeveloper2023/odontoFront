@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   CalendarPlus,
   Settings,
   Eye,
@@ -15,10 +21,12 @@ import {
   User,
   CheckCircle,
   Clock,
-  Trash2
+  Trash2,
+  Edit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import NewAppointmentModal, { NewAppointmentPayload } from "@/components/NewAppointmentModal";
+import AppointmentEditModal from "@/components/AppointmentEditModal";
 import { apiGet, apiPost, apiDelete } from "@/api/client";
 import { toast } from "sonner";
 import CalendarSettingsModal from "@/components/CalendarSettingModal";
@@ -144,6 +152,22 @@ const formatearHoraEje = (base: Date, hour: number) => {
   return formatGuayaquilTime(d, { hour: "numeric", minute: "2-digit", hour12: true });
 };
 
+// Función helper para generar el contenido del tooltip
+const generarContenidoTooltip = (cita: Cita) => {
+  return (
+    <div className="space-y-1 text-sm">
+      <div className="font-semibold">{cita.paciente}</div>
+      <div className="text-gray-300">
+        <div><strong>Fecha:</strong> {formatGuayaquilDate(cita.fecha!, { dateStyle: 'long' })}</div>
+        <div><strong>Hora:</strong> {cita.horaInicio} - {cita.horaFin}</div>
+        <div><strong>Tipo:</strong> {cita.tipo}</div>
+        {cita.descripcion && <div><strong>Descripción:</strong> {cita.descripcion}</div>}
+        {cita.odontologo && <div><strong>Odontólogo:</strong> {cita.odontologo}</div>}
+      </div>
+    </div>
+  );
+};
+
 const Calendar: React.FC = () => {
   const [fechaActual, setFechaActual] = useState(new Date());
   const [vistaActual, setVistaActual] = useState<'dia' | 'semana' | 'mes'>('semana');
@@ -158,145 +182,10 @@ const Calendar: React.FC = () => {
   const [citasError, setCitasError] = useState<string | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
   const [odontologosListo, setOdontologosListo] = useState(false);
+  const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
-  // Datos de ejemplo basados en la imagen
-  const citasEjemplo: Cita[] = [
-    {
-      id: 1,
-      paciente: "GERMAN BENITEZ",
-      tipo: "EXO MAS IMPLANTE EN 27",
-      descripcion: "EXO MAS IMPLANTE EN 27",
-      horaInicio: "09:00",
-      horaFin: "10:30",
-      color: "bg-red-500",
-      odontologo: "Juan Domingo",
-      icono: "",
-      fecha: new Date(2025, 8, 8) // 8 de septiembre
-    },
-    {
-      id: 2,
-      paciente: "Gustavo Elgueta",
-      tipo: "Consulta",
-      descripcion: "Consulta",
-      horaInicio: "10:30",
-      horaFin: "12:00",
-      color: "bg-yellow-500",
-      odontologo: "Pamela Gil",
-      icono: "",
-      fecha: new Date(2025, 8, 9) // 9 de septiembre
-    },
-    {
-      id: 3,
-      paciente: "Victro Giustra",
-      tipo: "Consulta",
-      descripcion: "Consulta",
-      horaInicio: "12:30",
-      horaFin: "14:00",
-      color: "bg-red-500",
-      odontologo: "Juan Domingo",
-      icono: "",
-      fecha: new Date(2025, 8, 9) // 9 de septiembre
-    },
-    {
-      id: 4,
-      paciente: "Alicia Asman",
-      tipo: "Cambio",
-      descripcion: "Cambio",
-      horaInicio: "14:30",
-      horaFin: "15:30",
-      color: "bg-yellow-500",
-      odontologo: "Pamela Gil",
-      icono: "",
-      fecha: new Date(2025, 8, 13) // 13 de septiembre
-    },
-    {
-      id: 5,
-      paciente: "Federico Aquino",
-      tipo: "Ortodoncia",
-      descripcion: "Ortodoncia",
-      horaInicio: "15:00",
-      horaFin: "16:30",
-      color: "bg-pink-500",
-      odontologo: "Guadalupe Guerrero",
-      icono: "",
-      fecha: new Date(2025, 8, 13) // 13 de septiembre
-    },
-    {
-      id: 6,
-      paciente: "Hugo salazar",
-      tipo: "Cambio",
-      descripcion: "Cambio",
-      horaInicio: "17:00",
-      horaFin: "18:00",
-      color: "bg-pink-500",
-      odontologo: "Guadalupe Guerrero",
-      icono: "",
-      fecha: new Date(2025, 8, 17) // 17 de septiembre
-    },
-    {
-      id: 7,
-      paciente: "Ma Barco",
-      tipo: "Resinas",
-      descripcion: "Resinas",
-      horaInicio: "15:00",
-      horaFin: "16:30",
-      color: "bg-red-500",
-      odontologo: "Juan Domingo",
-      icono: "",
-      fecha: new Date(2025, 8, 17) // 17 de septiembre
-    },
-    {
-      id: 8,
-      paciente: "Pablo Andrs Bravo",
-      tipo: "Consulta",
-      descripcion: "Consulta",
-      horaInicio: "10:00",
-      horaFin: "11:30",
-      color: "bg-red-500",
-      odontologo: "Juan Domingo",
-      icono: "",
-      fecha: new Date(2025, 8, 17) // 17 de septiembre
-    },
-    // Citas para el da actual (ejemplo)
-    {
-      id: 9,
-      paciente: "Ma Barco",
-      tipo: "Resinas",
-      descripcion: "Resinas en 24/25",
-      horaInicio: "15:00",
-      horaFin: "16:00",
-      color: "bg-red-500",
-      odontologo: "Juan Domingo",
-      icono: "",
-      fecha: new Date() // Da actual
-    },
-    {
-      id: 10,
-      paciente: "Carlos Mendoza",
-      tipo: "Limpieza",
-      descripcion: "Limpieza dental",
-      horaInicio: "10:30",
-      horaFin: "11:30",
-      color: "bg-green-500",
-      odontologo: "Pamela Gil",
-      icono: "",
-      fecha: new Date() // Da actual
-    },
-    {
-      id: 11,
-      paciente: "Ana Lpez",
-      tipo: "Ortodoncia",
-      descripcion: "Ajuste de brackets",
-      horaInicio: "14:00",
-      horaFin: "15:00",
-      color: "bg-blue-500",
-      odontologo: "Guadalupe Guerrero",
-      icono: "",
-      fecha: new Date() // Da actual
-    }
-  ];
-
-  // Cargar mdicos al montar el componente
+  // Cargar médicos al montar el componente
   useEffect(() => {
     const cargarDoctores = async () => {
       setLoadingDoctores(true);
@@ -327,7 +216,6 @@ const Calendar: React.FC = () => {
           { id: 2, nombre: "Pamela Gil", color: "bg-yellow-500" },
           { id: 3, nombre: "Juan Domingo", color: "bg-red-500" },
         ]);
-        setCitas(citasEjemplo);
         setOdontologosListo(true);
         toast.error("No se pudieron cargar los medicos");
       } finally {
@@ -419,7 +307,6 @@ const Calendar: React.FC = () => {
     } catch (error: any) {
       console.error("Error cargando citas:", error);
       setCitasError(error?.message || "No se pudieron cargar las citas");
-      setCitas(citasEjemplo);
     } finally {
       setLoadingCitas(false);
     }
@@ -640,8 +527,23 @@ const Calendar: React.FC = () => {
     }
   };
 
+  const handleEditAppointment = (cita: Cita) => {
+    setSelectedAppointmentId(String(cita.id));
+    setIsEditAppointmentOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditAppointmentOpen(false);
+    setSelectedAppointmentId(null);
+  };
+
+  const handleAppointmentUpdated = () => {
+    fetchCitas(); // Refrescar las citas después de la edición
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <TooltipProvider>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="flex h-screen">
         {/* Sidebar Izquierdo */}
         <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-6">
@@ -884,43 +786,64 @@ const Calendar: React.FC = () => {
                         const altura = obtenerAlturaEvento(cita.horaInicio, cita.horaFin);
 
                         return (
-                          <div
-                            key={cita.id}
-                            className={cn(
-                              "absolute left-2 right-2 rounded-md p-3 text-white text-sm hover:opacity-80 transition-opacity shadow-md group",
-                              cita.color
-                            )}
-                            style={{
-                              top: `${posicion}px`,
-                              height: `${altura}px`,
-                            }}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center space-x-2">
-                                <span className="font-semibold text-lg">{cita.icono} {cita.paciente}</span>
-                                <span className="text-lg font-medium text-sm"> {cita.descripcion} : {cita.tipo}
-                                - {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
-                                </span>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteAppointment(cita);
+                          <Tooltip key={cita.id}>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={cn(
+                                  "absolute left-2 right-2 rounded-md p-3 text-white text-sm hover:opacity-80 transition-opacity shadow-md group cursor-pointer",
+                                  cita.color
+                                )}
+                                style={{
+                                  top: `${posicion}px`,
+                                  height: `${altura}px`,
                                 }}
                               >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="font-bold text-base mb-1">
-                            </div>
-                            <div className="text-sm opacity-90"></div>
-                            <div className="text-xs opacity-75 mt-1">
-                              
-                            </div>
-                          </div>
+                                <div className="flex flex-col justify-center items-center h-full text-center">
+                                  <div className="flex items-center justify-between w-full mb-1">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-semibold text-lg">{cita.icono} {cita.paciente}</span>
+                                      <span className="text-lg font-medium text-sm"> {cita.descripcion} : {cita.tipo}
+                                      - {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 bg-white/20 hover:bg-white/30 border-white/30"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditAppointment(cita);
+                                        }}
+                                      >
+                                        <Edit className="h-3 w-3 text-white" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteAppointment(cita);
+                                        }}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="font-bold text-base mb-1">
+                                  </div>
+                                  <div className="text-sm opacity-90"></div>
+                                  <div className="text-xs opacity-75 mt-1">
+                                    
+                                  </div>
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              {generarContenidoTooltip(cita)}
+                            </TooltipContent>
+                          </Tooltip>
                         );
                       })}
 
@@ -976,34 +899,53 @@ const Calendar: React.FC = () => {
                           {/* Citas del da */}
                           <div className="space-y-1">
                             {citasDelDia.slice(0, 3).map((cita) => (
-                              <div
-                                key={cita.id}
-                                className={cn(
-                                  "text-xs p-1 rounded hover:opacity-80 transition-opacity group",
-                                  cita.color,
-                                  "text-white"
-                                )}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center space-x-1">
-                                    <span className="text-xs">{cita.icono}</span>
-                                    <span className="font-medium truncate">{formatearHora(cita.horaInicio)}</span>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity h-3 w-3 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteAppointment(cita);
-                                    }}
+                              <Tooltip key={cita.id}>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className={cn(
+                                      "text-xs p-1 rounded hover:opacity-80 transition-opacity group cursor-pointer",
+                                      cita.color,
+                                      "text-white"
+                                    )}
                                   >
-                                    <Trash2 className="h-1.5 w-1.5" />
-                                  </Button>
-                                </div>
-                                <div className="truncate font-medium">{cita.paciente}</div>
-                                <div className="truncate opacity-90">{cita.descripcion}</div>
-                              </div>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-1">
+                                        <span className="text-xs">{cita.icono}</span>
+                                        <span className="font-medium truncate">{formatearHora(cita.horaInicio)}</span>
+                                      </div>
+                                      <div className="flex items-center space-x-1">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="opacity-70 hover:opacity-100 transition-opacity h-6 w-6 p-0 bg-white/40 hover:bg-white/50 border-white/50"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditAppointment(cita);
+                                          }}
+                                        >
+                                          <Edit className="h-4 w-4 text-white" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          className="opacity-70 hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteAppointment(cita);
+                                          }}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                    <div className="truncate font-medium">{cita.paciente}</div>
+                                    <div className="truncate opacity-90">{cita.descripcion}</div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  {generarContenidoTooltip(cita)}
+                                </TooltipContent>
+                              </Tooltip>
                             ))}
                             {citasDelDia.length > 3 && (
                               <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -1085,39 +1027,52 @@ const Calendar: React.FC = () => {
                               const altura = obtenerAlturaCita(cita.horaInicio, cita.horaFin);
 
                               return (
-                                <div
-                                  key={cita.id}
-                                  className={cn(
-                                    "absolute left-1 right-1 rounded-md p-2 text-white text-xs hover:opacity-80 transition-opacity group",
-                                    cita.color
-                                  )}
-                                  style={{
-                                    top: `${posicion}px`,
-                                    height: `${altura}px`,
-                                  }}
-                                >
-                                  <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center space-x-1">
-                                      <span>{cita.icono}</span>
-                                      <span className="font-medium truncate">{cita.paciente}</span>
-                                    </div>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      className="opacity-0 group-hover:opacity-100 transition-opacity h-4 w-4 p-0"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteAppointment(cita);
+                                <Tooltip key={cita.id}>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      className={cn(
+                                        "absolute left-1 right-1 rounded-md p-2 text-white text-xs hover:opacity-80 transition-opacity group relative cursor-pointer",
+                                        cita.color
+                                      )}
+                                      style={{
+                                        top: `${posicion}px`,
+                                        height: `${altura}px`,
                                       }}
                                     >
-                                      <Trash2 className="h-2 w-2" />
-                                    </Button>
-                                  </div>
-                                  <div className="text-xs opacity-90 truncate">{cita.descripcion}</div>
-                                  <div className="text-xs opacity-75 mt-1">
-                                    {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
-                                  </div>
-                                </div>
+                                      {/* Iconos en la parte superior derecha */}
+                                      <div className="flex items-center space-x-1 absolute top-1 right-1">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="opacity-70 hover:opacity-100 transition-opacity h-4 w-4 p-0 bg-white/40 hover:bg-white/50 border-white/50"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleEditAppointment(cita);
+                                          }}
+                                        >
+                                          <Edit className="h-2 w-2 text-white" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          className="opacity-70 hover:opacity-100 transition-opacity h-4 w-4 p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteAppointment(cita);
+                                          }}
+                                        >
+                                          <Trash2 className="h-2 w-2" />
+                                        </Button>
+                                      </div>
+                                      
+                                      {/* Nombre del paciente abajo */}
+                                      <div className="truncate font-medium absolute bottom-1 left-1">{cita.paciente}</div>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    {generarContenidoTooltip(cita)}
+                                  </TooltipContent>
+                                </Tooltip>
                               );
                             });
                           })()}
@@ -1148,7 +1103,16 @@ const Calendar: React.FC = () => {
         odontologos={odontologos}
         onSave={handleSaveSettings}
       />
-    </div>
+
+      {/* Modal de Edición de Cita */}
+      <AppointmentEditModal
+        appointmentId={selectedAppointmentId}
+        isOpen={isEditAppointmentOpen}
+        onClose={handleCloseEditModal}
+        onAppointmentUpdated={handleAppointmentUpdated}
+      />
+      </div>
+    </TooltipProvider>
   );
 };
 

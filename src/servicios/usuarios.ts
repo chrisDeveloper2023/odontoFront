@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/usuarios";
 import type { CreateUsuarioResult } from "@/lib/api/usuarios";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
+import { ROLE_NAMES } from "@/constants/roles";
 
 export type Doctor = Pick<
   Usuario,
@@ -15,10 +16,10 @@ export type Doctor = Pick<
 
 const isOdontologo = (usuario: Usuario) => {
   const rolNombre = usuario.rol?.nombre_rol?.toUpperCase?.() ?? "";
-  if (rolNombre.includes("ODONTO")) return true;
+  if (rolNombre.includes(ROLE_NAMES.ODONTOLOGO.toUpperCase())) return true;
   return (
     Array.isArray(usuario.roles) &&
-    usuario.roles.some((role) => String(role).toUpperCase().includes("ODONTO"))
+    usuario.roles.some((role) => String(role).toUpperCase().includes(ROLE_NAMES.ODONTOLOGO.toUpperCase()))
   );
 };
 
