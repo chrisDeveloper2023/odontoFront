@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,8 +112,8 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   };
 
   const resetFormState = () => {
-    const horaInicioDefault = "09:00";
-    const horaFinDefault = calcularHoraFin(horaInicioDefault);
+    const horaInicioDefault = initialData?.horaInicio || "09:00";
+    const horaFinDefault = initialData?.horaFin || calcularHoraFin(horaInicioDefault);
     
     setFormData({
       pacienteId: preselectedPatientId || "",
@@ -124,7 +124,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       odontologoNombre: "",
       tipo: "",
       descripcion: "",
-      fecha: new Date(),
+      fecha: initialData?.fecha || new Date(),
       horaInicio: horaInicioDefault,
       horaFin: horaFinDefault,
       color: "bg-blue-500",
@@ -140,9 +140,9 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
     odontologoNombre: "",
     tipo: "",
     descripcion: "",
-    fecha: new Date(),
-    horaInicio: "09:00",
-    horaFin: "09:30",
+    fecha: initialData?.fecha || new Date(),
+    horaInicio: initialData?.horaInicio || "09:00",
+    horaFin: initialData?.horaFin || "09:30",
     color: "bg-blue-500",
   });
 
@@ -229,11 +229,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
         setDoctores(data);
       } catch (error) {
         console.error("Error cargando odontologos", error);
-        setDoctores([
-          { id: 1, nombres: "Guadalupe", apellidos: "Guerrero" },
-          { id: 2, nombres: "Pamela", apellidos: "Gil" },
-          { id: 3, nombres: "Juan", apellidos: "Domingo" },
-        ]);
+        setDoctores([]);
       } finally {
         setLoadingDoctores(false);
       }
@@ -345,6 +341,9 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
             <CalendarIcon className="w-5 h-5" />
             Nueva Cita
           </DialogTitle>
+          <DialogDescription>
+            Complete los datos para crear una nueva cita médica
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

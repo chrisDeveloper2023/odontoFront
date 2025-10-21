@@ -1,6 +1,6 @@
 // src/components/CalendarSettingsModal.tsx
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { X, Check } from "lucide-react";
@@ -107,12 +107,17 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-slate-800 border-slate-700">
+      <DialogContent className="max-w-2xl w-full bg-slate-800 border-slate-700">
         {/* Header con botn de cerrar */}
         <div className="flex items-center justify-between">
-          <DialogTitle className="text-2xl font-bold text-white">
-            Configuracin
-          </DialogTitle>
+          <div>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Configuración
+            </DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Personalice los colores de los doctores en el calendario
+            </DialogDescription>
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -144,36 +149,34 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
               </div>
             ) : (
               odontologosEditados.map((odontologo) => (
-                <div key={odontologo.id} className="flex items-center justify-between">
-                  <span className="text-white font-medium">{odontologo.nombre}</span>
+                <div key={odontologo.id} className="flex items-center justify-between py-2">
+                  <span className="text-white font-medium flex-1 pr-4">{odontologo.nombre}</span>
                   
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-3">
                     {/* Muestra el color actual */}
-                    <div className="flex items-center space-x-2">
-                      <div 
-                        className={cn(
-                          "w-8 h-6 rounded border-2 border-white",
-                          obtenerColorActual(odontologo.id)
-                        )}
-                      ></div>
-                      
-                      {/* Selector de colores */}
-                      <div className="flex space-x-1">
-                        {coloresDisponibles.map((color) => (
-                          <button
-                            key={color.valor}
-                            onClick={() => handleColorChange(odontologo.id, color.valor)}
-                            className={cn(
-                              "w-6 h-6 rounded border-2 transition-all hover:scale-110",
-                              color.valor,
-                              obtenerColorActual(odontologo.id) === color.valor 
-                                ? "border-white ring-2 ring-white ring-offset-2 ring-offset-slate-800" 
-                                : "border-gray-400 hover:border-white"
-                            )}
-                            title={color.nombre}
-                          />
-                        ))}
-                      </div>
+                    <div 
+                      className={cn(
+                        "w-8 h-6 rounded border-2 border-white",
+                        obtenerColorActual(odontologo.id)
+                      )}
+                    ></div>
+                    
+                    {/* Selector de colores */}
+                    <div className="flex flex-wrap gap-1">
+                      {coloresDisponibles.map((color) => (
+                        <button
+                          key={color.valor}
+                          onClick={() => handleColorChange(odontologo.id, color.valor)}
+                          className={cn(
+                            "w-6 h-6 rounded border-2 transition-all hover:scale-110",
+                            color.valor,
+                            obtenerColorActual(odontologo.id) === color.valor 
+                              ? "border-white ring-2 ring-white ring-offset-2 ring-offset-slate-800" 
+                              : "border-gray-400 hover:border-white"
+                          )}
+                          title={color.nombre}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>
