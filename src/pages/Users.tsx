@@ -151,6 +151,7 @@ const UsersPage = () => {
       id_clinica: form.id_clinica ?? null,
       tenant_id: form.id_clinica ? undefined : form.tenant_id ?? null,
       rol_id: form.rol_id ?? undefined,
+      password: undefined, // Password is handled by the backend for new users
     };
 
     try {
