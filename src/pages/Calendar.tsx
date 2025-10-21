@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -189,6 +190,21 @@ const Calendar: React.FC = () => {
     horaInicio?: string;
     horaFin?: string;
   } | null>(null);
+  // Estado para filtro de odontólogo
+  const [odontologoFiltro, setOdontologoFiltro] = useState<string | null>(null);
+
+  // Función para filtrar citas por odontólogo
+  const citasFiltradas = useMemo(() => {
+    if (!odontologoFiltro) {
+      return citas;
+    }
+    // Buscar el odontólogo por ID y usar su nombre para filtrar
+    const odontologoSeleccionado = odontologos.find(od => od.id.toString() === odontologoFiltro);
+    if (!odontologoSeleccionado) {
+      return citas;
+    }
+    return citas.filter(cita => cita.odontologo === odontologoSeleccionado.nombre);
+  }, [citas, odontologoFiltro, odontologos]);
 
   // Función para calcular la hora de fin (hora inicio + 30 minutos)
   const calcularHoraFin = (horaInicio: string): string => {
@@ -346,12 +362,12 @@ const Calendar: React.FC = () => {
   const citasDia = useMemo(() => {
     const ini = startOfDayGye(fechaSeleccionada);
     const fin = addDaysGye(fechaSeleccionada, 1);
-    return citas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
-  }, [citas, fechaSeleccionada]);
+    return citasFiltradas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
+  }, [citasFiltradas, fechaSeleccionada]);
 
   const citasSemana = useMemo(() => {
-    return citas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, inicioSemana, finSemana));
-  }, [citas, inicioSemana, finSemana]);
+    return citasFiltradas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, inicioSemana, finSemana));
+  }, [citasFiltradas, inicioSemana, finSemana]);
 
   const obtenerDiasMes = () => {
     const ao = fechaActual.getFullYear();
@@ -627,23 +643,28 @@ const Calendar: React.FC = () => {
 
           {/* Leyenda de Mdicos */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mdicos</h3>
-            {loadingDoctores ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Cargando mdicos...
-              </div>
-            ) : odontologos.length === 0 ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                No hay mdicos disponibles
-              </div>
-            ) : (
-              odontologos.map((odontologo) => (
-                <div key={odontologo.id} className="flex items-center space-x-3">
-                  <div className={cn("w-3 h-3 rounded-full", odontologo.color)}></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{odontologo.nombre}</span>
-                </div>
-              ))
-            )}
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Médicos</h3>
+            
+            {/* Combo box para filtrar por odontólogo */}
+            <div className="space-y-2">
+              <Select value={odontologoFiltro || "all"} onValueChange={(value) => setOdontologoFiltro(value === "all" ? null : value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todos los mdicos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los médicos</SelectItem>
+                  {odontologos.map((odontologo) => (
+                    <SelectItem key={odontologo.id} value={odontologo.id.toString()}>
+                      <div className="flex items-center space-x-2">
+                        <div className={cn("w-3 h-3 rounded-full", odontologo.color)}></div>
+                        <span>{odontologo.nombre}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
           </div>
         </div>
 
@@ -952,7 +973,7 @@ const Calendar: React.FC = () => {
                   {/* Grid del Mes */}
                   <div className="grid grid-cols-7">
                     {obtenerDiasMes().map((dia, index) => {
-                      const citasDelDia = obtenerCitasDelDia(dia);
+                      const citasDelDia = obtenerCitasDelDia(dia, citasFiltradas);
                       const esHoyDia = esHoy(dia);
                       const esDelMes = esDelMesActual(dia);
                       
