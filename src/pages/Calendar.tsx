@@ -399,10 +399,24 @@ const Calendar: React.FC = () => {
       const [hStr, mStr] = hm.split(":");
       const horas = Number(hStr) || 0;
       const minutos = Number(mStr) || 0;
-      return horas + minutos / 60;
+      const horaDecimal = horas + minutos / 60;
+      
+      // Si la hora actual es mayor a 22:00, usar la última hora habilitada (22:00)
+      if (horas > 22) {
+        return 22;
+      }
+      
+      return horaDecimal;
     }
     const fallback = new Date();
-    return fallback.getHours() + fallback.getMinutes() / 60;
+    const horaFallback = fallback.getHours() + fallback.getMinutes() / 60;
+    
+    // Si la hora actual es mayor a 22:00, usar la última hora habilitada (22:00)
+    if (fallback.getHours() > 22) {
+      return 22;
+    }
+    
+    return horaFallback;
   };
 
   const obtenerCitasDelDia = (fecha: Date, fuente: Cita[] = citas) => {
@@ -467,6 +481,22 @@ const Calendar: React.FC = () => {
   const formatearHora = (hora: string) => {
     const [h, m] = hora.split(':');
     return `${h}:${m}`;
+  };
+
+  // Función para obtener la hora actual del sistema
+  const obtenerHoraActualSistema = () => {
+    const ahora = new Date();
+    const horas = ahora.getHours().toString().padStart(2, '0');
+    const minutos = ahora.getMinutes().toString().padStart(2, '0');
+    const horaActual = `${horas}:${minutos}`;
+    
+    // Si la hora actual es mayor a 22:00, usar la última hora habilitada (22:00)
+    const horaActualNum = parseInt(horas);
+    if (horaActualNum > 22) {
+      return '22:00';
+    }
+    
+    return horaActual;
   };
 
   const obtenerPosicionCita = (horaInicio: string) => {
@@ -930,10 +960,19 @@ const Calendar: React.FC = () => {
                         <div
                           key={index}
                           className={cn(
-                            "min-h-[120px] p-2 border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0",
+                            "min-h-[120px] p-2 border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
                             !esDelMes && "bg-gray-50 dark:bg-gray-900 text-gray-400",
                             esHoyDia && "bg-blue-50 dark:bg-blue-900/20"
                           )}
+                          onDoubleClick={() => {
+                            const horaActual = obtenerHoraActualSistema();
+                            setInitialAppointmentData({
+                              fecha: dia,
+                              horaInicio: horaActual,
+                              horaFin: calcularHoraFin(horaActual),
+                            });
+                            setIsNewAppointmentOpen(true);
+                          }}
                         >
                           {/* Nmero del da */}
                           <div className={cn(
