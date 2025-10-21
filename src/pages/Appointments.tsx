@@ -65,7 +65,6 @@ const mapAppointment = (raw: any): Appointment => {
   };
 };
 const Appointments = () => {
-  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,6 +146,8 @@ const Appointments = () => {
 
   if (loading) return <p>{INFO_MESSAGES.LOADING}</p>;
   if (error) return <p className="text-red-600 p-4">{error}</p>;
+
+  const location = useLocation();
 
   return (
     <div className="space-y-6">

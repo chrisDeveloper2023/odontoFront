@@ -61,11 +61,6 @@ interface NewAppointmentModalProps {
   odontologos?: Array<{ id: number; nombre: string; color: string }>;
   isSubmitting?: boolean;
   preselectedPatientId?: string;
-  initialData?: {
-    fecha?: Date;
-    horaInicio?: string;
-    horaFin?: string;
-  };
 }
 
 const HORAS_DISPONIBLES = [
@@ -94,7 +89,6 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   odontologos: odontologosConfig = [],
   isSubmitting = false,
   preselectedPatientId = "",
-  initialData,
 }) => {
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<PatientOption[]>([]);
@@ -165,18 +159,6 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       }
     }
   }, [preselectedPatientId, patients]);
-
-  // Actualizar formulario cuando cambien los datos iniciales
-  useEffect(() => {
-    if (initialData && isOpen) {
-      setFormData(prev => ({
-        ...prev,
-        fecha: initialData.fecha || prev.fecha,
-        horaInicio: initialData.horaInicio || prev.horaInicio,
-        horaFin: initialData.horaFin || calcularHoraFin(initialData.horaInicio || prev.horaInicio),
-      }));
-    }
-  }, [initialData, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
