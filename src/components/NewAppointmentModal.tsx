@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -359,6 +359,9 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
             <CalendarIcon className="w-5 h-5" />
             Nueva Cita
           </DialogTitle>
+          <DialogDescription>
+            Complete los datos para crear una nueva cita médica
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

@@ -1,6 +1,6 @@
 // src/components/CalendarSettingsModal.tsx
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { X, Check } from "lucide-react";
@@ -110,9 +110,14 @@ const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
       <DialogContent className="max-w-2xl w-full bg-slate-800 border-slate-700">
         {/* Header con botn de cerrar */}
         <div className="flex items-center justify-between">
-          <DialogTitle className="text-2xl font-bold text-white">
-            Configuracin
-          </DialogTitle>
+          <div>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Configuración
+            </DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Personalice los colores de los doctores en el calendario
+            </DialogDescription>
+          </div>
           <Button
             variant="ghost"
             size="sm"
