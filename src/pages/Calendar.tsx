@@ -472,9 +472,12 @@ const Calendar: React.FC = () => {
   const obtenerPosicionCita = (horaInicio: string) => {
     const [h, m] = horaInicio.split(':');
     const horaDecimal = parseInt(h) + (parseInt(m) / 60);
-    // Las líneas están en (i * 60) + 20, donde i = hora - 10
-    const indiceHora = horaDecimal - 10;
-    return (indiceHora * 60) + 20;
+    // Las franjas están en i * 60, donde i = hora - 8 (inicia desde las 08:00)
+    const indiceHora = horaDecimal - 8;
+    const posicion = indiceHora * 60;
+    
+    // Posicionar la cita dentro de la franja correspondiente con un pequeño offset
+    return posicion + 1; // +1px para alinearse mejor con las franjas
   };
 
   const obtenerAlturaCita = (horaInicio: string, horaFin: string) => {
@@ -1028,25 +1031,38 @@ const Calendar: React.FC = () => {
 
                   {/* Grid del Calendario */}
                   <div className="relative">
-                    {/* Lnea de Tiempo Actual */}
-                    {horaActual >= 10 && horaActual <= 20 && (
-                      <div 
-                        className="absolute left-0 right-0 z-10 border-t-2 border-dashed border-blue-500"
-                        style={{ top: `${((horaActual - 10) * 60) + 20}px` }}
-                      >
-                        <div className="absolute -left-2 -top-2 w-4 h-4 bg-blue-500 rounded-full"></div>
-                      </div>
-                    )}
+                        {/* Lnea de Tiempo Actual */}
+                        {horaActual >= 8 && horaActual <= 22 && (
+                          <div 
+                            className="absolute left-0 right-0 z-10 border-t-2 border-dashed border-blue-500"
+                            style={{ top: `${(horaActual - 8) * 60 + 1}px` }}
+                          >
+                            <div className="absolute -left-2 -top-2 w-4 h-4 bg-blue-500 rounded-full"></div>
+                          </div>
+                        )}
 
                     {/* Slots de Tiempo */}
                     <div className="grid grid-cols-8">
                       {/* Columna de Horas */}
                       <div className="bg-gray-50 dark:bg-gray-700">
-                        {Array.from({ length: 11 }, (_, i) => {
-                          const hora = 10 + i;
+                        {Array.from({ length: 15 }, (_, i) => {
+                          const hora = 8 + i; // Inicia desde las 08:00 AM
                           return (
-                            <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600 p-2">
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div 
+                              key={i} 
+                              className="h-15 border-b border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" 
+                              style={{ height: '60px' }}
+                              onDoubleClick={() => {
+                                const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
+                                setInitialAppointmentData({
+                                  fecha: fechaActual,
+                                  horaInicio: horaFormateada,
+                                  horaFin: calcularHoraFin(horaFormateada),
+                                });
+                                setIsNewAppointmentOpen(true);
+                              }}
+                            >
+                              <div className="text-xs text-gray-500 dark:text-gray-400 p-2">
                                 {hora}:00 {hora < 12 ? 'am' : 'pm'}
                               </div>
                             </div>
@@ -1057,61 +1073,98 @@ const Calendar: React.FC = () => {
                       {/* Columnas de Das */}
                       {diasSemana.map((dia, diaIndex) => (
                         <div key={diaIndex} className="relative border-l border-gray-200 dark:border-gray-700">
-                          {Array.from({ length: 11 }, (_, i) => (
-                            <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600"></div>
-                          ))}
+                          {Array.from({ length: 15 }, (_, i) => {
+                            const hora = 8 + i; // Inicia desde las 08:00 AM
+                            return (
+                              <div 
+                                key={i} 
+                                className="h-15 border-b border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" 
+                                style={{ height: '60px' }}
+                                onDoubleClick={() => {
+                                  const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
+                                  setInitialAppointmentData({
+                                    fecha: dia,
+                                    horaInicio: horaFormateada,
+                                    horaFin: calcularHoraFin(horaFormateada),
+                                  });
+                                  setIsNewAppointmentOpen(true);
+                                }}
+                              ></div>
+                            );
+                          })}
 
-                          {/* Citas del Da */}
+                          {/* Citas del Da - Formato de Mes */}
                           {(() => {
                             const ini = startOfDayGye(dia);
                             const fin = addDaysGye(dia, 1);
                             const delDia = citasSemana.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
 
                             return delDia.map((cita) => {
-                              const posicion = obtenerPosicionCita(cita.horaInicio);
-                              const altura = obtenerAlturaCita(cita.horaInicio, cita.horaFin);
+                              // Validar que la cita esté en el rango de horas válido (08:00 - 22:00)
+                              const [h] = cita.horaInicio.split(':');
+                              const hora = parseInt(h);
+                              if (hora < 8 || hora > 22) {
+                                return null; // No renderizar citas fuera del rango
+                              }
+
+                              // Calcular posición simple: (hora - 8) * 60
+                              const posicionTop = (hora - 8) * 60;
 
                               return (
                                 <Tooltip key={cita.id}>
                                   <TooltipTrigger asChild>
                                     <div
                                       className={cn(
-                                        "absolute left-1 right-1 rounded-md p-2 text-white text-xs hover:opacity-80 transition-opacity group relative cursor-pointer",
-                                        cita.color
+                                        "absolute left-1 right-1 text-xs p-2 rounded hover:opacity-80 transition-opacity group cursor-pointer",
+                                        cita.color,
+                                        "text-white"
                                       )}
                                       style={{
-                                        top: `${posicion}px`,
-                                        height: `${altura}px`,
+                                        top: `${posicionTop}px`,
+                                        height: '60px', // Altura fija de una franja
                                       }}
                                     >
-                                      {/* Iconos en la parte superior derecha */}
-                                      <div className="flex items-center space-x-1 absolute top-1 right-1">
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="opacity-70 hover:opacity-100 transition-opacity h-4 w-4 p-0 bg-white/40 hover:bg-white/50 border-white/50"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleEditAppointment(cita);
-                                          }}
-                                        >
-                                          <Edit className="h-2 w-2 text-white" />
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          className="opacity-70 hover:opacity-100 transition-opacity h-4 w-4 p-0"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteAppointment(cita);
-                                          }}
-                                        >
-                                          <Trash2 className="h-2 w-2" />
-                                        </Button>
+                                      <div className="flex flex-col justify-between h-full">
+                                        {/* Fila superior: Hora e iconos */}
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center space-x-1">
+                                            <span className="text-xs">{cita.icono}</span>
+                                            <span className="font-medium text-xs">{formatearHora(cita.horaInicio)}</span>
+                                          </div>
+                                          <div className="flex items-center space-x-1">
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="opacity-70 hover:opacity-100 transition-opacity h-5 w-5 p-0 bg-white/40 hover:bg-white/50 border-white/50"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEditAppointment(cita);
+                                              }}
+                                            >
+                                              <Edit className="h-3 w-3 text-white" />
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="destructive"
+                                              className="opacity-70 hover:opacity-100 transition-opacity h-5 w-5 p-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteAppointment(cita);
+                                              }}
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Fila inferior: Información del paciente */}
+                                        <div className="flex flex-col">
+                                          <div className="truncate font-medium text-xs">{cita.paciente}</div>
+                                          {cita.descripcion && (
+                                            <div className="truncate opacity-90 text-xs">{cita.descripcion}</div>
+                                          )}
+                                        </div>
                                       </div>
-                                      
-                                      {/* Nombre del paciente abajo */}
-                                      <div className="truncate font-medium absolute bottom-1 left-1">{cita.paciente}</div>
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="max-w-xs">
@@ -1119,7 +1172,7 @@ const Calendar: React.FC = () => {
                                   </TooltipContent>
                                 </Tooltip>
                               );
-                            });
+                            }).filter(Boolean);
                           })()}
                         </div>
                       ))}
