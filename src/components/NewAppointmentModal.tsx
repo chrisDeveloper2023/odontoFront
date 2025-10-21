@@ -61,6 +61,11 @@ interface NewAppointmentModalProps {
   odontologos?: Array<{ id: number; nombre: string; color: string }>;
   isSubmitting?: boolean;
   preselectedPatientId?: string;
+  initialData?: {
+    fecha?: Date;
+    horaInicio?: string;
+    horaFin?: string;
+  };
 }
 
 const HORAS_DISPONIBLES = [
@@ -89,6 +94,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   odontologos: odontologosConfig = [],
   isSubmitting = false,
   preselectedPatientId = "",
+  initialData,
 }) => {
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<PatientOption[]>([]);
@@ -112,8 +118,8 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   };
 
   const resetFormState = () => {
-    const horaInicioDefault = "09:00";
-    const horaFinDefault = calcularHoraFin(horaInicioDefault);
+    const horaInicioDefault = initialData?.horaInicio || "09:00";
+    const horaFinDefault = initialData?.horaFin || calcularHoraFin(horaInicioDefault);
     
     setFormData({
       pacienteId: preselectedPatientId || "",
@@ -124,7 +130,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       odontologoNombre: "",
       tipo: "",
       descripcion: "",
-      fecha: new Date(),
+      fecha: initialData?.fecha || new Date(),
       horaInicio: horaInicioDefault,
       horaFin: horaFinDefault,
       color: "bg-blue-500",
@@ -140,9 +146,9 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
     odontologoNombre: "",
     tipo: "",
     descripcion: "",
-    fecha: new Date(),
-    horaInicio: "09:00",
-    horaFin: "09:30",
+    fecha: initialData?.fecha || new Date(),
+    horaInicio: initialData?.horaInicio || "09:00",
+    horaFin: initialData?.horaFin || "09:30",
     color: "bg-blue-500",
   });
 
@@ -159,6 +165,18 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       }
     }
   }, [preselectedPatientId, patients]);
+
+  // Actualizar formulario cuando cambien los datos iniciales
+  useEffect(() => {
+    if (initialData && isOpen) {
+      setFormData(prev => ({
+        ...prev,
+        fecha: initialData.fecha || prev.fecha,
+        horaInicio: initialData.horaInicio || prev.horaInicio,
+        horaFin: initialData.horaFin || calcularHoraFin(initialData.horaInicio || prev.horaInicio),
+      }));
+    }
+  }, [initialData, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {

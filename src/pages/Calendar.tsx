@@ -184,6 +184,26 @@ const Calendar: React.FC = () => {
   const [odontologosListo, setOdontologosListo] = useState(false);
   const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [initialAppointmentData, setInitialAppointmentData] = useState<{
+    fecha?: Date;
+    horaInicio?: string;
+    horaFin?: string;
+  } | null>(null);
+
+  // Función para calcular la hora de fin (hora inicio + 30 minutos)
+  const calcularHoraFin = (horaInicio: string): string => {
+    const [horas, minutos] = horaInicio.split(':').map(Number);
+    const totalMinutos = horas * 60 + minutos + 30; // Sumar 30 minutos
+    
+    const nuevasHoras = Math.floor(totalMinutos / 60);
+    const nuevosMinutos = totalMinutos % 60;
+    
+    // Formatear con ceros a la izquierda
+    const horasFormateadas = nuevasHoras.toString().padStart(2, '0');
+    const minutosFormateados = nuevosMinutos.toString().padStart(2, '0');
+    
+    return `${horasFormateadas}:${minutosFormateados}`;
+  };
 
   // Cargar médicos al montar el componente
   useEffect(() => {
@@ -734,7 +754,20 @@ const Calendar: React.FC = () => {
                         const hora = 10 + i;
                         const esHoraActual = esHoy(fechaSeleccionada) && hora === Math.floor(obtenerHoraActual());
                         return (
-                          <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600 p-2 relative" style={{ height: '60px' }}>
+                          <div 
+                            key={i} 
+                            className="h-15 border-b border-gray-200 dark:border-gray-600 p-2 relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors" 
+                            style={{ height: '60px' }}
+                            onDoubleClick={() => {
+                              const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
+                              setInitialAppointmentData({
+                                fecha: fechaSeleccionada,
+                                horaInicio: horaFormateada,
+                                horaFin: calcularHoraFin(horaFormateada),
+                              });
+                              setIsNewAppointmentOpen(true);
+                            }}
+                          >
                             <div className={cn(
                               "text-xs text-gray-500 dark:text-gray-400",
                               esHoraActual && "text-blue-600 font-semibold"
@@ -749,13 +782,25 @@ const Calendar: React.FC = () => {
                     {/* rea de Eventos */}
                     <div className="flex-1 relative bg-blue-50 dark:bg-blue-900/20">
                       {/* Lneas de Tiempo */}
-                      {Array.from({ length: 14 }, (_, i) => (
-                        <div 
-                          key={i} 
-                          className="absolute left-0 right-0 border-t border-gray-200 dark:border-gray-600"
-                          style={{ top: `${i * 60}px` }}
-                        />
-                      ))}
+                      {Array.from({ length: 14 }, (_, i) => {
+                        const hora = 10 + i;
+                        return (
+                          <div 
+                            key={i} 
+                            className="absolute left-0 right-0 border-t border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-colors"
+                            style={{ top: `${i * 60}px`, height: '60px' }}
+                            onDoubleClick={() => {
+                              const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
+                              setInitialAppointmentData({
+                                fecha: fechaSeleccionada,
+                                horaInicio: horaFormateada,
+                                horaFin: calcularHoraFin(horaFormateada),
+                              });
+                              setIsNewAppointmentOpen(true);
+                            }}
+                          />
+                        );
+                      })}
 
                       {/* Lnea de Tiempo Actual */}
                       {esHoy(fechaSeleccionada) && (
@@ -1090,10 +1135,14 @@ const Calendar: React.FC = () => {
       {/* Modal de Nueva Cita */}
       <NewAppointmentModal
         isOpen={isNewAppointmentOpen}
-        onClose={() => setIsNewAppointmentOpen(false)}
+        onClose={() => {
+          setIsNewAppointmentOpen(false);
+          setInitialAppointmentData(null);
+        }}
         onSave={handleNewAppointment}
         odontologos={odontologos}
         isSubmitting={creatingAppointment}
+        initialData={initialAppointmentData}
       />
 
       {/* Modal de Configuracin */}
