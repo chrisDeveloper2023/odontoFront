@@ -83,8 +83,8 @@ const Dashboard = () => {
     },
     {
       title: "Historias clinicas",
-      value: "342",
-      change: "+18 esta semana",
+      value: "0",
+      change: "Sin datos",
       icon: FileText,
       color: "text-green-600",
     },
@@ -97,19 +97,14 @@ const Dashboard = () => {
     },
     {
       title: "Citas programadas",
-      value: "24",
-      change: "Para hoy",
+      value: "0",
+      change: "Sin datos",
       icon: Activity,
       color: "text-purple-600",
     },
   ];
 
-  const recentActivities = [
-    { patient: "Maria Gonzalez", action: "Nueva historia clinica creada", time: "Hace 2 horas" },
-    { patient: "Carlos Rodriguez", action: "Cita medica completada", time: "Hace 3 horas" },
-    { patient: "Ana Martinez", action: "Examenes medicos actualizados", time: "Hace 5 horas" },
-    { patient: "Juan Perez", action: "Nuevo paciente registrado", time: "Hace 1 dia" },
-  ];
+  const recentActivities: Array<{ patient: string; action: string; time: string }> = [];
 
   return (
     <div className="space-y-8">

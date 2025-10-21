@@ -14,7 +14,6 @@ import {
 import {
   CalendarPlus,
   Settings,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Bell,
@@ -241,17 +240,8 @@ const Calendar: React.FC = () => {
         setOdontologosListo(true);
       } catch (error) {
         console.error("Error cargando medicos:", error);
-        const doctoresFallback = [
-          { id: 1, nombres: "Guadalupe", apellidos: "Guerrero" },
-          { id: 2, nombres: "Pamela", apellidos: "Gil" },
-          { id: 3, nombres: "Juan", apellidos: "Domingo" },
-        ];
-        setDoctores(doctoresFallback);
-        setOdontologos([
-          { id: 1, nombre: "Guadalupe Guerrero", color: "bg-pink-500" },
-          { id: 2, nombre: "Pamela Gil", color: "bg-yellow-500" },
-          { id: 3, nombre: "Juan Domingo", color: "bg-red-500" },
-        ]);
+        setDoctores([]);
+        setOdontologos([]);
         setOdontologosListo(true);
         toast.error("No se pudieron cargar los medicos");
       } finally {
@@ -634,10 +624,6 @@ const Calendar: React.FC = () => {
             >
               <Settings className="w-4 h-4 mr-2" />
               Configuracin
-            </Button>
-            <Button variant="outline" className="w-full">
-              <Eye className="w-4 h-4 mr-2" />
-              Ver todos
             </Button>
           </div>
 

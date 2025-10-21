@@ -247,11 +247,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
         setDoctores(data);
       } catch (error) {
         console.error("Error cargando odontologos", error);
-        setDoctores([
-          { id: 1, nombres: "Guadalupe", apellidos: "Guerrero" },
-          { id: 2, nombres: "Pamela", apellidos: "Gil" },
-          { id: 3, nombres: "Juan", apellidos: "Domingo" },
-        ]);
+        setDoctores([]);
       } finally {
         setLoadingDoctores(false);
       }
