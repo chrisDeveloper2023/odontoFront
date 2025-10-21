@@ -120,6 +120,13 @@ const NewAppointmentForm = () => {
     })();
   }, []);
 
+  // Seleccionar automáticamente clínica si sólo hay una
+  useEffect(() => {
+    if (clinicas.length === 1 && !formData.id_clinica) {
+      setFormData((prev) => ({ ...prev, id_clinica: String(clinicas[0].id) }));
+    }
+  }, [clinicas, formData.id_clinica]);
+
 
   // Helper: sacar "HH:mm" de un ISO (evita corrimientos por zona horaria)
   const isoToHHmm = (iso: string) => {

@@ -7,6 +7,13 @@ import { Search, CalendarPlus, Eye } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { apiGet } from "@/api/client";
 import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
+import { Clinica } from "@/types/clinica";
+import { Tenant } from "@/types/tenant";
+import { mapClinica } from "@/lib/api/mappers";
+import { APPOINTMENT_STATUS } from "@/constants/status";
+import { API_ENDPOINTS } from "@/constants/api";
+import { FORM_LIMITS } from "@/constants/validation";
+import { PLACEHOLDERS, INFO_MESSAGES } from "@/constants/messages";
 
 interface Appointment {
   id_cita: number;
@@ -15,6 +22,8 @@ interface Appointment {
   consultorio: { nombre: string };
   estado: string;
   fecha_hora: string;
+  clinica?: Clinica | null;
+  tenant?: Tenant | null;
 }
 
 const mapAppointment = (raw: any): Appointment => {
@@ -32,36 +41,9 @@ const mapAppointment = (raw: any): Appointment => {
       }
     : null;
 
-  const clinica: ClinicInfo | null = clinicFromRelation
-    ? clinicFromRelation
-    : raw?.id_clinica
-    ? {
-        id: Number(raw.id_clinica) || undefined,
-        nombre: raw.nombre_clinica ?? raw.clinica_nombre ?? "",
-        tenant: raw.tenant
-          ? {
-              id: Number(raw.tenant.id ?? raw.tenant.id_tenant ?? raw.tenant_id ?? 0) || undefined,
-              nombre: raw.tenant.nombre ?? raw.tenant.nombre_legal ?? "",
-              slug: raw.tenant.slug ?? raw.tenant_slug ?? "",
-            }
-          : null,
-      }
-    : null;
+  const clinica: Clinica | null = mapClinica(raw.clinica);
 
   const tenantSource = raw?.tenant ?? clinica?.tenant ?? null;
-  const tenant: TenantInfo | null = tenantSource
-    ? {
-        id: Number(tenantSource.id ?? tenantSource.id_tenant ?? raw?.tenant_id ?? 0) || undefined,
-        nombre: tenantSource.nombre ?? tenantSource.nombre_legal ?? "",
-        slug: tenantSource.slug ?? tenantSource.tenant_slug ?? "",
-      }
-    : raw?.tenant_id
-    ? {
-        id: Number(raw.tenant_id) || undefined,
-        nombre: raw.tenant_nombre ?? "",
-        slug: raw.tenant_slug ?? "",
-      }
-    : null;
 
   return {
     id_cita: Number(raw.id_cita ?? raw.id ?? 0),
@@ -78,8 +60,8 @@ const mapAppointment = (raw: any): Appointment => {
     },
     estado: String(raw.estado ?? "").toUpperCase(),
     fecha_hora: raw.fecha_hora ?? raw.fecha ?? raw.fechaHora ?? "",
-    clinica,
-    tenant,
+    clinica: undefined as unknown as Clinica | undefined,
+    tenant: undefined as unknown as Tenant | undefined,
   };
 };
 const Appointments = () => {
@@ -88,7 +70,7 @@ const Appointments = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const limit = 10; // por defecto backend maneja 10
+  const limit = FORM_LIMITS.PAGE_SIZE; // Usar constante de límite de página
   const [totalPages, setTotalPages] = useState(1);
   const [totalBackend, setTotalBackend] = useState(0);
   const [estadoFiltro, setEstadoFiltro] = useState<string>("");
@@ -115,7 +97,7 @@ const Appointments = () => {
         if (idPacienteParam) params.set("id_paciente", idPacienteParam);
         if (estadoFiltro) params.set("estado", estadoFiltro);
         const queryString = params.toString();
-        const json = await apiGet<any>(`/citas${queryString ? `?${queryString}` : ""}`);
+        const json = await apiGet<any>(`${API_ENDPOINTS.CITAS}${queryString ? `?${queryString}` : ""}`);
 
         // Totales
         setTotalBackend(Number(json?.total) || 0);
@@ -162,7 +144,7 @@ const Appointments = () => {
     return matchesText && matchesEstado;
   });
 
-  if (loading) return <p>Cargando citas...</p>;
+  if (loading) return <p>{INFO_MESSAGES.LOADING}</p>;
   if (error) return <p className="text-red-600 p-4">{error}</p>;
 
   const location = useLocation();
@@ -190,7 +172,7 @@ const Appointments = () => {
             <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por paciente o mAdico..."
+                placeholder={PLACEHOLDERS.SEARCH}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -203,10 +185,12 @@ const Appointments = () => {
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="">Todos los estados</option>
-                <option value="AGENDADA">Agendada</option>
-                <option value="CONFIRMADA">Confirmada</option>
-                <option value="CANCELADA">Cancelada</option>
-                <option value="COMPLETADA">Completada</option>
+                <option value={APPOINTMENT_STATUS.AGENDADA}>Agendada</option>
+                <option value={APPOINTMENT_STATUS.CONFIRMADA}>Confirmada</option>
+                <option value={APPOINTMENT_STATUS.CANCELADA}>Cancelada</option>
+                <option value={APPOINTMENT_STATUS.COMPLETADA}>Completada</option>
+                <option value={APPOINTMENT_STATUS.EN_PROGRESO}>En Progreso</option>
+                <option value={APPOINTMENT_STATUS.NO_ASISTIO}>No Asistió</option>
               </select>
               <Button variant="outline" onClick={() => { setSearchTerm(""); setEstadoFiltro(""); }}>Limpiar</Button>
             </div>
@@ -231,9 +215,9 @@ const Appointments = () => {
                       </h3>
                       <Badge
                         variant={
-                          appointment.estado === "CONFIRMADA"
+                          appointment.estado === APPOINTMENT_STATUS.CONFIRMADA
                             ? "default"
-                            : appointment.estado === "AGENDADA"
+                            : appointment.estado === APPOINTMENT_STATUS.AGENDADA
                               ? "secondary"
                               : "destructive"
                         }
@@ -282,7 +266,7 @@ const Appointments = () => {
       {filteredAppointments.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">No se encontraron citas que coincidan con la bAosqueda.</p>
+            <p className="text-muted-foreground">{INFO_MESSAGES.NO_RESULTS}</p>
           </CardContent>
         </Card>
       )}

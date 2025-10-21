@@ -8,6 +8,7 @@ import {
 import { getOdontologos as fetchCatalogOdontologos } from "@/lib/api/catalog";
 import type { CreateUsuarioResult } from "@/lib/api/usuarios";
 import type { Usuario, UsuarioPayload } from "@/types/usuario";
+import { ROLE_NAMES } from "@/constants/roles";
 
 export type Doctor = Pick<
   Usuario,

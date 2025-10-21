@@ -19,6 +19,7 @@ export interface Usuario {
 }
 
 export interface UsuarioPayload {
+  password: any;
   nombres: string;
   apellidos: string;
   correo: string;

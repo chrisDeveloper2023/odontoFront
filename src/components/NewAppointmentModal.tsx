@@ -60,6 +60,7 @@ interface NewAppointmentModalProps {
   onSave: (payload: NewAppointmentPayload) => Promise<void> | void;
   odontologos?: Array<{ id: number; nombre: string; color: string }>;
   isSubmitting?: boolean;
+  preselectedPatientId?: string;
 }
 
 const HORAS_DISPONIBLES = [
@@ -87,6 +88,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   onSave,
   odontologos: odontologosConfig = [],
   isSubmitting = false,
+  preselectedPatientId = "",
 }) => {
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<PatientOption[]>([]);
@@ -114,7 +116,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
     const horaFinDefault = calcularHoraFin(horaInicioDefault);
     
     setFormData({
-      pacienteId: "",
+      pacienteId: preselectedPatientId || "",
       pacienteNombre: "",
       idClinica: "",
       idConsultorio: "",
@@ -130,7 +132,7 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   };
 
   const [formData, setFormData] = useState({
-    pacienteId: "",
+    pacienteId: preselectedPatientId || "",
     pacienteNombre: "",
     idClinica: "",
     idConsultorio: "",
@@ -143,6 +145,20 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
     horaFin: "09:30",
     color: "bg-blue-500",
   });
+
+  useEffect(() => {
+    if (preselectedPatientId && patients.length > 0) {
+      const paciente = patients.find((p) => p.id.toString() === preselectedPatientId);
+      if (paciente) {
+        setFormData(prev => ({
+          ...prev,
+          pacienteId: preselectedPatientId,
+          pacienteNombre: paciente.nombre,
+          idClinica: paciente.idClinica ? paciente.idClinica.toString() : "",
+        }));
+      }
+    }
+  }, [preselectedPatientId, patients]);
 
   useEffect(() => {
     if (!isOpen) {
