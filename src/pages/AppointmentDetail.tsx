@@ -1,7 +1,7 @@
 
 // src/pages/AppointmentDetail.tsx
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, type Location } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -59,6 +59,7 @@ export default function AppointmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const backgroundLocation = (location.state as { background?: Location } | undefined)?.background;
   const [cita, setCita] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +137,12 @@ export default function AppointmentDetail() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/appointments/${cita.id_cita}/edit`)}
+            onClick={() => {
+              const nextBackground = backgroundLocation ?? location;
+              navigate(`/appointments/${cita.id_cita}/edit`, {
+                state: { background: nextBackground },
+              });
+            }}
             className="flex items-center gap-1"
           >
             <Edit2 className="h-4 w-4" /> Editar

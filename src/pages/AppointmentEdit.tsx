@@ -1,6 +1,6 @@
 // src/pages/AppointmentEdit.tsx
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, type Location } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -24,6 +24,7 @@ import { getClinicas } from "@/lib/api/clinicas";
 import { combineDateAndTimeGuayaquil, formatGuayaquilDateISO, formatGuayaquilTimeHM, parseDateInGuayaquil } from "@/lib/timezone";
 import { getDisponibilidad } from "@/servicios/citas";
 import { getOdontologos } from "@/servicios/usuarios";
+import { toast } from "sonner";
 
 type Paciente = {
   id_paciente: number;
@@ -87,6 +88,8 @@ function buildISOWithOffset(fecha: string, hora: string): string {
 export default function AppointmentEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backgroundLocation = (location.state as { background?: Location } | undefined)?.background;
 
   const [formData, setFormData] = useState<FormState>(initialForm);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
@@ -265,10 +268,15 @@ export default function AppointmentEdit() {
         estado: formData.estado || "AGENDADA",
       };
       await apiPut(`/citas/${id}`, payload);
-      navigate(`/appointments/${id}`);
+      toast.success("Cita actualizada correctamente");
+      navigate(`/appointments/${id}`, {
+        replace: true,
+        state: backgroundLocation ? { background: backgroundLocation } : undefined,
+      });
     } catch (err) {
       console.error(err);
-      alert((err as Error).message);
+      const message = err instanceof Error ? err.message : "No se pudo actualizar la cita";
+      toast.error(message);
     }
   };
 
