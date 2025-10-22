@@ -82,9 +82,16 @@ export function formatGuayaquilDate(
 }
 
 /** Parsea ISO o "YYYY-MM-DD" asumiendo Guayaquil; retorna Date válido o null */
-export function parseDateInGuayaquil(value: string | Date | null | undefined): Date | null {
+export function parseDateInGuayaquil(value: string | number | Date | null | undefined): Date | null {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
   if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? null : d;
@@ -98,9 +105,19 @@ export function parseDateInGuayaquil(value: string | Date | null | undefined): D
 }
 
 /** Combina Date (día) + "HH:mm" → ISO con offset -05:00 */
-export function combineDateAndTimeGuayaquil(fecha: Date, horaHM: string): string | null {
+export function combineDateAndTimeGuayaquil(
+  fecha: Date | string | number,
+  horaHM: string
+): string | null {
   if (!fecha || !horaHM) return null;
-  const dayISO = formatGuayaquilDateISO(fecha);
+  const baseDate =
+    fecha instanceof Date
+      ? Number.isNaN(fecha.getTime())
+        ? null
+        : fecha
+      : parseDateInGuayaquil(fecha);
+  if (!baseDate) return null;
+  const dayISO = formatGuayaquilDateISO(baseDate);
   const match = /^(\d{2}):(\d{2})$/.exec(horaHM);
   if (!dayISO || !match) return null;
   const hh = pad(Number(match[1]) || 0);

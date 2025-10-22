@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, type Location } from "react-router-dom";
 import { ArrowLeft, User } from "lucide-react";
+import { toast } from "sonner";
 
 // Servicio para disponibilidad
 import { getDisponibilidad } from "@/servicios/citas";
@@ -46,6 +47,8 @@ function buildISOWithOffset(fecha: string, hora: string): string {
 
 const NewAppointmentForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const backgroundLocation = (location.state as { background?: Location } | undefined)?.background;
 
   const [formData, setFormData] = useState({
     id_paciente: "",
@@ -130,9 +133,15 @@ const NewAppointmentForm = () => {
 
   // Helper: sacar "HH:mm" de un ISO (evita corrimientos por zona horaria)
   const isoToHHmm = (iso: string) => {
+    if (!iso) return "";
+    if (iso.length >= 16 && iso[10] === "T") {
+      const hhmm = iso.slice(11, 16);
+      if (/^\d{2}:\d{2}$/.test(hhmm)) {
+        return hhmm;
+      }
+    }
     const formatted = formatGuayaquilTimeHM(iso);
-    if (formatted) return formatted;
-    return iso.slice(11, 16);
+    return formatted || "";
   };
 
   // Cargar disponibilidad cuando hay consultorio + fecha + duracion
@@ -183,10 +192,16 @@ const NewAppointmentForm = () => {
       };
 
       await apiPost("/citas", payload);
-      navigate("/appointments");
+      toast.success("Cita agendada correctamente");
+      if (backgroundLocation) {
+        navigate(-1);
+      } else {
+        navigate("/appointments", { replace: true });
+      }
     } catch (err) {
       console.error("Error creando cita:", err);
-      alert((err as Error).message);
+      const message = err instanceof Error ? err.message : "No se pudo agendar la cita";
+      toast.error(message);
     }
   };
 
