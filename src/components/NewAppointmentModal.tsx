@@ -78,6 +78,8 @@ const DEFAULT_COLORS = [
   "bg-purple-500",
 ];
 
+const DEFAULT_HORA_INICIO = "09:00";
+
 const buildNombreCompleto = (nombres?: string | null, apellidos?: string | null) => {
   return [nombres, apellidos].filter(Boolean).join(" ").trim();
 };
@@ -112,11 +114,13 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   };
 
   const resetFormState = () => {
-    const horaInicioDefault = initialData?.horaInicio || "09:00";
-    const horaFinDefault = initialData?.horaFin || calcularHoraFin(horaInicioDefault);
-    
-    setFormData({
-      pacienteId: preselectedPatientId || "",
+    setFormData(createInitialFormData(preselectedPatientId));
+  };
+
+  const createInitialFormData = (patientId: string | undefined) => {
+    const horaInicioDefault = DEFAULT_HORA_INICIO;
+    return {
+      pacienteId: patientId || "",
       pacienteNombre: "",
       idClinica: "",
       idConsultorio: "",
@@ -124,27 +128,14 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
       odontologoNombre: "",
       tipo: "",
       descripcion: "",
-      fecha: initialData?.fecha || new Date(),
+      fecha: new Date(),
       horaInicio: horaInicioDefault,
-      horaFin: horaFinDefault,
+      horaFin: calcularHoraFin(horaInicioDefault),
       color: "bg-blue-500",
-    });
+    };
   };
 
-  const [formData, setFormData] = useState({
-    pacienteId: preselectedPatientId || "",
-    pacienteNombre: "",
-    idClinica: "",
-    idConsultorio: "",
-    idOdontologo: "",
-    odontologoNombre: "",
-    tipo: "",
-    descripcion: "",
-    fecha: initialData?.fecha || new Date(),
-    horaInicio: initialData?.horaInicio || "09:00",
-    horaFin: initialData?.horaFin || "09:30",
-    color: "bg-blue-500",
-  });
+  const [formData, setFormData] = useState(() => createInitialFormData(preselectedPatientId));
 
   useEffect(() => {
     if (preselectedPatientId && patients.length > 0) {
