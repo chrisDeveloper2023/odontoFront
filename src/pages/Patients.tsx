@@ -147,10 +147,10 @@ const Patients: React.FC = () => {
     setIsModalOpen(true);
   };
   const closePatientModal = () => {
-    setSelectedPatientId(null);
     setIsModalOpen(false);
   };
   const openEditModal = (id: string) => {
+    setSelectedPatientId(id);
     setEditingPatientId(id);
     setIsEditModalOpen(true);
   };
@@ -178,6 +178,7 @@ const Patients: React.FC = () => {
   };
 
   const openMedicalRecordModal = (patientId: string) => {
+    setSelectedPatientId(patientId);
     setSelectedPatientForMedicalRecord(patientId);
     setIsNewMedicalRecordModalOpen(true);
   };
@@ -193,6 +194,7 @@ const Patients: React.FC = () => {
   };
 
   const openAppointmentModal = (patientId: string) => {
+    setSelectedPatientId(patientId);
     setSelectedPatientForAppointment(patientId);
     setIsNewAppointmentModalOpen(true);
   };
@@ -409,7 +411,6 @@ const Patients: React.FC = () => {
                               variant="outline" 
                               size="sm" 
                               onClick={() => openEditModal(patient.id)}
-                              disabled={!isSelected}
                             >
                               <Edit />
                             </Button>
@@ -427,7 +428,6 @@ const Patients: React.FC = () => {
                             <Button 
                               size="sm" 
                               onClick={() => openMedicalRecordModal(patient.id)}
-                              disabled={!isSelected}
                             >
                               <FileText />
                             </Button>
@@ -445,7 +445,6 @@ const Patients: React.FC = () => {
                             <Button 
                               size="sm" 
                               onClick={() => openAppointmentModal(patient.id)}
-                              disabled={!isSelected}
                             >
                               <Calendar />
                             </Button>
