@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { apiDelete, apiGet } from "@/api/client";
+import { notify } from "@/lib/notify";
 
 interface RawPaciente {
   id_paciente: number;
@@ -77,18 +78,27 @@ const PatientDetail: React.FC = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!patient) return;
-    if (!window.confirm("Estas seguro de eliminar este paciente?")) return;
 
-    try {
-      await apiDelete(`/pacientes/${patient.id}`);
-      alert("Paciente eliminado correctamente");
-      navigate("/patients");
-    } catch (err) {
-      console.error(err);
-      alert("Error al eliminar paciente");
-    }
+    notify({
+      type: "warning",
+      title: "¿Eliminar paciente?",
+      description: "Esta acción eliminará al paciente y no se puede deshacer.",
+      action: {
+        label: "Confirmar",
+        onClick: async () => {
+          try {
+            await apiDelete(`/pacientes/${patient.id}`);
+            notify({ type: "success", title: "Paciente eliminado correctamente" });
+            navigate("/patients");
+          } catch (err) {
+            console.error(err);
+            notify({ type: "error", title: "Error al eliminar paciente" });
+          }
+        },
+      },
+    });
   };
 
   if (loading) return <div className="p-4">Cargando detalle...</div>;

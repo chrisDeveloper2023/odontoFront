@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Save } from "lucide-react";
 import { apiGet, apiPut } from "@/api/client";
 
@@ -96,7 +96,7 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
       .catch((err: Error) => {
         console.error(err);
         setError(err.message);
-        toast.error("Error al cargar datos: " + err.message);
+        notify({ type: "error", title: "Error al cargar datos", description: err.message });
       })
       .finally(() => setLoading(false));
   }, [patientId, isOpen]);
@@ -110,7 +110,7 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
     
     // Validation
     if (!formData.documentId || !formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.phone) {
-      toast.error("Completa los campos obligatorios");
+      notify({ type: "warning", title: "Completa los campos obligatorios" });
       return;
     }
 
@@ -132,7 +132,7 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
 
       await apiPut(`/pacientes/${patientId}`, payload);
       
-      toast.success("Paciente actualizado exitosamente");
+      notify({ type: "success", title: "Paciente actualizado exitosamente" });
       
       // Notify parent component about update
       onPatientUpdated?.({
@@ -145,7 +145,11 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      toast.error("Error al guardar: " + (err as Error).message);
+      notify({
+        type: "error",
+        title: "Error al guardar paciente",
+        description: (err as Error).message,
+      });
     } finally {
       setLoading(false);
     }

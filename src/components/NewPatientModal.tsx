@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Save, X } from "lucide-react";
 import { apiGet, apiPost, apiPut } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
@@ -108,7 +108,7 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
         }));
       } catch (err) {
         console.error(err);
-        toast.error("No se pudieron cargar las clinicas");
+        notify({ type: "error", title: "No se pudieron cargar las clínicas" });
       }
     }
     loadClinicas();
@@ -135,7 +135,11 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
         });
       } catch (err) {
         console.error(err);
-        toast.error("Error al cargar datos: " + (err as Error).message);
+        notify({
+          type: "error",
+          title: "Error al cargar datos del paciente",
+          description: (err as Error).message,
+        });
       }
     })();
   }, [patientId, isEdit, isOpen]);
@@ -147,11 +151,11 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.documentId || !formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.phone) {
-      toast.error("Completa los campos obligatorios");
+      notify({ type: "warning", title: "Completa los campos obligatorios" });
       return;
     }
     if (!formData.clinicId) {
-      toast.error("Selecciona una clinica");
+      notify({ type: "warning", title: "Selecciona una clínica" });
       return;
     }
 
@@ -175,10 +179,10 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
       let result;
       if (isEdit) {
         result = await apiPut(`/pacientes/${patientId}`, payload);
-        toast.success("Paciente actualizado exitosamente");
+        notify({ type: "success", title: "Paciente actualizado exitosamente" });
       } else {
         result = await apiPost("/pacientes", payload);
-        toast.success("Paciente creado exitosamente");
+        notify({ type: "success", title: "Paciente creado exitosamente" });
       }
 
       if (onPatientCreated) {
@@ -188,7 +192,11 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
       onClose();
     } catch (err) {
       console.error(err);
-      toast.error("Error al guardar: " + (err as Error).message);
+      notify({
+        type: "error",
+        title: "Error al guardar paciente",
+        description: (err as Error).message,
+      });
     } finally {
       setLoading(false);
     }

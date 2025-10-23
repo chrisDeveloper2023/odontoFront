@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Search, Plus, Eye, Edit, FileText, Calendar, X, Check } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiGet, apiDelete } from "@/api/client";
+import { notify } from "@/lib/notify";
 import PatientDetailModal from "@/components/PatientDetailModal";
 import PatientEditModal from "@/components/PatientEditModal";
 import NewPatientModal from "@/components/NewPatientModal";
@@ -146,10 +147,10 @@ const Patients: React.FC = () => {
     setIsModalOpen(true);
   };
   const closePatientModal = () => {
-    setSelectedPatientId(null);
     setIsModalOpen(false);
   };
   const openEditModal = (id: string) => {
+    setSelectedPatientId(id);
     setEditingPatientId(id);
     setIsEditModalOpen(true);
   };
@@ -177,6 +178,7 @@ const Patients: React.FC = () => {
   };
 
   const openMedicalRecordModal = (patientId: string) => {
+    setSelectedPatientId(patientId);
     setSelectedPatientForMedicalRecord(patientId);
     setIsNewMedicalRecordModalOpen(true);
   };
@@ -192,6 +194,7 @@ const Patients: React.FC = () => {
   };
 
   const openAppointmentModal = (patientId: string) => {
+    setSelectedPatientId(patientId);
     setSelectedPatientForAppointment(patientId);
     setIsNewAppointmentModalOpen(true);
   };
@@ -408,7 +411,6 @@ const Patients: React.FC = () => {
                               variant="outline" 
                               size="sm" 
                               onClick={() => openEditModal(patient.id)}
-                              disabled={!isSelected}
                             >
                               <Edit />
                             </Button>
@@ -426,7 +428,6 @@ const Patients: React.FC = () => {
                             <Button 
                               size="sm" 
                               onClick={() => openMedicalRecordModal(patient.id)}
-                              disabled={!isSelected}
                             >
                               <FileText />
                             </Button>
@@ -444,7 +445,6 @@ const Patients: React.FC = () => {
                             <Button 
                               size="sm" 
                               onClick={() => openAppointmentModal(patient.id)}
-                              disabled={!isSelected}
                             >
                               <Calendar />
                             </Button>
@@ -460,17 +460,26 @@ const Patients: React.FC = () => {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm("¿Estas seguro de eliminar este paciente?")) {
-                            try {
-                              await apiDelete(`/pacientes/${patient.id}`);
-                              setPatients((p) => p.filter((x) => x.id !== patient.id));
-                            } catch (err) {
-                              alert("Error al eliminar paciente");
-                              console.error(err);
-                            }
-                          }
+                          notify({
+                            type: "warning",
+                            title: "¿Eliminar paciente?",
+                            description: `Se eliminará ${patient.name}.`,
+                            action: {
+                              label: "Confirmar",
+                              onClick: async () => {
+                                try {
+                                  await apiDelete(`/pacientes/${patient.id}`);
+                                  setPatients((p) => p.filter((x) => x.id !== patient.id));
+                                  notify({ type: "success", title: "Paciente eliminado" });
+                                } catch (err) {
+                                  console.error(err);
+                                  notify({ type: "error", title: "Error al eliminar paciente" });
+                                }
+                              },
+                            },
+                          });
                         }}
                       >
                         🗑️
