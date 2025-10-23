@@ -12,6 +12,7 @@ import VincularCitaModal from "@/components/Historias/VincularCitaModal";
 import OdontogramaView from "@/components/OdontogramaView";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 
 type RespuestaBinaria = "SI" | "NO" | "DESCONOCE";
 type AlteracionPresion = "ALTA" | "BAJA" | "NORMAL" | "DESCONOCIDA";
@@ -170,6 +171,10 @@ export default function MedicalRecordDetail() {
   const id = Number(rawId);
   const hasValidId = Number.isFinite(id) && id > 0;
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("medical-records:edit");
+  const canDelete = hasPermission("medical-records:delete");
+  const readOnly = !canEdit;
   const [data, setData] = useState<Historia | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -209,7 +214,7 @@ export default function MedicalRecordDetail() {
   };
 
   const save = async () => {
-    if (!id) return;
+    if (!canEdit || !id) return;
     setSaving(true);
     setError(null);
     try {
@@ -238,6 +243,7 @@ export default function MedicalRecordDetail() {
   };
 
   const remove = async () => {
+    if (!canDelete) return;
     if (!id) return;
     if (!window.confirm("Eliminar esta historia clinica?")) return;
     try {
@@ -299,15 +305,15 @@ export default function MedicalRecordDetail() {
         <CardContent className="space-y-4">
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Detalles generales</Label>
-            <Textarea className="flex-1" rows={4} value={textValue("detalles_generales")} onChange={(e) => setField("detalles_generales", e.target.value)} />
+            <Textarea className="flex-1" rows={4} readOnly={readOnly} value={textValue("detalles_generales")} onChange={(e) => setField("detalles_generales", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Motivo de consulta</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("motivo_consulta")} onChange={(e) => setField("motivo_consulta", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("motivo_consulta")} onChange={(e) => setField("motivo_consulta", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Antecedentes relevantes</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("antecedentes")} onChange={(e) => setField("antecedentes", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("antecedentes")} onChange={(e) => setField("antecedentes", e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -325,6 +331,7 @@ export default function MedicalRecordDetail() {
               onValueChange={(value) =>
                 setField("antecedentes_cardiacos", value === EMPTY_OPTION_VALUE ? null : value)
               }
+              disabled={readOnly}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona" />
@@ -344,6 +351,7 @@ export default function MedicalRecordDetail() {
               onValueChange={(value) =>
                 setField("alteracion_presion", value === EMPTY_OPTION_VALUE ? null : value)
               }
+              disabled={readOnly}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona" />
@@ -357,39 +365,39 @@ export default function MedicalRecordDetail() {
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Detalle antecedentes cardiacos</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("antecedentes_cardiacos_detalle")} onChange={(e) => setField("antecedentes_cardiacos_detalle", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("antecedentes_cardiacos_detalle")} onChange={(e) => setField("antecedentes_cardiacos_detalle", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Detalle presion arterial</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("presion_detalle")} onChange={(e) => setField("presion_detalle", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("presion_detalle")} onChange={(e) => setField("presion_detalle", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Trastornos sanguineos</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("trastornos_sanguineos")} onChange={(e) => setField("trastornos_sanguineos", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("trastornos_sanguineos")} onChange={(e) => setField("trastornos_sanguineos", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Trastornos gastrointestinales</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("trastornos_gastrointestinales")} onChange={(e) => setField("trastornos_gastrointestinales", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("trastornos_gastrointestinales")} onChange={(e) => setField("trastornos_gastrointestinales", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Otras enfermedades</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("otras_enfermedades")} onChange={(e) => setField("otras_enfermedades", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("otras_enfermedades")} onChange={(e) => setField("otras_enfermedades", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Habitos</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("habitos")} onChange={(e) => setField("habitos", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("habitos")} onChange={(e) => setField("habitos", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Antecedentes patologicos familiares</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("antecedentes_patologicos_familiares")} onChange={(e) => setField("antecedentes_patologicos_familiares", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("antecedentes_patologicos_familiares")} onChange={(e) => setField("antecedentes_patologicos_familiares", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Alergias</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("alergias")} onChange={(e) => setField("alergias", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("alergias")} onChange={(e) => setField("alergias", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Medicamentos actuales</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("medicamentos_actuales")} onChange={(e) => setField("medicamentos_actuales", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("medicamentos_actuales")} onChange={(e) => setField("medicamentos_actuales", e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -401,51 +409,51 @@ export default function MedicalRecordDetail() {
         <CardContent className="space-y-4">
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Resumen clinico</Label>
-            <Textarea className="flex-1" rows={4} value={textValue("examen_clinico")} onChange={(e) => setField("examen_clinico", e.target.value)} />
+            <Textarea className="flex-1" rows={4} readOnly={readOnly} value={textValue("examen_clinico")} onChange={(e) => setField("examen_clinico", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Halitosis</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_halitosis")} onChange={(e) => setField("examen_halitosis", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_halitosis")} onChange={(e) => setField("examen_halitosis", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Carrillos</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_carrillos")} onChange={(e) => setField("examen_carrillos", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_carrillos")} onChange={(e) => setField("examen_carrillos", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Paladar / Torus</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_paladar_torus")} onChange={(e) => setField("examen_paladar_torus", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_paladar_torus")} onChange={(e) => setField("examen_paladar_torus", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Piso de boca</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_piso_boca")} onChange={(e) => setField("examen_piso_boca", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_piso_boca")} onChange={(e) => setField("examen_piso_boca", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Lengua</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_lengua")} onChange={(e) => setField("examen_lengua", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_lengua")} onChange={(e) => setField("examen_lengua", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Maxilares</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_maxilares")} onChange={(e) => setField("examen_maxilares", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_maxilares")} onChange={(e) => setField("examen_maxilares", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Encias</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_encias")} onChange={(e) => setField("examen_encias", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_encias")} onChange={(e) => setField("examen_encias", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Bruxismo</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_bruxismo")} onChange={(e) => setField("examen_bruxismo", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_bruxismo")} onChange={(e) => setField("examen_bruxismo", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Dientes</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_dientes")} onChange={(e) => setField("examen_dientes", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_dientes")} onChange={(e) => setField("examen_dientes", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">ATM</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_atm")} onChange={(e) => setField("examen_atm", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_atm")} onChange={(e) => setField("examen_atm", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Oclusion</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("examen_oclusion")} onChange={(e) => setField("examen_oclusion", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("examen_oclusion")} onChange={(e) => setField("examen_oclusion", e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -457,23 +465,23 @@ export default function MedicalRecordDetail() {
         <CardContent className="space-y-4">
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Diagnostico</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("diagnostico")} onChange={(e) => setField("diagnostico", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("diagnostico")} onChange={(e) => setField("diagnostico", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Diagnostico diferencial</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("diagnostico_diferencial")} onChange={(e) => setField("diagnostico_diferencial", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("diagnostico_diferencial")} onChange={(e) => setField("diagnostico_diferencial", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Plan de tratamiento</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("plan_tratamiento")} onChange={(e) => setField("plan_tratamiento", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("plan_tratamiento")} onChange={(e) => setField("plan_tratamiento", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Recomendaciones</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("recomendaciones")} onChange={(e) => setField("recomendaciones", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("recomendaciones")} onChange={(e) => setField("recomendaciones", e.target.value)} />
           </div>
           <div className="flex items-start gap-4">
             <Label className="w-48 text-left pt-2">Observaciones</Label>
-            <Textarea className="flex-1" rows={3} value={textValue("observaciones")} onChange={(e) => setField("observaciones", e.target.value)} />
+            <Textarea className="flex-1" rows={3} readOnly={readOnly} value={textValue("observaciones")} onChange={(e) => setField("observaciones", e.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -509,5 +517,4 @@ export default function MedicalRecordDetail() {
     </div>
   );
 }
-
 
