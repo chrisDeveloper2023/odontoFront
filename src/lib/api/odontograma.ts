@@ -70,8 +70,8 @@ export async function getOdontogramaByHistoria(
 export async function abrirDraftOdontograma(
   idHistoria: number,
   mode: "empty" | "from_last" = "from_last",
-): Promise<OdontogramaEntity> {
-  const res = await api.post<OdontogramaEntity>(
+): Promise<OdontogramaResponse> {
+  const res = await api.post<OdontogramaResponse>(
     `/historias-clinicas/${idHistoria}/odontograma/abrir`,
     null,
     { params: { mode } },

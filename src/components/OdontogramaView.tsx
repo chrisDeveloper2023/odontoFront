@@ -41,16 +41,19 @@ export default function OdontogramaView({ data, ensureDraft, onReload, mode }: P
   const idHistoriaNum =
     data?.odontograma?.id_historia ?? (data?.odontograma as any)?.idHistoria ?? undefined;
 
+  const piezas = data?.piezas ?? [];
+  const superficies = data?.superficies ?? [];
+
   const piezasPorFDI = useMemo(() => {
     const mapa = new Map<number, Pieza>();
-    data?.piezas?.forEach((pieza) => mapa.set(pieza.numero_fdi, pieza));
+    piezas.forEach((pieza) => mapa.set(pieza.numero_fdi, pieza));
     return mapa;
-  }, [data]);
+  }, [piezas]);
 
   const superficiesPorFDI = useMemo(() => {
     if (!data) return new Map<number, Superficie[]>();
-    return mapSuperficiesPorFDI(data.piezas, data.superficies);
-  }, [data]);
+    return mapSuperficiesPorFDI(piezas, superficies);
+  }, [data, piezas, superficies]);
 
   const triggerEventosRefresh = useCallback(() => {
     setEventosRefreshKey((prev) => prev + 1);

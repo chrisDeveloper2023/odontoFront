@@ -11,6 +11,22 @@ import {
   patchPiezaEstado,
   withDraftRetry,
 } from "@/lib/api/odontograma";
+import type { EstadoPieza } from "@/types/odontograma";
+
+const ESTADO_OPTIONS: EstadoPieza[] = [
+  "SANO",
+  "AUSENTE",
+  "FRACTURA",
+  "OBTURADO",
+  "CARIES",
+  "EXTRACCION_INDICADA",
+  "ENDODONCIA",
+  "CORONA",
+  "IMPLANTE",
+  "PROTESIS_FIJA",
+  "PROTESIS_REMOVIBLE",
+  "MOVILIDAD",
+];
 
 export default function ToothSidePanel({
   pieza,
@@ -129,13 +145,16 @@ export default function ToothSidePanel({
 
         <div className="flex items-center gap-2">
           <label className="text-sm w-24">Estado</label>
-          <select className="border rounded px-2 py-1 text-sm"
-                  value={estado}
-                  onChange={(e) => setEstado(e.target.value)}>
-            <option value="SANO">SANO</option>
-            <option value="AUSENTE">AUSENTE</option>
-            <option value="FRACTURA">FRACTURA</option>
-            <option value="OBTURACION">OBTURACIÓN</option>
+          <select
+            className="border rounded px-2 py-1 text-sm"
+            value={estado}
+            onChange={(e) => setEstado(e.target.value)}
+          >
+            {ESTADO_OPTIONS.map((value) => (
+              <option key={value} value={value}>
+                {value.replace(/_/g, " ")}
+              </option>
+            ))}
           </select>
         </div>
 
