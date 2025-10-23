@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate, Outlet, matchPath } from "react-router-dom";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
@@ -12,7 +12,7 @@ import PatientDetail from "./pages/PatientDetail";
 import NewPatient from "./pages/NewPatient";
 import MedicalRecords from "./pages/MedicalRecords";
 import MedicalRecordDetail from "./pages/MedicalRecordDetail";
-import NewMedicalRecord from "./pages/NewMedicalRecord";
+import NewMedicalRecordRoute from "./pages/NewMedicalRecordRoute";
 import NotFound from "./pages/NotFound";
 import NewPaciente from "./pages/NuevosPacientes";
 import NewAppointmentForm from "./pages/NewAppointmentForm";
@@ -63,6 +63,8 @@ function RequireAuth() {
 function AppRoutes() {
   const location = useLocation();
   const state = location.state as { background?: Location } | undefined;
+  const modalMatches = ["/medical-records/new", "/medical-records/:id"];
+  const isModalLocation = modalMatches.some((path) => matchPath(path, location.pathname));
 
   return (
     <>
@@ -76,8 +78,8 @@ function AppRoutes() {
           <Route path="/patients/new" element={<Layout><ProtectedRoute requiredPermissions="patients:create"><NewPatient /></ProtectedRoute></Layout>} />
           <Route path="/patients/:id/edit" element={<Layout><ProtectedRoute requiredPermissions={['patients:edit', 'patients:update']}><NewPatient /></ProtectedRoute></Layout>} />
           <Route path="/medical-records" element={<Layout><ProtectedRoute requiredPermissions="medical-records:view"><MedicalRecords /></ProtectedRoute></Layout>} />
-          <Route path="/medical-records/new" element={<Layout><ProtectedRoute requiredPermissions="medical-records:create"><NewMedicalRecord /></ProtectedRoute></Layout>} />
-          <Route path="/medical-records/:id" element={<Layout><ProtectedRoute requiredPermissions="medical-records:view"><MedicalRecordDetail /></ProtectedRoute></Layout>} />
+          <Route path="/medical-records/new" element={<Layout><ProtectedRoute requiredPermissions="medical-records:view"><MedicalRecords /></ProtectedRoute></Layout>} />
+          <Route path="/medical-records/:id" element={<Layout><ProtectedRoute requiredPermissions="medical-records:view"><MedicalRecords /></ProtectedRoute></Layout>} />
           <Route path="/NuevosPacientes" element={<Layout><Patients /></Layout>} />
           <Route path="/NuevosPacientes/new" element={<Layout><NewPaciente /></Layout>} />
           <Route path="/appointments" element={<Layout><ProtectedRoute requiredPermissions="appointments:view"><Appointments /></ProtectedRoute></Layout>} />
@@ -107,7 +109,7 @@ function AppRoutes() {
         <Route path="*" element={<NotFound />} />
       </Routes>
 
-      {state?.background && (
+      {(state?.background || isModalLocation) && (
         <Routes>
           <Route element={<RequireAuth />}>
             <Route
@@ -153,9 +155,9 @@ function AppRoutes() {
             <Route
               path="/medical-records/new"
               element={
-                <RouteModal title="Abrir/Crear Historia Clinica">
-                  <NewMedicalRecord />
-                </RouteModal>
+                <ProtectedRoute requiredPermissions="medical-records:create">
+                  <NewMedicalRecordRoute />
+                </ProtectedRoute>
               }
             />
             <Route
