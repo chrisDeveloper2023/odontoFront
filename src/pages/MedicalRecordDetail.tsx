@@ -9,10 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiDelete, apiGet, apiPut } from "@/api/client";
 import VincularCitaModal from "@/components/Historias/VincularCitaModal";
-import OdontogramaView from "@/components/OdontogramaView";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import OdontogramaModal from "@/components/OdontogramaModal";
 
 type RespuestaBinaria = "SI" | "NO" | "DESCONOCE";
 type AlteracionPresion = "ALTA" | "BAJA" | "NORMAL" | "DESCONOCIDA";
@@ -185,6 +185,7 @@ export default function MedicalRecordDetail() {
   const [og, setOg] = useState<OdontogramaResponse | null>(null);
   const [ogLoading, setOgLoading] = useState(false);
   const [ogError, setOgError] = useState<string | null>(null);
+  const [ogModalOpen, setOgModalOpen] = useState(false);
 
   const [openCita, setOpenCita] = useState(false);
 
@@ -256,25 +257,60 @@ export default function MedicalRecordDetail() {
 
   const abrirOg = async (mode: "empty" | "from_last") => {
     if (!id) return;
+    setOgModalOpen(true);
     setOgLoading(true);
     setOgError(null);
+    setOg(null);
     try {
-      const r = await abrirDraftOdontograma(id, mode);
+      const historiaId = Number(id);
+      if (!Number.isFinite(historiaId)) throw new Error("ID de historia inválido");
+      const r = await abrirDraftOdontograma(historiaId, mode);
       setOg(r);
     } catch (e: any) {
-      setOgError(e?.message || "No se pudo abrir el odontograma");
+      const message =
+        e?.message ||
+        (mode === "from_last" ? "No se pudo abrir el odontograma desde el último" : "No se pudo abrir el odontograma");
+      setOgError(message);
+      toast.error(message);
     } finally {
       setOgLoading(false);
     }
   };
 
-  const reloadOg = async () => {
+  const reloadOg = async (showToast = false) => {
     if (!id) return;
+    setOgLoading(true);
+    setOgError(null);
     try {
-      const snap = await getOdontogramaByHistoria(String(id));
+      const historiaId = Number(id);
+      if (!Number.isFinite(historiaId)) throw new Error("ID de historia inválido");
+      const snap = await getOdontogramaByHistoria(historiaId);
       setOg(snap);
-    } catch {
-      /* noop */
+    } catch (e: any) {
+      const message = e?.message || "No se pudo recargar el odontograma";
+      setOgError(message);
+      if (showToast) toast.error(message);
+    } finally {
+      setOgLoading(false);
+    }
+  };
+
+  const ensureOgDraft = async () => {
+    if (!id) return;
+    setOgLoading(true);
+    setOgError(null);
+    try {
+      const historiaId = Number(id);
+      if (!Number.isFinite(historiaId)) throw new Error("ID de historia inválido");
+      const draft = await abrirDraftOdontograma(historiaId, "from_last");
+      setOg(draft);
+    } catch (e: any) {
+      const message = e?.message || "No se pudo abrir el borrador del odontograma";
+      setOgError(message);
+      toast.error(message);
+      throw e;
+    } finally {
+      setOgLoading(false);
     }
   };
 
@@ -492,12 +528,20 @@ export default function MedicalRecordDetail() {
         <Button onClick={save} disabled={saving}>Guardar</Button>
       </div>
 
-      {ogError && <div className="text-sm text-red-600">{ogError}</div>}
-      {og && (
-        <div className="border-t pt-4">
-          <OdontogramaView data={og} draftCtx={{ historiaId: data.id_historia }} onReload={reloadOg} />
-        </div>
-      )}
+      <OdontogramaModal
+        open={ogModalOpen}
+        onClose={() => {
+          setOgModalOpen(false);
+          setOgError(null);
+        }}
+        data={og}
+        loading={ogLoading}
+        error={ogError}
+        historiaId={data.id_historia}
+        ensureDraft={ensureOgDraft}
+        onReload={() => reloadOg()}
+        onRefreshRequest={() => reloadOg(true)}
+      />
 
       <VincularCitaModal
         open={openCita}

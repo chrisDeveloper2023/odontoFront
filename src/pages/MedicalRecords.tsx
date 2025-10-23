@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Eye, Edit, Calendar, User, Building2 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import OdontogramaView from "@/components/OdontogramaView";
 import { fetchHistoriasClinicas } from "@/lib/api/historiasClinicas";
 import type { HistoriaClinica } from "@/types/historiaClinica";
 import { toast } from "sonner";
 import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
+import OdontogramaModal from "@/components/OdontogramaModal";
 
 const MedicalRecords = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,10 +35,67 @@ const MedicalRecords = () => {
   };
 
   // Estado para odontograma embebido
-  const [selectedHistoriaId, setSelectedHistoriaId] = useState<string | null>(null);
+  const [selectedHistoriaId, setSelectedHistoriaId] = useState<number | null>(null);
   const [ogData, setOgData] = useState<OdontogramaResponse | null>(null);
   const [ogLoading, setOgLoading] = useState(false);
   const [ogError, setOgError] = useState<string | null>(null);
+  const [ogModalOpen, setOgModalOpen] = useState(false);
+
+  const openOdontogramaModal = useCallback(
+    async (historiaId: number, mode: "empty" | "from_last") => {
+      setSelectedHistoriaId(historiaId);
+      setOgModalOpen(true);
+      setOgError(null);
+      setOgLoading(true);
+      setOgData(null);
+      try {
+        const res = await abrirDraftOdontograma(historiaId, mode);
+        setOgData(res);
+      } catch (e: any) {
+        const message =
+          e?.message ||
+          (mode === "from_last" ? "Error al abrir odontograma (desde último)" : "Error al abrir odontograma");
+        setOgError(message);
+        toast.error(message);
+      } finally {
+        setOgLoading(false);
+      }
+    },
+    [],
+  );
+
+  const ensureDraftDraft = useCallback(async () => {
+    if (!selectedHistoriaId) return;
+    setOgError(null);
+    setOgLoading(true);
+    try {
+      const draft = await abrirDraftOdontograma(selectedHistoriaId, "from_last");
+      setOgData(draft);
+    } catch (e: any) {
+      const message = e?.message || "No se pudo abrir el borrador del odontograma";
+      setOgError(message);
+      toast.error(message);
+      throw e;
+    } finally {
+      setOgLoading(false);
+    }
+  }, [selectedHistoriaId]);
+
+  const reloadOdontograma = useCallback(async (showToast = false) => {
+    if (!selectedHistoriaId) return;
+    setOgError(null);
+    setOgLoading(true);
+    try {
+      const snapshot = await getOdontogramaByHistoria(selectedHistoriaId);
+      setOgData(snapshot);
+    } catch (e: any) {
+      const message = e?.message || "No se pudo recargar el odontograma";
+      setOgError(message);
+      if (showToast) toast.error(message);
+    } finally {
+      setOgLoading(false);
+    }
+  }, [selectedHistoriaId]);
 
   // Paginacion
   const [page, setPage] = useState(1);
@@ -230,19 +287,12 @@ const MedicalRecords = () => {
                   </Link>
                   <Button
                     size="sm"
-                    onClick={async () => {
-                      setOgError(null);
-                      setOgLoading(true);
-                      try {
-                        if (!rid) throw new Error("ID de historia invalido");
-                        const res: OdontogramaResponse = await abrirDraftOdontograma(rid, "empty");
-                        setSelectedHistoriaId(String(rid));
-                        setOgData(res);
-                      } catch (e: any) {
-                        setOgError(e?.message || "Error al abrir odontograma");
-                      } finally {
-                        setOgLoading(false);
+                    onClick={() => {
+                      if (!rid) {
+                        toast.error("ID de historia invalido");
+                        return;
                       }
+                      void openOdontogramaModal(rid, "empty");
                     }}
                   >
                     Odontograma
@@ -250,49 +300,18 @@ const MedicalRecords = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={async () => {
-                      setOgError(null);
-                      setOgLoading(true);
-                      try {
-                        if (!rid) throw new Error("ID de historia invalido");
-                        const res: OdontogramaResponse = await abrirDraftOdontograma(rid, "from_last");
-                        setSelectedHistoriaId(String(rid));
-                        setOgData(res);
-                      } catch (e: any) {
-                        setOgError(e?.message || "Error al abrir odontograma (desde ultimo)");
-                      } finally {
-                        setOgLoading(false);
+                    onClick={() => {
+                      if (!rid) {
+                        toast.error("ID de historia invalido");
+                        return;
                       }
+                      void openOdontogramaModal(rid, "from_last");
                     }}
                   >
                     consolidado
                   </Button>
                 </div>
               </div>
-              {/* Odontograma embebido para el registro seleccionado */}
-              {selectedHistoriaId === String(rid) && ogData && (
-                <div className="border-t pt-4">
-                  <OdontogramaView
-                    data={ogData}
-                    draftCtx={{ historiaId: rid || undefined }}
-                    onReload={async () => {
-                      try {
-                        if (!rid) return;
-                        const fresh = await getOdontogramaByHistoria(String(rid));
-                        setOgData(fresh);
-                      } catch (e) {
-                        /* noop */
-                      }
-                    }}
-                  />
-                </div>
-              )}
-              {selectedHistoriaId === String(rid) && ogLoading && (
-                <div className="text-sm text-muted-foreground">Cargando odontograma...</div>
-              )}
-              {selectedHistoriaId === String(rid) && ogError && (
-                <div className="text-sm text-red-600">{ogError}</div>
-              )}
             </CardContent>
           </Card>
         )})}
@@ -318,6 +337,21 @@ const MedicalRecords = () => {
           </CardContent>
         </Card>
       )}
+
+      <OdontogramaModal
+        open={ogModalOpen}
+        onClose={() => {
+          setOgModalOpen(false);
+          setOgError(null);
+        }}
+        data={ogData}
+        loading={ogLoading}
+        error={ogError}
+        historiaId={selectedHistoriaId}
+        ensureDraft={ensureDraftDraft}
+        onReload={() => reloadOdontograma()}
+        onRefreshRequest={() => reloadOdontograma(true)}
+      />
     </div>
   );
 };
