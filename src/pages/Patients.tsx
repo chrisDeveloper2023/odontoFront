@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Search, Plus, Eye, Edit, FileText, Calendar, X, Check } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiGet, apiDelete } from "@/api/client";
+import { notify } from "@/lib/notify";
 import PatientDetailModal from "@/components/PatientDetailModal";
 import PatientEditModal from "@/components/PatientEditModal";
 import NewPatientModal from "@/components/NewPatientModal";
@@ -460,17 +461,26 @@ const Patients: React.FC = () => {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm("¿Estas seguro de eliminar este paciente?")) {
-                            try {
-                              await apiDelete(`/pacientes/${patient.id}`);
-                              setPatients((p) => p.filter((x) => x.id !== patient.id));
-                            } catch (err) {
-                              alert("Error al eliminar paciente");
-                              console.error(err);
-                            }
-                          }
+                          notify({
+                            type: "warning",
+                            title: "¿Eliminar paciente?",
+                            description: `Se eliminará ${patient.name}.`,
+                            action: {
+                              label: "Confirmar",
+                              onClick: async () => {
+                                try {
+                                  await apiDelete(`/pacientes/${patient.id}`);
+                                  setPatients((p) => p.filter((x) => x.id !== patient.id));
+                                  notify({ type: "success", title: "Paciente eliminado" });
+                                } catch (err) {
+                                  console.error(err);
+                                  notify({ type: "error", title: "Error al eliminar paciente" });
+                                }
+                              },
+                            },
+                          });
                         }}
                       >
                         🗑️
