@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DentalToothSVG from "@/components/DentalToothSVG";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   Pieza,
   Superficie,
@@ -88,9 +89,11 @@ export default function ToothTile({
         });
       }
       onAfterChange?.();
+      toast.success(`Superficie ${code.replace(/_/g, " ")} actualizada`);
     } catch (e) {
       setActiveSurfaces((prev) => ({ ...prev, [code]: !nextVal }));
       console.error("Error al guardar superficie:", e);
+      toast.error("No se pudo actualizar la superficie");
     }
   };
 
@@ -121,10 +124,12 @@ export default function ToothTile({
         });
       }
       onAfterChange?.();
+      toast.success(`Presencia de la pieza ${etiqueta} actualizada`);
     } catch (e) {
       setPresentShown(!nuevoPresente);
       setEstadoShown(presentShown ? "SANO" : "AUSENTE");
       console.error("Error al cambiar presencia:", e);
+      toast.error("No se pudo actualizar la pieza");
     }
   };
 

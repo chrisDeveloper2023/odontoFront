@@ -12,6 +12,7 @@ import {
   withDraftRetry,
 } from "@/lib/api/odontograma";
 import type { EstadoPieza } from "@/types/odontograma";
+import { toast } from "sonner";
 
 const ESTADO_OPTIONS: EstadoPieza[] = [
   "SANO",
@@ -127,8 +128,10 @@ export default function ToothSidePanel({
       }
       await refreshEventos();
       onSaved?.();
+      toast.success(`Pieza ${pieza.numero_fdi} actualizada`);
     } catch (e) {
       console.error("Error guardando pieza:", e);
+      toast.error("No se pudo guardar la pieza");
     }
   };
 
