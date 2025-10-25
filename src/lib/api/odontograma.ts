@@ -1,7 +1,5 @@
 import { apiGet, apiPatch, apiPost, apiPut } from "@/api/client";
 
-const HISTORIAS_BASE = "/historias-clinicas";
-
 export type EstadoPieza = "SANO" | "AUSENTE" | string;
 
 export type SuperficieCode =
@@ -66,10 +64,7 @@ export async function getOdontogramaByHistoria(
   if (opts?.citaId !== undefined && opts?.citaId !== null && opts?.citaId !== "") {
     params.citaId = String(opts.citaId);
   }
-  return apiGet<OdontogramaResponse>(
-    `${HISTORIAS_BASE}/${idHistoria}/odontograma`,
-    Object.keys(params).length ? params : undefined,
-  );
+  return apiGet<OdontogramaResponse>(`/odontogramas/${idHistoria}`, params);
 }
 
 export async function abrirDraftOdontograma(
@@ -77,9 +72,10 @@ export async function abrirDraftOdontograma(
   mode: "empty" | "from_last" = "from_last",
 ): Promise<OdontogramaResponse> {
   const query = mode ? `?mode=${encodeURIComponent(mode)}` : "";
-  return apiPost<OdontogramaResponse>(
-    `${HISTORIAS_BASE}/${idHistoria}/odontograma/abrir${query}`,
-  );
+  return apiPost<OdontogramaResponse>(`/odontogramas${query}`, {
+    historia_id: idHistoria,
+    historiaId: idHistoria,
+  });
 }
 
 export async function consolidarOdontograma(idOdontograma: number): Promise<any> {
@@ -113,10 +109,7 @@ export async function fetchEventosOdontograma(
   historiaId: number,
   params?: { fdi?: number; limit?: number },
 ): Promise<{ eventos: OdontoEventoDTO[] }> {
-  return apiGet<{ eventos: OdontoEventoDTO[] }>(
-    `${HISTORIAS_BASE}/${historiaId}/odontograma/eventos`,
-    params,
-  );
+  return apiGet<{ eventos: OdontoEventoDTO[] }>(`/odontogramas/${historiaId}/eventos`, params);
 }
 
 export async function upsertEstadoBucal(idOdontograma: number, data: Record<string, any>) {
