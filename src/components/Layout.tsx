@@ -1,6 +1,6 @@
 ﻿import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Bell, Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet, Shield, ChevronDown } from "lucide-react";
+import { Bell, Heart, Users, FileText, Calendar, CalendarDays, Plus, LogOut, Building2, Wallet, Shield, ChevronDown, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSelector from "@/components/TenantSelector";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -111,6 +111,16 @@ class MenuConfig {
         icon: FileText,
         description: "GestiÃ³n de historias clÃ­nicas",
         permissions: ["medical-records:view", "medical-records:create", "medical-records:edit"],
+        roles: ["admin", "doctor"],
+        visible: true
+      },
+      {
+        id: "treatments",
+        name: "Tratamientos",
+        href: "/treatments",
+        icon: ClipboardList,
+        description: "Plan de tratamientos y procedimientos realizados",
+        permissions: ["treatments:view", "treatments:create", "treatments:edit", "treatments:delete"],
         roles: ["admin", "doctor"],
         visible: true
       },

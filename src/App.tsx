@@ -26,6 +26,7 @@ import OdontogramPage from "./pages/Odontograma";
 import RouteModal from "@/components/RouteModal";
 import UsersPage from "./pages/Users";
 import PaymentsPage from "./pages/Payments";
+import TreatmentsPage from "./pages/Treatments";
 import NotificationsPage from "@/modules/notifications/pages/NotificationsPage";
 import TenantsAdmin from "./pages/TenantsAdmin";
 import { setTenant } from "@/api/client";
@@ -91,6 +92,7 @@ function AppRoutes() {
           <Route path="/users" element={<Layout><ProtectedRoute requiredPermissions="users:view"><UsersPage /></ProtectedRoute></Layout>} />
           <Route path="/admin/tenants" element={<Layout><TenantsAdmin /></Layout>} />
           <Route path="/payments" element={<Layout><ProtectedRoute requiredPermissions="payments:view"><PaymentsPage /></ProtectedRoute></Layout>} />
+          <Route path="/treatments" element={<Layout><ProtectedRoute requiredPermissions="treatments:view"><TreatmentsPage /></ProtectedRoute></Layout>} />
           <Route
             path="/notificaciones"
             element={

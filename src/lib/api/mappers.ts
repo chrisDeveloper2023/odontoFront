@@ -4,6 +4,7 @@ import type { Tenant } from "@/types/tenant";
 import type { Usuario } from "@/types/usuario";
 import type { HistoriaClinica } from "@/types/historiaClinica";
 import type { Pago } from "@/types/pago";
+import type { Treatment, OdontogramaPiece } from "@/types/treatment";
 
 const toNumber = (value: any): number | null => {
   if (value === null || value === undefined || value === "") return null;
@@ -14,7 +15,16 @@ const toNumber = (value: any): number | null => {
 export const ensureArray = <T = any>(value: unknown): T[] => {
   if (Array.isArray(value)) return value as T[];
   if (value && typeof value === "object") {
-    const data = (value as any).data ?? (value as any).items ?? (value as any).results ?? (value as any).usuarios ?? (value as any).historias ?? (value as any).pagos ?? (value as any).records;
+    const data =
+      (value as any).data ??
+      (value as any).items ??
+      (value as any).results ??
+      (value as any).usuarios ??
+      (value as any).historias ??
+      (value as any).pagos ??
+      (value as any).treatments ??
+      (value as any).tratamientos ??
+      (value as any).records;
     if (Array.isArray(data)) return data as T[];
   }
   return [];
@@ -199,5 +209,80 @@ export const mapPago = (raw: any): Pago => {
     tenant,
     metodo_pago: raw.metodo_pago ?? raw.metodoPago ?? raw.payment_method ?? null,
   } as Pago;
+};
+
+const mapOdontoPiece = (raw: unknown): OdontogramaPiece | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const source = raw as Record<string, unknown>;
+  const id_pieza = toNumber(source.id_pieza ?? source.id ?? source.pieza_id);
+  if (!id_pieza) return null;
+  const id_odontograma = toNumber(
+    source.id_odontograma ??
+      source.odontograma_id ??
+      (typeof source.odontograma === "object" ? (source.odontograma as any).id_odontograma : undefined) ??
+      (typeof source.odontograma === "object" ? (source.odontograma as any).id : undefined),
+  );
+  const numero_fdi = toNumber(source.numero_fdi ?? source.fdi ?? source.numeroFDI ?? source.numero);
+  const ogRaw = source.odontograma;
+  const odontograma =
+    ogRaw && typeof ogRaw === "object"
+      ? {
+          id_odontograma: Number(
+            (ogRaw as any).id_odontograma ?? (ogRaw as any).id ?? id_odontograma ?? 0,
+          ) || 0,
+          id_historia: Number(
+            (ogRaw as any).id_historia ?? (ogRaw as any).historia_id ?? (ogRaw as any).idHistoria ?? 0,
+          ) || 0,
+        }
+      : null;
+  return {
+    id_pieza,
+    id_odontograma: id_odontograma ?? (odontograma?.id_odontograma ?? 0),
+    numero_fdi: numero_fdi ?? undefined,
+    odontograma,
+  };
+};
+
+export const mapTreatment = (raw: unknown): Treatment => {
+  if (!raw || typeof raw !== "object") {
+    return {
+      id_tratamiento: 0,
+      nombre: "",
+      costo_base: 0,
+      facturado: false,
+      pagado: false,
+    };
+  }
+
+  const source = raw as Record<string, unknown>;
+  const clinica = raw.clinica ? mapClinica(raw.clinica) : null;
+  const pieza = mapOdontoPiece((raw as any).pieza);
+
+  return {
+    id_tratamiento:
+      Number(source.id_tratamiento ?? source.id ?? source.tratamiento_id ?? 0) || 0,
+    nombre: String(source.nombre ?? source.name ?? ""),
+    descripcion: source.descripcion ?? source.description ?? null,
+    costo_base:
+      Number(source.costo_base ?? source.costo ?? source.precio ?? source.base_cost ?? 0) || 0,
+    id_clinica: toNumber(source.id_clinica ?? source.clinica_id ?? clinica?.id_clinica) ?? null,
+    clinica,
+    id_pieza: toNumber(source.id_pieza ?? source.pieza_id ?? pieza?.id_pieza) ?? null,
+    pieza,
+    facturado:
+      source.facturado !== undefined
+        ? Boolean(source.facturado)
+        : Boolean((source as any).invoiced ?? false),
+    pagado:
+      source.pagado !== undefined
+        ? Boolean(source.pagado)
+        : Boolean((source as any).paid ?? false),
+    fecha_creacion: (source.fecha_creacion ?? source.created_at ?? source.createdAt ?? null) as
+      | string
+      | null,
+    fecha_modificacion: (source.fecha_modificacion ?? source.updated_at ?? source.updatedAt ?? null) as
+      | string
+      | null,
+  };
 };
 
