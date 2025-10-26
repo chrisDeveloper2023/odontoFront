@@ -1,4 +1,6 @@
-import { api } from "@/api/client";
+import { apiGet, apiPatch, apiPost, apiPut } from "@/api/client";
+
+const HISTORIAS_BASE = "/historias-clinicas";
 
 export type EstadoPieza = "SANO" | "AUSENTE" | string;
 
@@ -57,31 +59,31 @@ export interface OdontoEventoDTO {
 
 export async function getOdontogramaByHistoria(
   idHistoria: number,
-  opts?: { vigente?: boolean },
+  opts?: { vigente?: boolean; citaId?: string | number },
 ): Promise<OdontogramaResponse> {
-  const config = opts?.vigente ? { params: { vigente: true } } : undefined;
-  const res = await api.get<OdontogramaResponse>(
-    `/historias-clinicas/${idHistoria}/odontograma`,
-    config,
+  const params: Record<string, any> = {};
+  if (opts?.vigente) params.vigente = true;
+  if (opts?.citaId !== undefined && opts?.citaId !== null && opts?.citaId !== "") {
+    params.citaId = String(opts.citaId);
+  }
+  return apiGet<OdontogramaResponse>(
+    `${HISTORIAS_BASE}/${idHistoria}/odontograma`,
+    Object.keys(params).length ? params : undefined,
   );
-  return res.data;
 }
 
 export async function abrirDraftOdontograma(
   idHistoria: number,
   mode: "empty" | "from_last" = "from_last",
 ): Promise<OdontogramaResponse> {
-  const res = await api.post<OdontogramaResponse>(
-    `/historias-clinicas/${idHistoria}/odontograma/abrir`,
-    null,
-    { params: { mode } },
+  const query = mode ? `?mode=${encodeURIComponent(mode)}` : "";
+  return apiPost<OdontogramaResponse>(
+    `${HISTORIAS_BASE}/${idHistoria}/odontograma/abrir${query}`,
   );
-  return res.data;
 }
 
 export async function consolidarOdontograma(idOdontograma: number): Promise<any> {
-  const res = await api.post(`/odontogramas/${idOdontograma}/consolidar`);
-  return res.data;
+  return apiPost(`/odontogramas/${idOdontograma}/consolidar`);
 }
 
 export async function patchPiezaEstado(params: {
@@ -92,8 +94,7 @@ export async function patchPiezaEstado(params: {
   notas?: string | null;
 }) {
   const { idOdontograma, fdi, ...body } = params;
-  const res = await api.patch(`/odontogramas/${idOdontograma}/piezas/${fdi}/estado`, body);
-  return res.data;
+  return apiPatch(`/odontogramas/${idOdontograma}/piezas/${fdi}/estado`, body);
 }
 
 export async function patchSuperficie(params: {
@@ -105,27 +106,21 @@ export async function patchSuperficie(params: {
   detalle?: string | null;
 }) {
   const { idOdontograma, fdi, superficie, ...body } = params;
-  const res = await api.patch(
-    `/odontogramas/${idOdontograma}/piezas/${fdi}/superficies/${superficie}`,
-    body,
-  );
-  return res.data;
+  return apiPatch(`/odontogramas/${idOdontograma}/piezas/${fdi}/superficies/${superficie}`, body);
 }
 
 export async function fetchEventosOdontograma(
   historiaId: number,
   params?: { fdi?: number; limit?: number },
 ): Promise<{ eventos: OdontoEventoDTO[] }> {
-  const res = await api.get<{ eventos: OdontoEventoDTO[] }>(
-    `/historias-clinicas/${historiaId}/odontograma/eventos`,
-    { params },
+  return apiGet<{ eventos: OdontoEventoDTO[] }>(
+    `${HISTORIAS_BASE}/${historiaId}/odontograma/eventos`,
+    params,
   );
-  return res.data;
 }
 
 export async function upsertEstadoBucal(idOdontograma: number, data: Record<string, any>) {
-  const res = await api.put(`/odontogramas/${idOdontograma}/estado-bucal`, data ?? {});
-  return res.data;
+  return apiPut(`/odontogramas/${idOdontograma}/estado-bucal`, data ?? {});
 }
 
 export async function withDraftRetry<T>(fn: () => Promise<T>, retryOpen: () => Promise<void>): Promise<T> {

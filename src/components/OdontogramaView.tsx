@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import ToothTile from "@/components/ToothTile";
 import ToothSidePanel from "@/components/ToothSidePanel";
 import FaucesView from "@/components/FaucesView";
+import { toast } from "sonner";
 import {
   OdontogramaResponse,
   Pieza,
@@ -148,8 +149,10 @@ export default function OdontogramaView({ data, ensureDraft, onReload, mode }: P
                     }
                     onReload?.();
                     triggerEventosRefresh();
+                    toast.success(`Pieza ${fdi} actualizada`);
                   } catch (error) {
                     console.error("Error toggle presencia (fauces):", error);
+                    toast.error("No se pudo actualizar la pieza");
                   }
                 }}
               />

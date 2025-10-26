@@ -6,11 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Loader2, RefreshCw } from "lucide-react";
 import DraftBanner from "@/components/DraftBanner";
 import OdontogramaView from "@/components/OdontogramaView";
-import {
-  abrirDraftOdontograma,
-  getOdontogramaByHistoria,
-  OdontogramaResponse,
-} from "@/lib/api/odontograma";
+import { toast } from "sonner";
+import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
 
 export default function OdontogramaPage() {
   const location = useLocation();
@@ -35,12 +32,15 @@ export default function OdontogramaPage() {
   const historiaIdNum = Number(historiaId) || 0;
 
   const cargar = useCallback(
-    async (vigente = false) => {
-      if (!historiaIdNum) return;
+    async (vigente = false): Promise<boolean> => {
+      if (!historiaIdNum) return false;
       setLoading(true);
       setError(null);
       try {
-        const result = await getOdontogramaByHistoria(historiaIdNum, { vigente });
+        const result = await getOdontogramaByHistoria(historiaIdNum, {
+          vigente,
+          citaId: citaId || undefined,
+        });
         setData(result);
 
         const params = new URLSearchParams(window.location.search);
@@ -48,9 +48,12 @@ export default function OdontogramaPage() {
         if (citaId) params.set("cita", citaId);
         else params.delete("cita");
         navigate({ search: params.toString() }, { replace: true });
+        return true;
       } catch (err: any) {
         setError(err?.message || "No se pudo cargar el odontograma");
+        toast.error(err?.message || "No se pudo cargar el odontograma");
         setData(null);
+        return false;
       } finally {
         setLoading(false);
       }
@@ -74,8 +77,13 @@ export default function OdontogramaPage() {
 
   const ensureDraft = useCallback(async () => {
     if (!historiaIdNum) return;
-    await abrirDraftOdontograma(historiaIdNum, "from_last");
-    await cargar(false);
+    try {
+      await abrirDraftOdontograma(historiaIdNum, "from_last");
+      toast.success("Borrador del odontograma listo para edición");
+      await cargar(false);
+    } catch (err: any) {
+      toast.error(err?.message || "No se pudo abrir el borrador del odontograma");
+    }
   }, [historiaIdNum, cargar]);
 
   const handleBuscar = () => {
@@ -83,8 +91,9 @@ export default function OdontogramaPage() {
     setCitaId(citaInput.trim());
   };
 
-  const handleRefresh = () => {
-    void cargar(false);
+  const handleRefresh = async () => {
+    const ok = await cargar(false);
+    if (ok) toast.success("Odontograma actualizado");
   };
 
   const odontograma = data?.odontograma ?? null;
