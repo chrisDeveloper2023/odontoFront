@@ -1,6 +1,6 @@
 // src/components/AppointmentEditModal.tsx
 import React, { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -314,6 +314,9 @@ const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
             <User className="h-5 w-5 text-primary" />
             Editar Cita #{appointmentId}
           </DialogTitle>
+          <DialogDescription>
+            Modifique los datos de la cita médica
+          </DialogDescription>
         </DialogHeader>
 
         {loading && (
