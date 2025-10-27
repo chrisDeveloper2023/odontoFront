@@ -257,6 +257,35 @@ export const mapTreatment = (raw: unknown): Treatment => {
   const source = raw as Record<string, unknown>;
   const clinica = raw.clinica ? mapClinica(raw.clinica) : null;
   const pieza = mapOdontoPiece((raw as any).pieza);
+  const historiaRaw = (raw as any).historia;
+  const historia =
+    historiaRaw && typeof historiaRaw === "object"
+      ? {
+          id_historia:
+            Number(
+              (historiaRaw as any).id_historia ??
+                (historiaRaw as any).id ??
+                (historiaRaw as any).historia_id ??
+                0,
+            ) || 0,
+          id_paciente:
+            Number(
+              (historiaRaw as any).id_paciente ??
+                (historiaRaw as any).paciente_id ??
+                (historiaRaw as any).idPaciente ??
+                0,
+            ) || 0,
+          id_clinica:
+            Number(
+              (historiaRaw as any).id_clinica ??
+                (historiaRaw as any).clinica_id ??
+                (historiaRaw as any).idClinica ??
+                0,
+            ) || null,
+          paciente: (historiaRaw as any).paciente ?? null,
+          clinica: (historiaRaw as any).clinica ? mapClinica((historiaRaw as any).clinica) : null,
+        }
+      : null;
 
   return {
     id_tratamiento:
@@ -265,6 +294,11 @@ export const mapTreatment = (raw: unknown): Treatment => {
     descripcion: source.descripcion ?? source.description ?? null,
     costo_base:
       Number(source.costo_base ?? source.costo ?? source.precio ?? source.base_cost ?? 0) || 0,
+    id_historia:
+      toNumber(
+        source.id_historia ?? source.historia_id ?? (historia ? historia.id_historia : undefined),
+      ) ?? null,
+    historia,
     id_clinica: toNumber(source.id_clinica ?? source.clinica_id ?? clinica?.id_clinica) ?? null,
     clinica,
     id_pieza: toNumber(source.id_pieza ?? source.pieza_id ?? pieza?.id_pieza) ?? null,

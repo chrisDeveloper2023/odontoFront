@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, RefreshCw, Search, Pencil, Trash, ExternalLink } from "lucide-react";
 import TreatmentFormModal from "@/components/TreatmentFormModal";
-import { fetchTreatments, createTreatment, updateTreatment, deleteTreatment } from "@/lib/api/treatments";
+import {
+  fetchTreatmentsContext,
+  createTreatment,
+  updateTreatment,
+  deleteTreatment,
+} from "@/lib/api/treatments";
 import { getClinicas } from "@/lib/api/clinicas";
-import type { Treatment, TreatmentPayload } from "@/types/treatment";
+import type { Treatment, TreatmentPayload, TreatmentsContext } from "@/types/treatment";
 
 type ClinicOption = { id: number; nombre: string };
 
@@ -38,34 +44,72 @@ const TreatmentsPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [historiaInput, setHistoriaInput] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Treatment | null>(null);
   const [clinics, setClinics] = useState<ClinicOption[]>([]);
+  const [context, setContext] = useState<TreatmentsContext | null>(null);
 
   const location = useLocation();
   const navigate = useNavigate();
+  const locationState = location.state as { historiaId?: number } | undefined;
+
+  const historiaFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("historia");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [location.search]);
+
+  const historiaId = historiaFromQuery ?? locationState?.historiaId ?? null;
 
   useEffect(() => {
+    if (historiaId) {
+      setHistoriaInput(String(historiaId));
+    } else {
+      setHistoriaInput("");
+    }
+  }, [historiaId]);
+
+  const loadClinics = async () => {
+    const clinicsRaw = await getClinicas();
+    setClinics(
+      clinicsRaw
+        .map((item) => ({
+          id: Number(item.id ?? item.id_clinica ?? item.idClinica ?? item.clinica_id ?? 0) || 0,
+          nombre: String(item.nombre ?? item.nombre_clinica ?? item.name ?? `Clínica ${item.id}`),
+        }))
+        .filter((item) => item.id),
+    );
+  };
+
+  useEffect(() => {
+    void loadClinics().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!historiaId) {
+      setContext(null);
+      setTreatments([]);
+      return;
+    }
+
     let cancelled = false;
-    const loadInitial = async () => {
+    const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [items, clinicsRaw] = await Promise.all([fetchTreatments(), getClinicas()]);
+        const [ctx] = await Promise.all([
+          fetchTreatmentsContext(historiaId),
+        ]);
         if (cancelled) return;
-        setTreatments(items);
-        setClinics(
-          clinicsRaw
-            .map((item) => ({
-              id: Number(item.id ?? item.id_clinica ?? item.idClinica ?? item.clinica_id ?? 0) || 0,
-              nombre: String(item.nombre ?? item.nombre_clinica ?? item.name ?? `Clínica ${item.id}`),
-            }))
-            .filter((item) => item.id),
-        );
+        setContext(ctx);
+        setTreatments(ctx.tratamientos);
       } catch (error) {
         if (cancelled) return;
-        const message = getErrorMessage(error, "No se pudieron cargar los tratamientos");
+        const message = getErrorMessage(error, "No se pudo cargar el contexto de tratamientos");
         setError(message);
         toast.error(message);
       } finally {
@@ -74,11 +118,11 @@ const TreatmentsPage = () => {
         }
       }
     };
-    void loadInitial();
+    void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [historiaId]);
 
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -110,11 +154,13 @@ const TreatmentsPage = () => {
   };
 
   const refreshList = async () => {
+    if (!historiaId) return;
     setLoading(true);
     setError(null);
     try {
-      const items = await fetchTreatments();
-      setTreatments(items);
+      const ctx = await fetchTreatmentsContext(historiaId);
+      setContext(ctx);
+      setTreatments(ctx.tratamientos);
       toast.success("Listado de tratamientos actualizado");
     } catch (error) {
       const message = getErrorMessage(error, "No se pudieron refrescar los tratamientos");
@@ -134,10 +180,16 @@ const TreatmentsPage = () => {
         setTreatments((prev) =>
           prev.map((item) => (item.id_tratamiento === updated.id_tratamiento ? updated : item)),
         );
+        setContext((prev) =>
+          prev ? { ...prev, tratamientos: prev.tratamientos.map((item) => (item.id_tratamiento === updated.id_tratamiento ? updated : item)) } : prev,
+        );
         toast.success("Tratamiento actualizado");
       } else {
         updated = await createTreatment(values);
         setTreatments((prev) => [updated, ...prev]);
+        setContext((prev) =>
+          prev ? { ...prev, tratamientos: [updated, ...(prev.tratamientos ?? [])] } : prev,
+        );
         toast.success("Tratamiento creado");
       }
       closeModal();
@@ -155,6 +207,16 @@ const TreatmentsPage = () => {
     try {
       await deleteTreatment(treatment.id_tratamiento);
       setTreatments((prev) => prev.filter((item) => item.id_tratamiento !== treatment.id_tratamiento));
+      setContext((prev) =>
+        prev
+          ? {
+              ...prev,
+              tratamientos: prev.tratamientos.filter(
+                (item) => item.id_tratamiento !== treatment.id_tratamiento,
+              ),
+            }
+          : prev,
+      );
       toast.success("Tratamiento eliminado");
     } catch (error) {
       const message = getErrorMessage(error, "No se pudo eliminar el tratamiento");
@@ -162,15 +224,66 @@ const TreatmentsPage = () => {
     }
   };
 
-  const goToOdontograma = (historiaId: number | null | undefined) => {
-    if (!historiaId) return;
-    navigate(`/odontograma?historia=${historiaId}`, { state: { historiaId } });
+  const goToOdontograma = (targetHistoriaId: number | null | undefined) => {
+    if (!targetHistoriaId) return;
+    navigate(`/odontograma?historia=${targetHistoriaId}`, { state: { historiaId: targetHistoriaId } });
   };
 
-  const goToHistoria = (historiaId: number | null | undefined) => {
-    if (!historiaId) return;
-    navigate(`/medical-records/${historiaId}`, { state: { background: location } });
+  const goToHistoria = (targetHistoriaId: number | null | undefined) => {
+    if (!targetHistoriaId) return;
+    navigate(`/medical-records/${targetHistoriaId}`, { state: { background: location } });
   };
+
+  const piezaOptions = useMemo(() => {
+    if (!context?.odontograma?.piezas) return [];
+    return context.odontograma.piezas.map((pieza) => ({
+      id: pieza.id_pieza,
+      numero_fdi: pieza.numero_fdi ?? null,
+      label: pieza.numero_fdi ? `FDI ${pieza.numero_fdi}` : `Pieza ${pieza.id_pieza}`,
+    }));
+  }, [context?.odontograma?.piezas]);
+
+  const historiaLabel = useMemo(() => {
+    if (!context?.historia) return historiaId ? String(historiaId) : undefined;
+    const paciente = context.historia.paciente
+      ? [context.historia.paciente.nombres, context.historia.paciente.apellidos]
+          .filter(Boolean)
+          .join(" ")
+      : "";
+    return paciente ? `${context.historia.id_historia} · ${paciente}` : String(context.historia.id_historia);
+  }, [context?.historia, historiaId]);
+
+  const handleHistoriaSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = historiaInput.trim();
+    const parsed = Number(trimmed);
+    if (!trimmed || Number.isNaN(parsed) || parsed <= 0) {
+      toast.error("Ingresa un ID de historia válido");
+      return;
+    }
+    navigate({ pathname: "/treatments", search: `?historia=${parsed}` }, { replace: true, state: { historiaId: parsed } });
+  };
+
+  if (!historiaId) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground space-y-4">
+            <p>Selecciona una historia clínica para gestionar sus tratamientos.</p>
+            <form className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center" onSubmit={handleHistoriaSubmit}>
+              <Input
+                className="max-w-xs"
+                placeholder="ID de historia clínica"
+                value={historiaInput}
+                onChange={(event) => setHistoriaInput(event.target.value)}
+              />
+              <Button type="submit">Cargar historia</Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -178,7 +291,7 @@ const TreatmentsPage = () => {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tratamientos</h1>
           <p className="text-muted-foreground">
-            Planes y procedimientos realizados, asociados a historias y odontogramas.
+            Planes y procedimientos asociados a la historia #{historiaLabel}.
           </p>
         </div>
         <div className="flex gap-2">
@@ -234,8 +347,11 @@ const TreatmentsPage = () => {
       ) : (
         <div className="grid gap-4">
           {filtered.map((treatment) => {
-            const clinicName = treatment.clinica?.nombre ?? "Sin clínica";
-            const historiaId = treatment.pieza?.odontograma?.id_historia ?? null;
+            const clinicName =
+              treatment.clinica?.nombre ??
+              treatment.historia?.clinica?.nombre ??
+              "Sin clínica";
+            const historiaAsociada = treatment.id_historia ?? treatment.historia?.id_historia ?? null;
             const piezaFDI = treatment.pieza?.numero_fdi ? `FDI ${treatment.pieza.numero_fdi}` : null;
             const piezaId = treatment.id_pieza;
 
@@ -272,7 +388,7 @@ const TreatmentsPage = () => {
                     <Badge variant={treatment.pagado ? "default" : "outline"}>
                       {treatment.pagado ? "Pagado" : "Pendiente"}
                     </Badge>
-                    {historiaId ? <Badge variant="outline">Historia #{historiaId}</Badge> : null}
+                    {historiaAsociada ? <Badge variant="outline">Historia #{historiaAsociada}</Badge> : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -295,8 +411,8 @@ const TreatmentsPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={!historiaId}
-                      onClick={() => goToHistoria(historiaId)}
+                      disabled={!historiaAsociada}
+                      onClick={() => goToHistoria(historiaAsociada)}
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Ver historia
@@ -304,8 +420,8 @@ const TreatmentsPage = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={!historiaId}
-                      onClick={() => goToOdontograma(historiaId)}
+                      disabled={!historiaAsociada}
+                      onClick={() => goToOdontograma(historiaAsociada)}
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Ver odontograma
@@ -325,6 +441,9 @@ const TreatmentsPage = () => {
         loading={saving}
         initialData={editing ?? undefined}
         clinics={clinics}
+        historiaId={historiaId}
+        historiaLabel={historiaLabel}
+        piezaOptions={piezaOptions}
       />
     </div>
   );
