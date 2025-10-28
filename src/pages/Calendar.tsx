@@ -1,9 +1,10 @@
 // src/pages/Calendar.tsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -27,7 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import NewAppointmentModal, { NewAppointmentPayload } from "@/components/NewAppointmentModal";
 import AppointmentEditModal from "@/components/AppointmentEditModal";
-import { apiGet, apiPost, apiDelete } from "@/api/client";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/api/client";
 import { toast } from "sonner";
 import CalendarSettingsModal from "@/components/CalendarSettingModal";
 import { getOdontologos } from "@/servicios/usuarios";
@@ -71,15 +72,18 @@ const getEstadoColor = (estado?: string) => ESTADO_COLOR[estado ?? ""] ?? "bg-sl
 interface Cita {
   id: number;
   paciente: string;
+  pacienteId?: number;
   tipo: string;
   descripcion: string;
   horaInicio: string;
   horaFin: string;
   color: string;
   odontologo: string;
+  odontologoId?: number;
   estado?: string;
   icono?: string;
   fecha?: Date;
+  tenantId?: number | null;
 }
 
 interface Doctor {
@@ -108,6 +112,7 @@ type BackendCita = {
   id_odontologo?: number | null;
   id_consultorio?: number | null;
   id_clinica?: number | null;
+  tenantId?: number | null;
 };
 
 const DOCTOR_COLORS = [
@@ -184,6 +189,45 @@ const Calendar: React.FC = () => {
   const [odontologosListo, setOdontologosListo] = useState(false);
   const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [initialAppointmentData, setInitialAppointmentData] = useState<{
+    fecha?: Date;
+    horaInicio?: string;
+    horaFin?: string;
+  } | null>(null);
+  
+  // Estado para filtro de odontólogo
+  const [odontologoFiltro, setOdontologoFiltro] = useState<string | null>(null);
+  
+  // Estados para drag and drop
+  const [draggedCita, setDraggedCita] = useState<Cita | null>(null);
+  const [dragOverSlot, setDragOverSlot] = useState<{fecha: Date, hora: string} | null>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
+
+  // Función para filtrar citas por odontólogo
+  const citasFiltradas = useMemo(() => {
+    if (!odontologoFiltro) {
+      return citas;
+    }
+    const odontologoSeleccionado = odontologos.find(od => od.id.toString() === odontologoFiltro);
+    if (!odontologoSeleccionado) {
+      return citas;
+    }
+    return citas.filter(cita => cita.odontologo === odontologoSeleccionado.nombre);
+  }, [citas, odontologoFiltro, odontologos]);
+
+  // Función para calcular la hora de fin (hora inicio + 30 minutos)
+  const calcularHoraFin = (horaInicio: string): string => {
+    const [horas, minutos] = horaInicio.split(':').map(Number);
+    const totalMinutos = horas * 60 + minutos + 30;
+    
+    const nuevasHoras = Math.floor(totalMinutos / 60);
+    const nuevosMinutos = totalMinutos % 60;
+    
+    const horasFormateadas = nuevasHoras.toString().padStart(2, '0');
+    const minutosFormateados = nuevosMinutos.toString().padStart(2, '0');
+    
+    return `${horasFormateadas}:${minutosFormateados}`;
+  };
 
   // Cargar médicos al montar el componente
   useEffect(() => {
@@ -205,17 +249,8 @@ const Calendar: React.FC = () => {
         setOdontologosListo(true);
       } catch (error) {
         console.error("Error cargando medicos:", error);
-        const doctoresFallback = [
-          { id: 1, nombres: "Guadalupe", apellidos: "Guerrero" },
-          { id: 2, nombres: "Pamela", apellidos: "Gil" },
-          { id: 3, nombres: "Juan", apellidos: "Domingo" },
-        ];
-        setDoctores(doctoresFallback);
-        setOdontologos([
-          { id: 1, nombre: "Guadalupe Guerrero", color: "bg-pink-500" },
-          { id: 2, nombre: "Pamela Gil", color: "bg-yellow-500" },
-          { id: 3, nombre: "Juan Domingo", color: "bg-red-500" },
-        ]);
+        setDoctores([]);
+        setOdontologos([]);
         setOdontologosListo(true);
         toast.error("No se pudieron cargar los medicos");
       } finally {
@@ -290,15 +325,18 @@ const Calendar: React.FC = () => {
           return {
             id: raw.id_cita ?? raw.id ?? Number(inicioCita.getTime()),
             paciente: nombrePaciente,
+            pacienteId: raw.id_paciente,
             tipo: estado,
             descripcion: raw.observaciones || "",
             horaInicio: formatearHoraDesdeFecha(inicioCita),
             horaFin: formatearHoraDesdeFecha(finCita),
             color: colorConfig || colorEstado,
             odontologo: nombreOdontologo,
+            odontologoId: raw.id_odontologo,
             icono: "",
-            fecha: inicioCita, // Date ya parseado en zona Guayaquil
+            fecha: inicioCita,
             estado,
+            tenantId: raw.tenantId,
           } as Cita;
         })
         .filter((item): item is Cita => Boolean(item));
@@ -326,12 +364,12 @@ const Calendar: React.FC = () => {
   const citasDia = useMemo(() => {
     const ini = startOfDayGye(fechaSeleccionada);
     const fin = addDaysGye(fechaSeleccionada, 1);
-    return citas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
-  }, [citas, fechaSeleccionada]);
+    return citasFiltradas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
+  }, [citasFiltradas, fechaSeleccionada]);
 
   const citasSemana = useMemo(() => {
-    return citas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, inicioSemana, finSemana));
-  }, [citas, inicioSemana, finSemana]);
+    return citasFiltradas.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, inicioSemana, finSemana));
+  }, [citasFiltradas, inicioSemana, finSemana]);
 
   const obtenerDiasMes = () => {
     const ao = fechaActual.getFullYear();
@@ -385,7 +423,7 @@ const Calendar: React.FC = () => {
     return fallback.getHours() + fallback.getMinutes() / 60;
   };
 
-  const obtenerCitasDelDia = (fecha: Date, fuente: Cita[] = citas) => {
+  const obtenerCitasDelDia = (fecha: Date, fuente: Cita[] = citasFiltradas) => {
     const ini = startOfDayGye(fecha);
     const fin = addDaysGye(fecha, 1);
     return fuente.filter((cita) => {
@@ -449,20 +487,163 @@ const Calendar: React.FC = () => {
     return `${h}:${m}`;
   };
 
+  // Funciones para drag and drop
+  const handleDragStart = (e: React.DragEvent, cita: Cita) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', cita.id.toString());
+    
+    const citaCompleta = {
+      id: cita.id,
+      paciente: cita.paciente,
+      pacienteId: cita.pacienteId,
+      tipo: cita.tipo,
+      descripcion: cita.descripcion,
+      horaInicio: cita.horaInicio,
+      horaFin: cita.horaFin,
+      color: cita.color,
+      odontologo: cita.odontologo,
+      odontologoId: cita.odontologoId,
+      estado: cita.estado,
+      icono: cita.icono,
+      fecha: cita.fecha,
+      tenantId: cita.tenantId,
+    };
+    
+    setDraggedCita(citaCompleta);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedCita(null);
+    setDragOverSlot(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, fecha: Date, hora: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSlot({ fecha, hora });
+  };
+
+  const handleDragLeave = () => {
+    setDragOverSlot(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, fecha: Date, hora: string) => {
+    e.preventDefault();
+    
+    if (!draggedCita) {
+      console.error('No hay cita arrastrada');
+      return;
+    }
+
+    if (!draggedCita.id || !draggedCita.paciente || !draggedCita.odontologo) {
+      console.error('Cita incompleta:', draggedCita);
+      toast.error("Error: Datos de la cita incompletos");
+      return;
+    }
+
+    let pacienteId = draggedCita.pacienteId;
+    let odontologoId = draggedCita.odontologoId;
+    
+    if (!pacienteId || !odontologoId) {
+      try {
+        const citaOriginal = await apiGet(`/citas/${draggedCita.id}`);
+        pacienteId = citaOriginal.id_paciente || pacienteId;
+        odontologoId = citaOriginal.id_odontologo || odontologoId;
+      } catch (error) {
+        console.error('Error obteniendo datos de la cita:', error);
+      }
+    }
+
+    const nuevaHoraInicio = hora;
+    const nuevaHoraFin = calcularHoraFin(hora);
+    
+    const fechaActual = draggedCita.fecha;
+    const horaActual = draggedCita.horaInicio;
+    
+    if (fechaActual && 
+        fechaActual.getTime() === fecha.getTime() && 
+        horaActual === nuevaHoraInicio) {
+      return;
+    }
+
+    try {
+      const citaActualizada: any = {
+        fecha_hora: toGuayaquilISOString(combinarFechaHora(fecha, nuevaHoraInicio)),
+        observaciones: draggedCita.descripcion || null,
+        estado: draggedCita.estado || "AGENDADA",
+        id: draggedCita.id
+      };
+
+      if (pacienteId) {
+        citaActualizada.id_paciente = pacienteId;
+      }
+      if (odontologoId) {
+        citaActualizada.id_odontologo = odontologoId;
+      }
+      if (draggedCita.tenantId) {
+        citaActualizada.tenantId = draggedCita.tenantId;
+      }
+
+      await apiPut(`/citas/${draggedCita.id}`, citaActualizada);
+      
+      setCitas(prevCitas => 
+        prevCitas.map(cita => 
+          cita.id === draggedCita.id 
+            ? { 
+                ...cita,
+                fecha: fecha, 
+                horaInicio: nuevaHoraInicio, 
+                horaFin: nuevaHoraFin
+              }
+            : cita
+        )
+      );
+      
+      toast.success("Cita movida exitosamente");
+    } catch (error) {
+      console.error("Error moviendo cita:", error);
+      toast.error("Error al mover la cita");
+    }
+    
+    setDraggedCita(null);
+    setDragOverSlot(null);
+  };
+
+  const obtenerHoraActualSistema = () => {
+    const ahora = new Date();
+    const horas = ahora.getHours().toString().padStart(2, '0');
+    const minutos = ahora.getMinutes().toString().padStart(2, '0');
+    const horaActual = `${horas}:${minutos}`;
+    
+    const horaActualNum = parseInt(horas);
+    if (horaActualNum > 22) {
+      return '22:00';
+    }
+    
+    return horaActual;
+  };
+
   const obtenerPosicionCita = (horaInicio: string) => {
     const [h, m] = horaInicio.split(':');
-    const horaDecimal = parseInt(h) + (parseInt(m) / 60);
-    // Las líneas están en (i * 60) + 20, donde i = hora - 10
-    const indiceHora = horaDecimal - 10;
-    return (indiceHora * 60) + 20;
+    const horaNum = parseInt(h);
+    const minNum = parseInt(m);
+    
+    // Calcular minutos totales desde las 10:00 (inicio del día)
+    const minutosDesdeInicio = (horaNum - 10) * 60 + minNum;
+    
+    // Cada minuto = 1px
+    return minutosDesdeInicio;
   };
 
   const obtenerAlturaCita = (horaInicio: string, horaFin: string) => {
     const [h1, m1] = horaInicio.split(':');
     const [h2, m2] = horaFin.split(':');
-    const inicio = parseInt(h1) + (parseInt(m1) / 60);
-    const fin = parseInt(h2) + (parseInt(m2) / 60);
-    return (fin - inicio) * 60; // cada hora = 60px
+    
+    const inicioTotal = parseInt(h1) * 60 + parseInt(m1);
+    const finTotal = parseInt(h2) * 60 + parseInt(m2);
+    
+    // Diferencia en minutos = píxeles
+    return finTotal - inicioTotal;
   };
 
   const horaActual = obtenerHoraActual();
@@ -574,14 +755,36 @@ const Calendar: React.FC = () => {
 
           {/* Leyenda de Mdicos */}
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mdicos</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Médicos</h3>
+            
+            {/* Filtro de odontólogos */}
+            <div className="space-y-2">
+              <Select value={odontologoFiltro || "all"} onValueChange={(value) => setOdontologoFiltro(value === "all" ? null : value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todos los médicos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los médicos</SelectItem>
+                  {odontologos.map((odontologo) => (
+                    <SelectItem key={odontologo.id} value={odontologo.id.toString()}>
+                      <div className="flex items-center space-x-2">
+                        <div className={cn("w-3 h-3 rounded-full", odontologo.color)}></div>
+                        <span>{odontologo.nombre}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lista de médicos */}
             {loadingDoctores ? (
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Cargando mdicos...
+                Cargando médicos...
               </div>
             ) : odontologos.length === 0 ? (
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                No hay mdicos disponibles
+                No hay médicos disponibles
               </div>
             ) : (
               odontologos.map((odontologo) => (
@@ -732,9 +935,31 @@ const Calendar: React.FC = () => {
                     <div className="w-20 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600">
                       {Array.from({ length: 14 }, (_, i) => {
                         const hora = 10 + i;
+                        const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
                         const esHoraActual = esHoy(fechaSeleccionada) && hora === Math.floor(obtenerHoraActual());
+                        const isDragOver = dragOverSlot?.fecha.getTime() === fechaSeleccionada.getTime() && 
+                                         dragOverSlot?.hora === horaFormateada;
+                        
                         return (
-                          <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600 p-2 relative" style={{ height: '60px' }}>
+                          <div 
+                            key={i} 
+                            className={cn(
+                              "h-15 border-b border-gray-200 dark:border-gray-600 p-2 relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors",
+                              isDragOver && "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-600"
+                            )}
+                            style={{ height: '60px' }}
+                            onDoubleClick={() => {
+                              setInitialAppointmentData({
+                                fecha: fechaSeleccionada,
+                                horaInicio: horaFormateada,
+                                horaFin: calcularHoraFin(horaFormateada),
+                              });
+                              setIsNewAppointmentOpen(true);
+                            }}
+                            onDragOver={(e) => handleDragOver(e, fechaSeleccionada, horaFormateada)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, fechaSeleccionada, horaFormateada)}
+                          >
                             <div className={cn(
                               "text-xs text-gray-500 dark:text-gray-400",
                               esHoraActual && "text-blue-600 font-semibold"
@@ -749,13 +974,34 @@ const Calendar: React.FC = () => {
                     {/* rea de Eventos */}
                     <div className="flex-1 relative bg-blue-50 dark:bg-blue-900/20">
                       {/* Lneas de Tiempo */}
-                      {Array.from({ length: 14 }, (_, i) => (
-                        <div 
-                          key={i} 
-                          className="absolute left-0 right-0 border-t border-gray-200 dark:border-gray-600"
-                          style={{ top: `${i * 60}px` }}
-                        />
-                      ))}
+                      {Array.from({ length: 14 }, (_, i) => {
+                        const hora = 10 + i;
+                        const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
+                        const isDragOver = dragOverSlot?.fecha.getTime() === fechaSeleccionada.getTime() && 
+                                         dragOverSlot?.hora === horaFormateada;
+                        
+                        return (
+                          <div 
+                            key={i} 
+                            className={cn(
+                              "absolute left-0 right-0 border-t border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-800/30 transition-colors",
+                              isDragOver && "bg-blue-200 dark:bg-blue-800 border-blue-400 dark:border-blue-500"
+                            )}
+                            style={{ top: `${i * 60}px`, height: '60px' }}
+                            onDoubleClick={() => {
+                              setInitialAppointmentData({
+                                fecha: fechaSeleccionada,
+                                horaInicio: horaFormateada,
+                                horaFin: calcularHoraFin(horaFormateada),
+                              });
+                              setIsNewAppointmentOpen(true);
+                            }}
+                            onDragOver={(e) => handleDragOver(e, fechaSeleccionada, horaFormateada)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, fechaSeleccionada, horaFormateada)}
+                          />
+                        );
+                      })}
 
                       {/* Lnea de Tiempo Actual */}
                       {esHoy(fechaSeleccionada) && (
@@ -781,17 +1027,32 @@ const Calendar: React.FC = () => {
                           <span className="px-3 py-1 text-xs bg-red-100 text-red-600 rounded">{citasError}</span>
                         </div>
                       )}
-                      {citasDia.map((cita) => {
+                      {citasDia
+                        .filter((cita) => {
+                          const [h] = cita.horaInicio.split(':');
+                          const hora = parseInt(h);
+                          return hora >= 10 && hora <= 23;
+                        })
+                        .map((cita) => {
                         const posicion = obtenerPosicionEvento(cita.horaInicio);
                         const altura = obtenerAlturaEvento(cita.horaInicio, cita.horaFin);
+                        
+                        // Validar que la posición sea positiva (dentro del área visible)
+                        if (posicion < 0) {
+                          return null;
+                        }
 
                         return (
-                          <Tooltip key={cita.id}>
+                          <Tooltip key={`${cita.id}-dia`}>
                             <TooltipTrigger asChild>
                               <div
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, cita)}
+                                onDragEnd={handleDragEnd}
                                 className={cn(
-                                  "absolute left-2 right-2 rounded-md p-3 text-white text-sm hover:opacity-80 transition-opacity shadow-md group cursor-pointer",
-                                  cita.color
+                                  "absolute left-2 right-2 rounded-md p-3 text-white text-sm hover:opacity-80 transition-opacity shadow-md group cursor-move",
+                                  cita.color,
+                                  draggedCita?.id === cita.id && "opacity-50"
                                 )}
                                 style={{
                                   top: `${posicion}px`,
@@ -845,7 +1106,7 @@ const Calendar: React.FC = () => {
                             </TooltipContent>
                           </Tooltip>
                         );
-                      })}
+                      }).filter(Boolean)}
 
                       {/* Mensaje si no hay eventos */}
                       {!loadingCitas && citasDia.length === 0 && (
@@ -874,7 +1135,7 @@ const Calendar: React.FC = () => {
                   {/* Grid del Mes */}
                   <div className="grid grid-cols-7">
                     {obtenerDiasMes().map((dia, index) => {
-                      const citasDelDia = obtenerCitasDelDia(dia);
+                      const citasDelDia = obtenerCitasDelDia(dia, citasFiltradas);
                       const esHoyDia = esHoy(dia);
                       const esDelMes = esDelMesActual(dia);
                       
@@ -882,10 +1143,19 @@ const Calendar: React.FC = () => {
                         <div
                           key={index}
                           className={cn(
-                            "min-h-[120px] p-2 border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0",
+                            "min-h-[120px] p-2 border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
                             !esDelMes && "bg-gray-50 dark:bg-gray-900 text-gray-400",
                             esHoyDia && "bg-blue-50 dark:bg-blue-900/20"
                           )}
+                          onDoubleClick={() => {
+                            const horaActual = obtenerHoraActualSistema();
+                            setInitialAppointmentData({
+                              fecha: dia,
+                              horaInicio: horaActual,
+                              horaFin: calcularHoraFin(horaActual),
+                            });
+                            setIsNewAppointmentOpen(true);
+                          }}
                         >
                           {/* Nmero del da */}
                           <div className={cn(
@@ -902,10 +1172,14 @@ const Calendar: React.FC = () => {
                               <Tooltip key={cita.id}>
                                 <TooltipTrigger asChild>
                                   <div
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, cita)}
+                                    onDragEnd={handleDragEnd}
                                     className={cn(
-                                      "text-xs p-1 rounded hover:opacity-80 transition-opacity group cursor-pointer",
+                                      "text-xs p-1 rounded hover:opacity-80 transition-opacity group cursor-move",
                                       cita.color,
-                                      "text-white"
+                                      "text-white",
+                                      draggedCita?.id === cita.id && "opacity-50"
                                     )}
                                   >
                                     <div className="flex items-center justify-between">
@@ -981,105 +1255,163 @@ const Calendar: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Grid del Calendario */}
-                  <div className="relative">
-                    {/* Lnea de Tiempo Actual */}
-                    {horaActual >= 10 && horaActual <= 20 && (
-                      <div 
-                        className="absolute left-0 right-0 z-10 border-t-2 border-dashed border-blue-500"
-                        style={{ top: `${((horaActual - 10) * 60) + 20}px` }}
-                      >
-                        <div className="absolute -left-2 -top-2 w-4 h-4 bg-blue-500 rounded-full"></div>
-                      </div>
-                    )}
+                    {/* Grid del Calendario */}
+                    <div className="relative">
+                      {/* Lnea de Tiempo Actual */}
+                      {horaActual >= 10 && horaActual <= 20 && (
+                        <div 
+                          className="absolute left-0 right-0 z-10 border-t-2 border-dashed border-blue-500"
+                          style={{ top: `${((horaActual - 10) * 60) + 20}px` }}
+                        >
+                          <div className="absolute -left-2 -top-2 w-4 h-4 bg-blue-500 rounded-full"></div>
+                        </div>
+                      )}
 
-                    {/* Slots de Tiempo */}
-                    <div className="grid grid-cols-8">
-                      {/* Columna de Horas */}
-                      <div className="bg-gray-50 dark:bg-gray-700">
-                        {Array.from({ length: 11 }, (_, i) => {
-                          const hora = 10 + i;
-                          return (
-                            <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600 p-2">
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {hora}:00 {hora < 12 ? 'am' : 'pm'}
+                      {/* Slots de Tiempo */}
+                      <div className="grid grid-cols-8">
+                        {/* Columna de Horas */}
+                        <div className="bg-gray-50 dark:bg-gray-700">
+                          {Array.from({ length: 11 }, (_, i) => {
+                            const hora = 10 + i;
+                            const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
+                            return (
+                              <div 
+                                key={i} 
+                                className="h-15 border-b border-gray-200 dark:border-gray-600 p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                                style={{ height: '60px' }}
+                                onDoubleClick={() => {
+                                  setInitialAppointmentData({
+                                    fecha: fechaActual,
+                                    horaInicio: horaFormateada,
+                                    horaFin: calcularHoraFin(horaFormateada),
+                                  });
+                                  setIsNewAppointmentOpen(true);
+                                }}
+                              >
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {hora}:00 {hora < 12 ? 'am' : 'pm'}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
 
-                      {/* Columnas de Das */}
-                      {diasSemana.map((dia, diaIndex) => (
-                        <div key={diaIndex} className="relative border-l border-gray-200 dark:border-gray-700">
-                          {Array.from({ length: 11 }, (_, i) => (
-                            <div key={i} className="h-15 border-b border-gray-200 dark:border-gray-600"></div>
-                          ))}
+                        {/* Columnas de Das */}
+                        {diasSemana.map((dia, diaIndex) => {
+                          // Obtener citas para este día
+                          const citasDelDia = obtenerCitasDelDia(dia, citasFiltradas);
+                          
+                          return (
+                            <div key={diaIndex} className="relative border-l border-gray-200 dark:border-gray-700">
+                              {Array.from({ length: 11 }, (_, i) => {
+                                const hora = 10 + i;
+                                const horaFormateada = `${hora.toString().padStart(2, '0')}:00`;
+                                const isDragOver = dragOverSlot?.fecha.getTime() === dia.getTime() && 
+                                                 dragOverSlot?.hora === horaFormateada;
+                                
+                                return (
+                                  <div 
+                                    key={i} 
+                                    className={cn(
+                                      "h-15 border-b border-gray-200 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors",
+                                      isDragOver && "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-600"
+                                    )}
+                                    style={{ height: '60px' }}
+                                    onDoubleClick={() => {
+                                      setInitialAppointmentData({
+                                        fecha: dia,
+                                        horaInicio: horaFormateada,
+                                        horaFin: calcularHoraFin(horaFormateada),
+                                      });
+                                      setIsNewAppointmentOpen(true);
+                                    }}
+                                    onDragOver={(e) => handleDragOver(e, dia, horaFormateada)}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={(e) => handleDrop(e, dia, horaFormateada)}
+                                  ></div>
+                                );
+                              })}
 
-                          {/* Citas del Da */}
-                          {(() => {
-                            const ini = startOfDayGye(dia);
-                            const fin = addDaysGye(dia, 1);
-                            const delDia = citasSemana.filter((cita) => cita?.fecha && inRangeGye(cita.fecha, ini, fin));
+                              {/* Citas del día - Ahora habilitado en vista semana */}
+                              {citasDelDia
+                                .filter((cita) => {
+                                  const [h] = cita.horaInicio.split(':');
+                                  const hora = parseInt(h);
+                                  return hora >= 10 && hora <= 23;
+                                })
+                                .map((cita) => {
+                                  const posicion = obtenerPosicionCita(cita.horaInicio);
+                                  const altura = obtenerAlturaCita(cita.horaInicio, cita.horaFin);
+                                  
+                                  // Validar que la posición sea positiva (dentro del área visible)
+                                  if (posicion < 0 || posicion > 660) {
+                                    return null;
+                                  }
 
-                            return delDia.map((cita) => {
-                              const posicion = obtenerPosicionCita(cita.horaInicio);
-                              const altura = obtenerAlturaCita(cita.horaInicio, cita.horaFin);
-
-                              return (
-                                <Tooltip key={cita.id}>
-                                  <TooltipTrigger asChild>
-                                    <div
-                                      className={cn(
-                                        "absolute left-1 right-1 rounded-md p-2 text-white text-xs hover:opacity-80 transition-opacity group relative cursor-pointer",
-                                        cita.color
-                                      )}
-                                      style={{
-                                        top: `${posicion}px`,
-                                        height: `${altura}px`,
-                                      }}
-                                    >
-                                      {/* Iconos en la parte superior derecha */}
-                                      <div className="flex items-center space-x-1 absolute top-1 right-1">
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="opacity-70 hover:opacity-100 transition-opacity h-4 w-4 p-0 bg-white/40 hover:bg-white/50 border-white/50"
+                                  return (
+                                    <Tooltip key={`${cita.id}-semana`}>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          draggable
+                                          onDragStart={(e) => handleDragStart(e, cita)}
+                                          onDragEnd={handleDragEnd}
+                                          className={cn(
+                                            "absolute left-1 right-1 rounded-md p-1 text-white text-xs hover:opacity-80 transition-opacity shadow-md group cursor-move",
+                                            cita.color,
+                                            draggedCita?.id === cita.id && "opacity-50"
+                                          )}
+                                          style={{
+                                            top: `${posicion}px`,
+                                            height: `${altura}px`,
+                                          }}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleEditAppointment(cita);
                                           }}
                                         >
-                                          <Edit className="h-2 w-2 text-white" />
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          className="opacity-70 hover:opacity-100 transition-opacity h-4 w-4 p-0"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteAppointment(cita);
-                                          }}
-                                        >
-                                          <Trash2 className="h-2 w-2" />
-                                        </Button>
-                                      </div>
-                                      
-                                      {/* Nombre del paciente abajo */}
-                                      <div className="truncate font-medium absolute bottom-1 left-1">{cita.paciente}</div>
-                                    </div>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    {generarContenidoTooltip(cita)}
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            });
-                          })()}
-                        </div>
-                      ))}
+                                          <div className="flex flex-col h-full">
+                                            <div className="font-semibold text-xs truncate">{cita.paciente}</div>
+                                            <div className="text-xs opacity-90 truncate">{cita.horaInicio} - {cita.horaFin}</div>
+                                            {cita.descripcion && <div className="text-xs opacity-75 truncate">{cita.descripcion}</div>}
+                                            {cita.odontologo && <div className="text-xs opacity-60 truncate">{cita.odontologo}</div>}
+                                            <div className="flex items-center justify-end mt-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-5 w-5 p-0 bg-white/20 hover:bg-white/30 border-white/30"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleEditAppointment(cita);
+                                                }}
+                                              >
+                                                <Edit className="h-3 w-3 text-white" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                className="h-5 w-5 p-0"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeleteAppointment(cita);
+                                                }}
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-xs">
+                                        {generarContenidoTooltip(cita)}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  );
+                                }).filter(Boolean)}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
                 </>
               )}
             </div>
@@ -1090,10 +1422,14 @@ const Calendar: React.FC = () => {
       {/* Modal de Nueva Cita */}
       <NewAppointmentModal
         isOpen={isNewAppointmentOpen}
-        onClose={() => setIsNewAppointmentOpen(false)}
+        onClose={() => {
+          setIsNewAppointmentOpen(false);
+          setInitialAppointmentData(null);
+        }}
         onSave={handleNewAppointment}
         odontologos={odontologos}
         isSubmitting={creatingAppointment}
+        initialData={initialAppointmentData}
       />
 
       {/* Modal de Configuracin */}
