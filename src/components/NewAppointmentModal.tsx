@@ -65,6 +65,9 @@ interface NewAppointmentModalProps {
     fecha?: Date;
     horaInicio?: string;
     horaFin?: string;
+    idPaciente?: number;
+    idConsultorio?: number;
+    idOdontologo?: number;
   };
 }
 
@@ -171,14 +174,50 @@ const NewAppointmentModal: React.FC<NewAppointmentModalProps> = ({
   // Actualizar formulario cuando cambien los datos iniciales
   useEffect(() => {
     if (initialData && isOpen) {
-      setFormData(prev => ({
-        ...prev,
-        fecha: initialData.fecha || prev.fecha,
-        horaInicio: initialData.horaInicio || prev.horaInicio,
-        horaFin: initialData.horaFin || calcularHoraFin(initialData.horaInicio || prev.horaInicio),
-      }));
+      const updates: any = {
+        fecha: initialData.fecha || undefined,
+        horaInicio: initialData.horaInicio || undefined,
+        horaFin: initialData.horaFin || undefined,
+      };
+
+      // Si hay idPaciente en initialData, buscar el paciente y setearlo
+      if (initialData.idPaciente && patients.length > 0) {
+        const paciente = patients.find((p) => p.id === initialData.idPaciente);
+        if (paciente) {
+          updates.pacienteId = paciente.id.toString();
+          updates.pacienteNombre = paciente.nombre;
+          updates.idClinica = paciente.idClinica ? paciente.idClinica.toString() : undefined;
+        }
+      }
+
+      // Si hay idConsultorio en initialData
+      if (initialData.idConsultorio && consultorios.length > 0) {
+        const consultorio = consultorios.find((c) => c.id === initialData.idConsultorio);
+        if (consultorio) {
+          updates.idConsultorio = consultorio.id.toString();
+        }
+      }
+
+      // Si hay idOdontologo en initialData
+      if (initialData.idOdontologo && doctores.length > 0) {
+        const odontologo = doctores.find((o) => o.id === initialData.idOdontologo);
+        if (odontologo) {
+          updates.idOdontologo = odontologo.id.toString();
+          updates.odontologoNombre = buildNombreCompleto(odontologo.nombres, odontologo.apellidos);
+        }
+      }
+
+      setFormData(prev => {
+        const newData = { ...prev };
+        Object.keys(updates).forEach(key => {
+          if (updates[key] !== undefined) {
+            newData[key as keyof typeof newData] = updates[key];
+          }
+        });
+        return newData;
+      });
     }
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, patients, consultorios, doctores]);
 
   useEffect(() => {
     if (!isOpen) {
