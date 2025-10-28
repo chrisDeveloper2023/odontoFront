@@ -83,6 +83,8 @@ interface Cita {
   icono?: string;
   fecha?: Date;
   tenantId?: number | null;
+  consultorio?: string;
+  consultorioId?: number;
 }
 
 interface Doctor {
@@ -95,6 +97,12 @@ interface Odontologo {
   id: number;
   nombre: string;
   color: string;
+}
+
+interface Consultorio {
+  id: number;
+  nombre: string;
+  id_clinica?: number;
 }
 
 type BackendCita = {
@@ -182,6 +190,7 @@ const Calendar: React.FC = () => {
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [loadingDoctores, setLoadingDoctores] = useState(false);
   const [odontologos, setOdontologos] = useState<Odontologo[]>([]);
+  const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
   const [loadingCitas, setLoadingCitas] = useState(false);
   const [citasError, setCitasError] = useState<string | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
@@ -197,22 +206,36 @@ const Calendar: React.FC = () => {
   // Estado para filtro de odontólogo
   const [odontologoFiltro, setOdontologoFiltro] = useState<string | null>(null);
   
+  // Estado para filtro de consultorio
+  const [consultorioFiltro, setConsultorioFiltro] = useState<string | null>(null);
+  
   // Estados para drag and drop
   const [draggedCita, setDraggedCita] = useState<Cita | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<{fecha: Date, hora: string} | null>(null);
   const dragRef = useRef<HTMLDivElement>(null);
 
-  // Función para filtrar citas por odontólogo
+  // Función para filtrar citas por odontólogo y consultorio
   const citasFiltradas = useMemo(() => {
-    if (!odontologoFiltro) {
-      return citas;
+    let resultado = citas;
+    
+    // Filtrar por odontólogo
+    if (odontologoFiltro) {
+      const odontologoSeleccionado = odontologos.find(od => od.id.toString() === odontologoFiltro);
+      if (odontologoSeleccionado) {
+        resultado = resultado.filter(cita => cita.odontologo === odontologoSeleccionado.nombre);
+      }
     }
-    const odontologoSeleccionado = odontologos.find(od => od.id.toString() === odontologoFiltro);
-    if (!odontologoSeleccionado) {
-      return citas;
+    
+    // Filtrar por consultorio
+    if (consultorioFiltro) {
+      const consultorioSeleccionado = consultorios.find(c => c.id.toString() === consultorioFiltro);
+      if (consultorioSeleccionado) {
+        resultado = resultado.filter(cita => cita.consultorio === consultorioSeleccionado.nombre);
+      }
     }
-    return citas.filter(cita => cita.odontologo === odontologoSeleccionado.nombre);
-  }, [citas, odontologoFiltro, odontologos]);
+    
+    return resultado;
+  }, [citas, odontologoFiltro, odontologos, consultorioFiltro, consultorios]);
 
   // Función para calcular la hora de fin (hora inicio + 30 minutos)
   const calcularHoraFin = (horaInicio: string): string => {
@@ -228,12 +251,16 @@ const Calendar: React.FC = () => {
     return `${horasFormateadas}:${minutosFormateados}`;
   };
 
-  // Cargar médicos al montar el componente
+  // Cargar médicos y consultorios al montar el componente
   useEffect(() => {
     const cargarDoctores = async () => {
       setLoadingDoctores(true);
       try {
-        const doctoresData = await getOdontologos();
+        const [doctoresData, consultoriosData] = await Promise.all([
+          getOdontologos(),
+          apiGet<any>("/consultorios")
+        ]);
+        
         setDoctores(doctoresData);
 
         const odontologosIniciales = doctoresData.map((doctor, index) => {
@@ -245,13 +272,28 @@ const Calendar: React.FC = () => {
           };
         });
         setOdontologos(odontologosIniciales);
+        
+        // Cargar consultorios
+        const consultoriosArray = Array.isArray(consultoriosData) 
+          ? consultoriosData 
+          : Array.isArray(consultoriosData?.data) 
+            ? consultoriosData.data 
+            : [];
+        const consultoriosMapeados = consultoriosArray.map((c: any) => ({
+          id: c.id_consultorio ?? c.id ?? 0,
+          nombre: c.nombre ?? `Consultorio ${c.id ?? ""}`,
+          id_clinica: c.id_clinica ?? null,
+        })).filter((c: Consultorio) => Number.isFinite(c.id));
+        setConsultorios(consultoriosMapeados);
+        
         setOdontologosListo(true);
       } catch (error) {
         console.error("Error cargando medicos:", error);
         setDoctores([]);
         setOdontologos([]);
+        setConsultorios([]);
         setOdontologosListo(true);
-        toast.error("No se pudieron cargar los medicos");
+        toast.error("No se pudieron cargar los medicos y consultorios");
       } finally {
         setLoadingDoctores(false);
       }
@@ -317,6 +359,7 @@ const Calendar: React.FC = () => {
 
           const nombrePaciente = buildNombreCompleto(raw.paciente?.nombres, raw.paciente?.apellidos) || "Paciente";
           const nombreOdontologo = buildNombreCompleto(raw.odontologo?.nombres, raw.odontologo?.apellidos) || "Sin asignar";
+          const nombreConsultorio = raw.consultorio?.nombre || "Sin asignar";
           const estado = (raw.estado || "AGENDADA").toUpperCase();
           const colorConfig = odontologos.find((o) => o.nombre === nombreOdontologo)?.color;
           const colorEstado = getEstadoColor(estado);
@@ -332,6 +375,8 @@ const Calendar: React.FC = () => {
             color: colorConfig || colorEstado,
             odontologo: nombreOdontologo,
             odontologoId: raw.id_odontologo,
+            consultorio: nombreConsultorio,
+            consultorioId: raw.id_consultorio,
             icono: "",
             fecha: inicioCita,
             estado,
@@ -786,6 +831,45 @@ const Calendar: React.FC = () => {
                 <div key={odontologo.id} className="flex items-center space-x-3">
                   <div className={cn("w-3 h-3 rounded-full", odontologo.color)}></div>
                   <span className="text-sm text-gray-700 dark:text-gray-300">{odontologo.nombre}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Filtro de Consultorios */}
+          <div className="space-y-3 mt-8">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Consultorios</h3>
+            
+            <div className="space-y-2">
+              <Select value={consultorioFiltro || "all"} onValueChange={(value) => setConsultorioFiltro(value === "all" ? null : value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todos los consultorios" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los consultorios</SelectItem>
+                  {consultorios.map((consultorio) => (
+                    <SelectItem key={consultorio.id} value={consultorio.id.toString()}>
+                      {consultorio.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lista de consultorios */}
+            {loadingDoctores ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Cargando consultorios...
+              </div>
+            ) : consultorios.length === 0 ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                No hay consultorios disponibles
+              </div>
+            ) : (
+              consultorios.map((consultorio) => (
+                <div key={consultorio.id} className="flex items-center space-x-3">
+                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{consultorio.nombre}</span>
                 </div>
               ))
             )}
