@@ -1096,7 +1096,8 @@ const Calendar: React.FC = () => {
                                   </div>
                                   <div className="text-sm opacity-90"></div>
                                   <div className="text-xs opacity-75 mt-1">
-                                    
+                                  <div className="truncate font-medium">{cita.paciente}</div>
+                                  <div className="truncate opacity-90">{cita.descripcion}</div>
                                   </div>
                                 </div>
                               </div>
@@ -1135,17 +1136,19 @@ const Calendar: React.FC = () => {
                   {/* Grid del Mes */}
                   <div className="grid grid-cols-7">
                     {obtenerDiasMes().map((dia, index) => {
-                      const citasDelDia = obtenerCitasDelDia(dia, citasFiltradas);
-                      const esHoyDia = esHoy(dia);
-                      const esDelMes = esDelMesActual(dia);
-                      
-                      return (
+                        const citasDelDia = obtenerCitasDelDia(dia, citasFiltradas);
+                        const esHoyDia = esHoy(dia);
+                        const esDelMes = esDelMesActual(dia);
+                        const isDragTarget = draggedCita && esDelMes;
+                        
+                        return (
                         <div
                           key={index}
                           className={cn(
                             "min-h-[120px] p-2 border-r border-b border-gray-200 dark:border-gray-600 last:border-r-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors",
                             !esDelMes && "bg-gray-50 dark:bg-gray-900 text-gray-400",
-                            esHoyDia && "bg-blue-50 dark:bg-blue-900/20"
+                            esHoyDia && "bg-blue-50 dark:bg-blue-900/20",
+                            isDragTarget && "bg-blue-100 dark:bg-blue-800/30 border-blue-300 dark:border-blue-500 border-2"
                           )}
                           onDoubleClick={() => {
                             const horaActual = obtenerHoraActualSistema();
@@ -1155,6 +1158,18 @@ const Calendar: React.FC = () => {
                               horaFin: calcularHoraFin(horaActual),
                             });
                             setIsNewAppointmentOpen(true);
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (!draggedCita) return;
+                            
+                            // Por defecto, usar la hora actual cuando se arrastra al mes
+                            const horaActual = obtenerHoraActualSistema();
+                            handleDrop(e, dia, horaActual);
                           }}
                         >
                           {/* Nmero del da */}
@@ -1356,25 +1371,23 @@ const Calendar: React.FC = () => {
                                           onDragStart={(e) => handleDragStart(e, cita)}
                                           onDragEnd={handleDragEnd}
                                           className={cn(
-                                            "absolute left-1 right-1 rounded-md p-1 text-white text-xs hover:opacity-80 transition-opacity shadow-md group cursor-move",
+                                            "absolute left-1 right-1 rounded-md p-2 text-white text-sm hover:opacity-90 transition-opacity shadow-md group cursor-move",
                                             cita.color,
                                             draggedCita?.id === cita.id && "opacity-50"
                                           )}
                                           style={{
                                             top: `${posicion}px`,
                                             height: `${altura}px`,
+                                            minHeight: '60px'
                                           }}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleEditAppointment(cita);
                                           }}
                                         >
-                                          <div className="flex flex-col h-full">
-                                            <div className="font-semibold text-xs truncate">{cita.paciente}</div>
-                                            <div className="text-xs opacity-90 truncate">{cita.horaInicio} - {cita.horaFin}</div>
-                                            {cita.descripcion && <div className="text-xs opacity-75 truncate">{cita.descripcion}</div>}
-                                            {cita.odontologo && <div className="text-xs opacity-60 truncate">{cita.odontologo}</div>}
-                                            <div className="flex items-center justify-end mt-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="font-medium text-sm">{formatearHora(cita.horaInicio)}</span>
+                                            <div className="flex items-center space-x-1">
                                               <Button
                                                 size="sm"
                                                 variant="outline"
@@ -1399,6 +1412,7 @@ const Calendar: React.FC = () => {
                                               </Button>
                                             </div>
                                           </div>
+                                          <div className="truncate font-semibold text-sm">{cita.paciente}</div>
                                         </div>
                                       </TooltipTrigger>
                                       <TooltipContent side="top" className="max-w-xs">
