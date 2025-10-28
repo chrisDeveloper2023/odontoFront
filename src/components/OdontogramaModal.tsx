@@ -95,12 +95,14 @@ export default function OdontogramaModal({
 
           {!loading && data && (
             <div className="py-4">
-              <OdontogramaView
-                data={data}
-                ensureDraft={ensureDraft}
-                onReload={onReload}
-                mode={view}
-              />
+              <div className="max-h-[70vh] max-w-[90vw] overflow-auto">
+                <OdontogramaView
+                  data={data}
+                  ensureDraft={ensureDraft}
+                  onReload={onReload}
+                  mode={view}
+                />
+              </div>
             </div>
           )}
 
