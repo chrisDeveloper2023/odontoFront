@@ -84,7 +84,10 @@ function isoToHHmm(iso: string) {
 function buildISOWithOffset(fecha: string, hora: string): string {
   if (!fecha || !hora) return "";
   try {
-    const fechaDate = new Date(fecha);
+    // Usar parseDateInGuayaquil para evitar problemas de zona horaria
+    // que causan que se reste un día
+    const fechaDate = parseDateInGuayaquil(fecha);
+    if (!fechaDate) return "";
     return combineDateAndTimeGuayaquil(fechaDate, hora);
   } catch {
     return "";
@@ -276,15 +279,26 @@ const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
 
     try {
       setSubmitting(true);
+      const fechaHoraISO = buildISOWithOffset(formData.fecha, formData.hora);
       const payload = {
         id_paciente: Number(formData.id_paciente),
         id_odontologo: Number(formData.id_odontologo),
         id_consultorio: Number(formData.id_consultorio),
         id_clinica: formData.id_clinica ? Number(formData.id_clinica) : undefined,
-        fecha_hora: buildISOWithOffset(formData.fecha, formData.hora),
+        fecha_hora: fechaHoraISO,
+        duracion_minutos: duracion || 30,
         observaciones: formData.observaciones || null,
         estado: formData.estado || "AGENDADA",
       };
+      
+      console.log("📅 Actualizando cita:", {
+        fecha: formData.fecha,
+        hora: formData.hora,
+        fechaHoraISO,
+        duracion: duracion || 30,
+        payload
+      });
+      
       await apiPut(`/citas/${appointmentId}`, payload);
       toast.success("Cita actualizada correctamente");
       onAppointmentUpdated?.();

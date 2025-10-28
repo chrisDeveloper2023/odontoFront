@@ -14,7 +14,6 @@ import {
 import {
   CalendarPlus,
   Settings,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Bell,
@@ -746,10 +745,6 @@ const Calendar: React.FC = () => {
             >
               <Settings className="w-4 h-4 mr-2" />
               Configuracin
-            </Button>
-            <Button variant="outline" className="w-full">
-              <Eye className="w-4 h-4 mr-2" />
-              Ver todos
             </Button>
           </div>
 
