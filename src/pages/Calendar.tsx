@@ -1242,28 +1242,28 @@ const Calendar: React.FC = () => {
                                 onDragStart={(e) => handleDragStart(e, cita)}
                                 onDragEnd={handleDragEnd}
                                 className={cn(
-                                  "absolute left-2 right-2 rounded-md p-3 text-white text-sm hover:opacity-80 transition-opacity shadow-md group cursor-move",
+                                  "absolute left-2 right-2 rounded-md p-2 text-white text-sm hover:opacity-90 transition-opacity shadow-md group cursor-move",
                                   cita.color,
                                   draggedCita?.id === cita.id && "opacity-50"
                                 )}
                                 style={{
                                   top: `${posicion}px`,
                                   height: `${altura}px`,
+                                  minHeight: '60px',
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditAppointment(cita);
                                 }}
                               >
-                                <div className="flex flex-col justify-center items-center h-full text-center">
-                                  <div className="flex items-center justify-between w-full mb-1">
-                                    <div className="flex items-center space-x-2">
-                                      <span className="font-semibold text-lg">{cita.icono} {cita.paciente}</span>
-                                      <span className="text-lg font-medium text-sm"> {cita.descripcion} : {cita.tipo}
-                                      - {formatearHora(cita.horaInicio)} - {formatearHora(cita.horaFin)}
-                                      </span>
-                                    </div>
+                                <div className="flex flex-col h-full justify-between">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-sm">{formatearHora(cita.horaInicio)}</span>
                                     <div className="flex items-center space-x-1">
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 bg-white/20 hover:bg-white/30 border-white/30"
+                                        className="h-4 w-4 p-0 bg-white/20 hover:bg-white/30 border-white/30"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleEditAppointment(cita);
@@ -1274,7 +1274,7 @@ const Calendar: React.FC = () => {
                                       <Button
                                         size="sm"
                                         variant="destructive"
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                        className="h-4 w-4 p-0"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleDeleteAppointment(cita);
@@ -1284,12 +1284,8 @@ const Calendar: React.FC = () => {
                                       </Button>
                                     </div>
                                   </div>
-                                  <div className="font-bold text-base mb-1">
-                                  </div>
-                                  <div className="text-sm opacity-90"></div>
-                                  <div className="text-xs opacity-75 mt-1">
-                                  <div className="truncate font-medium">{cita.paciente}</div>
-                                  <div className="truncate opacity-90">{cita.descripcion}</div>
+                                  <div className="mt-auto">
+                                    <span className="font-semibold text-base leading-tight block">{cita.paciente}</span>
                                   </div>
                                 </div>
                               </div>
