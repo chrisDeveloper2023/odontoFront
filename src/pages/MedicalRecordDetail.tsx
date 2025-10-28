@@ -329,6 +329,16 @@ export default function MedicalRecordDetail() {
           Historia #{data.id_historia} - Paciente #{data.id_paciente} - Clinica #{data.id_clinica} - Cita {data.id_cita ?? "Sin vincular"}
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(`/treatments?historia=${data.id_historia}`, {
+                state: { historiaId: data.id_historia },
+              })
+            }
+          >
+            Ver tratamientos
+          </Button>
           <Button variant="outline" onClick={() => setOpenCita(true)} disabled={!!data.id_cita}>Vincular a cita</Button>
           <Button variant="destructive" onClick={remove}>Eliminar</Button>
         </div>

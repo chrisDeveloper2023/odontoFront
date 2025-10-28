@@ -1,6 +1,6 @@
 import { apiDelete, apiGet, apiPost, apiPut } from "@/api/client";
 import { ensureArray, mapTreatment } from "@/lib/api/mappers";
-import type { Treatment, TreatmentPayload } from "@/types/treatment";
+import type { Treatment, TreatmentPayload, TreatmentsContext } from "@/types/treatment";
 
 const BASE_PATH = "/tratamientos";
 
@@ -14,6 +14,21 @@ export const fetchTreatments = async (): Promise<Treatment[]> => {
   const payload = await apiGet<unknown>(BASE_PATH);
   const items = ensureArray<unknown>(payload);
   return items.map(mapTreatment);
+};
+
+export const fetchTreatmentsContext = async (historiaId: number): Promise<TreatmentsContext> => {
+  const response = await apiGet<unknown>(`${BASE_PATH}/contexto`, { historiaId });
+  const raw = (response ?? {}) as {
+    historia?: unknown;
+    tratamientos?: unknown;
+    odontograma?: unknown;
+  };
+  const tratamientos = ensureArray(raw.tratamientos).map(mapTreatment);
+  return {
+    historia: raw.historia as TreatmentsContext["historia"],
+    odontograma: (raw.odontograma as TreatmentsContext["odontograma"]) ?? null,
+    tratamientos,
+  };
 };
 
 export const createTreatment = async (data: TreatmentPayload): Promise<Treatment> => {
@@ -39,6 +54,7 @@ const serializePayload = (data: TreatmentPayload): Record<string, unknown> => {
     nombre: data.nombre,
     descripcion: data.descripcion ?? null,
     costo_base: Number(data.costo_base ?? 0),
+    id_historia: Number(data.id_historia),
     id_clinica: toNumber(data.id_clinica) ?? null,
     id_pieza: toNumber(data.id_pieza) ?? null,
     facturado: Boolean(data.facturado),

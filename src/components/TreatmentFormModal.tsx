@@ -13,6 +13,12 @@ type ClinicOption = {
   nombre: string;
 };
 
+type PieceOption = {
+  id: number;
+  numero_fdi?: number | null;
+  label: string;
+};
+
 interface TreatmentFormModalProps {
   open: boolean;
   onClose: () => void;
@@ -20,17 +26,23 @@ interface TreatmentFormModalProps {
   loading?: boolean;
   initialData?: Treatment | null;
   clinics?: ClinicOption[];
+  historiaId: number;
+  historiaLabel?: string;
+  piezaOptions?: PieceOption[];
 }
 
-const EMPTY_FORM: TreatmentPayload = {
+const makeEmptyForm = (historiaId: number): TreatmentPayload => ({
   nombre: "",
   descripcion: "",
   costo_base: 0,
+  id_historia: historiaId,
   id_clinica: null,
   id_pieza: null,
   facturado: false,
   pagado: false,
-};
+});
+
+const NO_VALUE = "none";
 
 export default function TreatmentFormModal({
   open,
@@ -39,9 +51,11 @@ export default function TreatmentFormModal({
   loading = false,
   initialData,
   clinics,
+  historiaId,
+  historiaLabel,
+  piezaOptions,
 }: TreatmentFormModalProps) {
-  const NO_CLINIC_VALUE = "none";
-  const [form, setForm] = useState<TreatmentPayload>(EMPTY_FORM);
+  const [form, setForm] = useState<TreatmentPayload>(makeEmptyForm(historiaId));
 
   useEffect(() => {
     if (open) {
@@ -50,21 +64,27 @@ export default function TreatmentFormModal({
           nombre: initialData.nombre,
           descripcion: initialData.descripcion ?? "",
           costo_base: initialData.costo_base ?? 0,
+          id_historia: initialData.id_historia ?? historiaId,
           id_clinica: initialData.id_clinica ?? null,
           id_pieza: initialData.id_pieza ?? null,
           facturado: Boolean(initialData.facturado),
           pagado: Boolean(initialData.pagado),
         });
       } else {
-        setForm(EMPTY_FORM);
+        setForm(makeEmptyForm(historiaId));
       }
     }
-  }, [open, initialData]);
+  }, [open, initialData, historiaId]);
 
-  const historiaIdHint = useMemo(() => {
-    const hist = initialData?.pieza?.odontograma?.id_historia;
-    return hist && Number(hist) > 0 ? Number(hist) : null;
-  }, [initialData]);
+  const pieceLabelById = useMemo(() => {
+    if (!piezaOptions) return new Map<number, string>();
+    return new Map(piezaOptions.map((option) => [option.id, option.label]));
+  }, [piezaOptions]);
+
+  const pieceHint = useMemo(() => {
+    if (!form.id_pieza) return null;
+    return pieceLabelById.get(form.id_pieza) ?? null;
+  }, [form.id_pieza, pieceLabelById]);
 
   const handleChange = (field: keyof TreatmentPayload, value: string | number | boolean | null) => {
     setForm((prev) => ({
@@ -78,6 +98,7 @@ export default function TreatmentFormModal({
     if (!form.nombre.trim()) return;
     const payload: TreatmentPayload = {
       ...form,
+      id_historia: historiaId,
       nombre: form.nombre.trim(),
       descripcion: form.descripcion?.trim() || "",
       costo_base: Number(form.costo_base || 0),
@@ -92,8 +113,11 @@ export default function TreatmentFormModal({
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && !loading && onClose()}>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="space-y-1">
           <DialogTitle>{initialData ? "Editar tratamiento" : "Nuevo tratamiento"}</DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Historia clínica #{historiaLabel ?? historiaId}
+          </p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -132,24 +156,24 @@ export default function TreatmentFormModal({
                 required
               />
             </div>
-          <div className="space-y-2">
-            <Label htmlFor="id_clinica">Clínica</Label>
-            <Select
-              value={form.id_clinica != null ? String(form.id_clinica) : NO_CLINIC_VALUE}
-              onValueChange={(value) =>
-                handleChange("id_clinica", value === NO_CLINIC_VALUE ? null : Number(value))
-              }
-            >
-              <SelectTrigger id="id_clinica">
-                <SelectValue placeholder="Selecciona una clínica" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_CLINIC_VALUE}>Sin clínica</SelectItem>
-                {clinics?.map((clinic) => (
-                  <SelectItem key={clinic.id} value={String(clinic.id)}>
-                    {clinic.nombre}
-                  </SelectItem>
-                ))}
+            <div className="space-y-2">
+              <Label htmlFor="id_clinica">Clínica</Label>
+              <Select
+                value={form.id_clinica != null ? String(form.id_clinica) : NO_VALUE}
+                onValueChange={(value) =>
+                  handleChange("id_clinica", value === NO_VALUE ? null : Number(value))
+                }
+              >
+                <SelectTrigger id="id_clinica">
+                  <SelectValue placeholder="Selecciona una clínica" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_VALUE}>Sin clínica</SelectItem>
+                  {clinics?.map((clinic) => (
+                    <SelectItem key={clinic.id} value={String(clinic.id)}>
+                      {clinic.nombre}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -157,7 +181,27 @@ export default function TreatmentFormModal({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="id_pieza">Pieza odontograma (ID)</Label>
+              <Label htmlFor="id_pieza">Pieza odontograma</Label>
+              {piezaOptions && piezaOptions.length > 0 ? (
+                <Select
+                  value={form.id_pieza != null ? String(form.id_pieza) : NO_VALUE}
+                  onValueChange={(value) =>
+                    handleChange("id_pieza", value === NO_VALUE ? null : Number(value))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una pieza" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VALUE}>Sin pieza</SelectItem>
+                    {piezaOptions.map((piece) => (
+                      <SelectItem key={piece.id} value={String(piece.id)}>
+                        {piece.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
               <Input
                 id="id_pieza"
                 type="number"
@@ -169,10 +213,8 @@ export default function TreatmentFormModal({
                 }}
                 placeholder="Ej. 128"
               />
-              {historiaIdHint ? (
-                <p className="text-xs text-muted-foreground">
-                  Asociado a historia #{historiaIdHint}
-                </p>
+              {pieceHint ? (
+                <p className="text-xs text-muted-foreground">Seleccionada: {pieceHint}</p>
               ) : null}
             </div>
 
