@@ -17,7 +17,7 @@ export const fetchTreatments = async (): Promise<Treatment[]> => {
 };
 
 export const fetchTreatmentsContext = async (historiaId: number): Promise<TreatmentsContext> => {
-  const response = await apiGet<unknown>(`${BASE_PATH}/contexto`, { id_historia: historiaId });
+  const response = await apiGet<unknown>(`${BASE_PATH}/contexto`, { historiaId });
   const raw = (response ?? {}) as {
     historia?: unknown;
     tratamientos?: unknown;

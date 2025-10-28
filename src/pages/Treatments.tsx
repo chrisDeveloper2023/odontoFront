@@ -15,7 +15,11 @@ import {
   deleteTreatment,
 } from "@/lib/api/treatments";
 import { getClinicas } from "@/lib/api/clinicas";
+import { fetchHistoriasClinicas } from "@/lib/api/historiasClinicas";
 import type { Treatment, TreatmentPayload, TreatmentsContext } from "@/types/treatment";
+import type { HistoriaClinica } from "@/types/historiaClinica";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ClinicOption = { id: number; nombre: string };
 
@@ -50,6 +54,8 @@ const TreatmentsPage = () => {
   const [editing, setEditing] = useState<Treatment | null>(null);
   const [clinics, setClinics] = useState<ClinicOption[]>([]);
   const [context, setContext] = useState<TreatmentsContext | null>(null);
+  const [historias, setHistorias] = useState<HistoriaClinica[]>([]);
+  const [historiasLoading, setHistoriasLoading] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,8 +91,22 @@ const TreatmentsPage = () => {
     );
   };
 
+  const loadHistorias = async () => {
+    setHistoriasLoading(true);
+    try {
+      const { items } = await fetchHistoriasClinicas({ limit: 50, page: 1 });
+      setHistorias(items);
+    } catch (error) {
+      const message = getErrorMessage(error, "No se pudieron cargar las historias clínicas");
+      toast.error(message);
+    } finally {
+      setHistoriasLoading(false);
+    }
+  };
+
   useEffect(() => {
     void loadClinics().catch(() => undefined);
+    void loadHistorias().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -253,6 +273,18 @@ const TreatmentsPage = () => {
     return paciente ? `${context.historia.id_historia} · ${paciente}` : String(context.historia.id_historia);
   }, [context?.historia, historiaId]);
 
+  const historiaOptions = useMemo(() => {
+    return historias.map((historia) => {
+      const pacienteNombre = historia.paciente
+        ? [historia.paciente.nombres, historia.paciente.apellidos].filter(Boolean).join(" ")
+        : "Paciente sin nombre";
+      return {
+        value: String(historia.id_historia),
+        label: `#${historia.id_historia} · ${pacienteNombre}`,
+      };
+    });
+  }, [historias]);
+
   const handleHistoriaSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = historiaInput.trim();
@@ -287,164 +319,221 @@ const TreatmentsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Tratamientos</h1>
-          <p className="text-muted-foreground">
-            Planes y procedimientos asociados a la historia #{historiaLabel}.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={refreshList} disabled={loading}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refrescar
-          </Button>
-          <Button onClick={handleCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo tratamiento
-          </Button>
-        </div>
-      </div>
-
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-medium text-muted-foreground">
-            <Search className="h-4 w-4" />
-            Buscar tratamientos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative max-w-xl">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-10"
-              placeholder="Nombre, clínica, FDI, historia..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="space-y-2">
+              <Label>Selecciona una historia clínica</Label>
+              <Select
+                value={historiaInput}
+                onValueChange={(value) => setHistoriaInput(value)}
+                disabled={historiasLoading || historiaOptions.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      historiasLoading
+                        ? "Cargando historias..."
+                        : historiaOptions.length
+                        ? "Selecciona historia"
+                        : "No se encontraron historias"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {historiaOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>O ingresa un ID manualmente</Label>
+              <Input
+                placeholder="Ej. 5"
+                value={historiaInput}
+                onChange={(event) => setHistoriaInput(event.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={handleHistoriaSubmit} disabled={!historiaInput.trim()}>
+                {historiaId ? "Cambiar historia" : "Cargar historia"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {error ? (
-        <Card className="border border-red-200 bg-red-50">
-          <CardContent className="pt-6 text-sm text-red-700">{error}</CardContent>
-        </Card>
-      ) : null}
-
-      {loading ? (
+      {!historiaId ? (
         <Card>
-          <CardContent className="pt-6 text-sm text-muted-foreground">Cargando tratamientos...</CardContent>
-        </Card>
-      ) : null}
-
-      {!loading && filtered.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            No hay tratamientos que coincidan con la búsqueda.
+          <CardContent className="py-10 text-center text-muted-foreground">
+            Selecciona una historia clínica para gestionar sus tratamientos.
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {filtered.map((treatment) => {
-            const clinicName =
-              treatment.clinica?.nombre ??
-              treatment.historia?.clinica?.nombre ??
-              "Sin clínica";
-            const historiaAsociada = treatment.id_historia ?? treatment.historia?.id_historia ?? null;
-            const piezaFDI = treatment.pieza?.numero_fdi ? `FDI ${treatment.pieza.numero_fdi}` : null;
-            const piezaId = treatment.id_pieza;
+        <>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Tratamientos</h1>
+              <p className="text-muted-foreground">
+                Planes y procedimientos asociados a la historia #{historiaLabel}.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={refreshList} disabled={loading}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refrescar
+              </Button>
+              <Button onClick={handleCreate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo tratamiento
+              </Button>
+            </div>
+          </div>
 
-            return (
-              <Card key={treatment.id_tratamiento} className="hover:shadow-md transition-shadow">
-                <CardContent className="space-y-3 pt-6">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <h2 className="text-lg font-semibold text-foreground">{treatment.nombre}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {treatment.descripcion || "Sin descripción"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-semibold text-foreground">
-                        {formatCurrency(treatment.costo_base)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Creado:{" "}
-                        {treatment.fecha_creacion
-                          ? new Date(treatment.fecha_creacion).toLocaleDateString()
-                          : "Sin fecha"}
-                      </p>
-                    </div>
-                  </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base font-medium text-muted-foreground">
+                <Search className="h-4 w-4" />
+                Buscar tratamientos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="relative max-w-xl">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-10"
+                  placeholder="Nombre, clínica, FDI, historia..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="secondary">{clinicName}</Badge>
-                    {piezaFDI ? <Badge variant="outline">{piezaFDI}</Badge> : null}
-                    {piezaId ? <Badge variant="outline">pieza #{piezaId}</Badge> : null}
-                    <Badge variant={treatment.facturado ? "default" : "outline"}>
-                      {treatment.facturado ? "Facturado" : "Sin factura"}
-                    </Badge>
-                    <Badge variant={treatment.pagado ? "default" : "outline"}>
-                      {treatment.pagado ? "Pagado" : "Pendiente"}
-                    </Badge>
-                    {historiaAsociada ? <Badge variant="outline">Historia #{historiaAsociada}</Badge> : null}
-                  </div>
+          {error ? (
+            <Card className="border border-red-200 bg-red-50">
+              <CardContent className="pt-6 text-sm text-red-700">{error}</CardContent>
+            </Card>
+          ) : null}
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(treatment)}
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(treatment)}
-                    >
-                      <Trash className="mr-2 h-4 w-4" />
-                      Eliminar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!historiaAsociada}
-                      onClick={() => goToHistoria(historiaAsociada)}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Ver historia
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!historiaAsociada}
-                      onClick={() => goToOdontograma(historiaAsociada)}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Ver odontograma
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+          {loading ? (
+            <Card>
+              <CardContent className="pt-6 text-sm text-muted-foreground">Cargando tratamientos...</CardContent>
+            </Card>
+          ) : null}
+
+          {!loading && filtered.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                No hay tratamientos que coincidan con la búsqueda.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filtered.map((treatment) => {
+                const clinicName =
+                  treatment.clinica?.nombre ??
+                  treatment.historia?.clinica?.nombre ??
+                  "Sin clínica";
+                const historiaAsociada = treatment.id_historia ?? treatment.historia?.id_historia ?? null;
+                const piezaFDI = treatment.pieza?.numero_fdi ? `FDI ${treatment.pieza.numero_fdi}` : null;
+                const piezaId = treatment.id_pieza;
+
+                return (
+                  <Card key={treatment.id_tratamiento} className="hover:shadow-md transition-shadow">
+                    <CardContent className="space-y-3 pt-6">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <h2 className="text-lg font-semibold text-foreground">{treatment.nombre}</h2>
+                          <p className="text-sm text-muted-foreground">
+                            {treatment.descripcion || "Sin descripción"}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-semibold text-foreground">
+                            {formatCurrency(treatment.costo_base)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Creado:{" "}
+                            {treatment.fecha_creacion
+                              ? new Date(treatment.fecha_creacion).toLocaleDateString()
+                              : "Sin fecha"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="secondary">{clinicName}</Badge>
+                        {piezaFDI ? <Badge variant="outline">{piezaFDI}</Badge> : null}
+                        {piezaId ? <Badge variant="outline">pieza #{piezaId}</Badge> : null}
+                        <Badge variant={treatment.facturado ? "default" : "outline"}>
+                          {treatment.facturado ? "Facturado" : "Sin factura"}
+                        </Badge>
+                        <Badge variant={treatment.pagado ? "default" : "outline"}>
+                          {treatment.pagado ? "Pagado" : "Pendiente"}
+                        </Badge>
+                        {historiaAsociada ? <Badge variant="outline">Historia #{historiaAsociada}</Badge> : null}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(treatment)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(treatment)}
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!historiaAsociada}
+                          onClick={() => goToHistoria(historiaAsociada)}
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Ver historia
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!historiaAsociada}
+                          onClick={() => goToOdontograma(historiaAsociada)}
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Ver odontograma
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          <TreatmentFormModal
+            open={modalOpen}
+            onClose={closeModal}
+            onSubmit={handleSubmit}
+            loading={saving}
+            initialData={editing ?? undefined}
+            clinics={clinics}
+            historiaId={historiaId}
+            historiaLabel={historiaLabel}
+            piezaOptions={piezaOptions}
+          />
+        </>
       )}
-
-      <TreatmentFormModal
-        open={modalOpen}
-        onClose={closeModal}
-        onSubmit={handleSubmit}
-        loading={saving}
-        initialData={editing ?? undefined}
-        clinics={clinics}
-        historiaId={historiaId}
-        historiaLabel={historiaLabel}
-        piezaOptions={piezaOptions}
-      />
     </div>
   );
 };

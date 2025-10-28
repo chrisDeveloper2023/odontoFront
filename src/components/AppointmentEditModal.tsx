@@ -1,6 +1,6 @@
 // src/components/AppointmentEditModal.tsx
-import React, { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ type Doctor = {
 type Consultorio = {
   id_consultorio: number;
   nombre: string;
+  id_clinica?: number | null;
 };
 
 type ClinicaOption = {
@@ -115,6 +116,13 @@ const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
   }, [formData.hora]);
 
   const comboRef = useRef<string | null>(null);
+
+  const consultoriosFiltrados = useMemo(() => {
+    if (!formData.id_clinica) return consultorios;
+    return consultorios.filter(
+      (consultorio) => String(consultorio.id_clinica ?? "") === formData.id_clinica,
+    );
+  }, [consultorios, formData.id_clinica]);
 
   // Load appointment data when modal opens
   useEffect(() => {
@@ -224,7 +232,7 @@ const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     void load();
   }, [appointmentId, isOpen]);
 
-  useEffect(() => {
+useEffect(() => {
     const { id_consultorio, fecha } = formData;
     if (!id_consultorio || !fecha || !duracion) {
       setSlots([]);
@@ -266,9 +274,21 @@ const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.id_consultorio, formData.fecha, duracion]);
 
-  const handleChange = (field: keyof FormState, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
+const handleChange = (field: keyof FormState, value: string) => {
+  setFormData((prev) => ({ ...prev, [field]: value }));
+};
+
+  useEffect(() => {
+    if (!formData.id_clinica) return;
+    if (
+      formData.id_consultorio &&
+      !consultoriosFiltrados.some(
+        (consultorio) => String(consultorio.id_consultorio) === formData.id_consultorio,
+      )
+    ) {
+      setFormData((prev) => ({ ...prev, id_consultorio: "" }));
+    }
+  }, [formData.id_clinica, formData.id_consultorio, consultoriosFiltrados]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,9 +334,6 @@ const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
             <User className="h-5 w-5 text-primary" />
             Editar Cita #{appointmentId}
           </DialogTitle>
-          <DialogDescription>
-            Modifique los datos de la cita médica
-          </DialogDescription>
         </DialogHeader>
 
         {loading && (
@@ -422,13 +439,17 @@ const AppointmentEditModal: React.FC<AppointmentEditModalProps> = ({
                       <SelectTrigger className="w-full">
                         {formData.id_consultorio
                           ? (() => {
-                              const c = consultorios.find((x) => String(x.id_consultorio) === formData.id_consultorio);
+                              const c = consultoriosFiltrados.find(
+                                (x) => String(x.id_consultorio) === formData.id_consultorio,
+                              );
                               return c ? c.nombre : "Seleccionar consultorio";
                             })()
-                          : "Seleccionar consultorio"}
+                          : consultoriosFiltrados.length
+                          ? "Seleccionar consultorio"
+                          : "No hay consultorios disponibles"}
                       </SelectTrigger>
                       <SelectContent>
-                        {consultorios.map((c) => (
+                        {consultoriosFiltrados.map((c) => (
                           <SelectItem
                             key={c.id_consultorio}
                             value={String(c.id_consultorio)}
