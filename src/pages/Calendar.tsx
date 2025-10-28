@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import NewAppointmentModal, { NewAppointmentPayload } from "@/components/NewAppointmentModal";
 import AppointmentEditModal from "@/components/AppointmentEditModal";
+import PatientSearchModal from "@/components/PatientSearchModal";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/api/client";
 import { toast } from "sonner";
 import CalendarSettingsModal from "@/components/CalendarSettingModal";
@@ -85,6 +86,8 @@ interface Cita {
   tenantId?: number | null;
   consultorio?: string;
   consultorioId?: number;
+  clinica?: string;
+  clinicaId?: number;
 }
 
 interface Doctor {
@@ -103,6 +106,11 @@ interface Consultorio {
   id: number;
   nombre: string;
   id_clinica?: number;
+}
+
+interface Clinica {
+  id: number;
+  nombre: string;
 }
 
 type BackendCita = {
@@ -187,10 +195,12 @@ const Calendar: React.FC = () => {
   const [citas, setCitas] = useState<Cita[]>([]);
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPatientSearchOpen, setIsPatientSearchOpen] = useState(false);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [loadingDoctores, setLoadingDoctores] = useState(false);
   const [odontologos, setOdontologos] = useState<Odontologo[]>([]);
   const [consultorios, setConsultorios] = useState<Consultorio[]>([]);
+  const [clinicas, setClinicas] = useState<Clinica[]>([]);
   const [loadingCitas, setLoadingCitas] = useState(false);
   const [citasError, setCitasError] = useState<string | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
@@ -201,7 +211,13 @@ const Calendar: React.FC = () => {
     fecha?: Date;
     horaInicio?: string;
     horaFin?: string;
+    idPaciente?: number;
+    idConsultorio?: number;
+    idOdontologo?: number;
   } | null>(null);
+  
+  // Estado para filtro de clínica
+  const [clinicaFiltro, setClinicaFiltro] = useState<string | null>(null);
   
   // Estado para filtro de odontólogo
   const [odontologoFiltro, setOdontologoFiltro] = useState<string | null>(null);
@@ -209,14 +225,25 @@ const Calendar: React.FC = () => {
   // Estado para filtro de consultorio
   const [consultorioFiltro, setConsultorioFiltro] = useState<string | null>(null);
   
+  // Estado para paciente seleccionado
+  const [pacienteSeleccionado, setPacienteSeleccionado] = useState<{id: number, nombres: string, apellidos: string} | null>(null);
+  
   // Estados para drag and drop
   const [draggedCita, setDraggedCita] = useState<Cita | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<{fecha: Date, hora: string} | null>(null);
   const dragRef = useRef<HTMLDivElement>(null);
 
-  // Función para filtrar citas por odontólogo y consultorio
+  // Función para filtrar citas por clínica, odontólogo y consultorio
   const citasFiltradas = useMemo(() => {
     let resultado = citas;
+    
+    // Filtrar por clínica
+    if (clinicaFiltro) {
+      const clinicaSeleccionada = clinicas.find(c => c.id.toString() === clinicaFiltro);
+      if (clinicaSeleccionada) {
+        resultado = resultado.filter(cita => cita.clinica === clinicaSeleccionada.nombre);
+      }
+    }
     
     // Filtrar por odontólogo
     if (odontologoFiltro) {
@@ -235,7 +262,15 @@ const Calendar: React.FC = () => {
     }
     
     return resultado;
-  }, [citas, odontologoFiltro, odontologos, consultorioFiltro, consultorios]);
+  }, [citas, clinicaFiltro, clinicas, odontologoFiltro, odontologos, consultorioFiltro, consultorios]);
+
+  // Obtener la clínica seleccionada basada en el consultorio filtrado
+  const clinicaSeleccionada = useMemo(() => {
+    if (!consultorioFiltro) return null;
+    const consultorio = consultorios.find(c => c.id.toString() === consultorioFiltro);
+    if (!consultorio || !consultorio.id_clinica) return null;
+    return clinicas.find(c => c.id === consultorio.id_clinica) || null;
+  }, [consultorioFiltro, consultorios, clinicas]);
 
   // Función para calcular la hora de fin (hora inicio + 30 minutos)
   const calcularHoraFin = (horaInicio: string): string => {
@@ -256,9 +291,10 @@ const Calendar: React.FC = () => {
     const cargarDoctores = async () => {
       setLoadingDoctores(true);
       try {
-        const [doctoresData, consultoriosData] = await Promise.all([
+        const [doctoresData, consultoriosData, clinicasData] = await Promise.all([
           getOdontologos(),
-          apiGet<any>("/consultorios")
+          apiGet<any>("/consultorios"),
+          apiGet<any>("/clinicas")
         ]);
         
         setDoctores(doctoresData);
@@ -286,12 +322,25 @@ const Calendar: React.FC = () => {
         })).filter((c: Consultorio) => Number.isFinite(c.id));
         setConsultorios(consultoriosMapeados);
         
+        // Cargar clínicas
+        const clinicasArray = Array.isArray(clinicasData)
+          ? clinicasData
+          : Array.isArray(clinicasData?.data)
+            ? clinicasData.data
+            : [];
+        const clinicasMapeadas = clinicasArray.map((c: any) => ({
+          id: c.id ?? c.id_clinica ?? 0,
+          nombre: c.nombre ?? c.nombre_clinica ?? c.alias ?? `Clinica ${c.id ?? ""}`,
+        })).filter((c: Clinica) => Number.isFinite(c.id));
+        setClinicas(clinicasMapeadas);
+        
         setOdontologosListo(true);
       } catch (error) {
         console.error("Error cargando medicos:", error);
         setDoctores([]);
         setOdontologos([]);
         setConsultorios([]);
+        setClinicas([]);
         setOdontologosListo(true);
         toast.error("No se pudieron cargar los medicos y consultorios");
       } finally {
@@ -360,6 +409,8 @@ const Calendar: React.FC = () => {
           const nombrePaciente = buildNombreCompleto(raw.paciente?.nombres, raw.paciente?.apellidos) || "Paciente";
           const nombreOdontologo = buildNombreCompleto(raw.odontologo?.nombres, raw.odontologo?.apellidos) || "Sin asignar";
           const nombreConsultorio = raw.consultorio?.nombre || "Sin asignar";
+          const clinicaDeCita = clinicas.find(c => c.id === raw.id_clinica);
+          const nombreClinica = clinicaDeCita?.nombre || "Sin asignar";
           const estado = (raw.estado || "AGENDADA").toUpperCase();
           const colorConfig = odontologos.find((o) => o.nombre === nombreOdontologo)?.color;
           const colorEstado = getEstadoColor(estado);
@@ -377,6 +428,8 @@ const Calendar: React.FC = () => {
             odontologoId: raw.id_odontologo,
             consultorio: nombreConsultorio,
             consultorioId: raw.id_consultorio,
+            clinica: nombreClinica,
+            clinicaId: raw.id_clinica,
             icono: "",
             fecha: inicioCita,
             estado,
@@ -392,12 +445,20 @@ const Calendar: React.FC = () => {
     } finally {
       setLoadingCitas(false);
     }
-  }, [obtenerRangoFechas, odontologos, odontologosListo]);
+  }, [obtenerRangoFechas, odontologos, odontologosListo, clinicas]);
 
   useEffect(() => {
     if (!odontologosListo) return;
     fetchCitas();
   }, [fetchCitas, odontologosListo]);
+
+  // Auto-seleccionar clínica si solo hay una disponible
+  useEffect(() => {
+    if (clinicas.length === 1 && !clinicaFiltro) {
+      setClinicaFiltro(clinicas[0].id.toString());
+    }
+  }, [clinicas, clinicaFiltro]);
+
   const inicioSemana = useMemo(() => getInicioSemanaGye(fechaActual), [fechaActual]);
   const finSemana = useMemo(() => getFinSemanaGye(fechaActual), [fechaActual]);
   const diasSemana = useMemo(
@@ -716,6 +777,8 @@ const Calendar: React.FC = () => {
       toast.success("Cita creada correctamente");
       await fetchCitas();
       setIsNewAppointmentOpen(false);
+      setPacienteSeleccionado(null);
+      setInitialAppointmentData(null);
     } catch (error: any) {
       console.error("Error creando cita:", error);
       toast.error(error?.message || "No se pudo crear la cita");
@@ -772,25 +835,53 @@ const Calendar: React.FC = () => {
       <div className="flex h-screen">
         {/* Sidebar Izquierdo */}
         <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-6">
+          {pacienteSeleccionado && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+              <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1">PACIENTE SELECCIONADO</div>
+              <div className="text-sm text-gray-900 dark:text-white font-medium">
+                {pacienteSeleccionado.nombres} {pacienteSeleccionado.apellidos}
+              </div>
+            </div>
+          )}
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">Calendario</h1>
           
           {/* Botones de Accin */}
           <div className="space-y-3 mb-8">
             <Button 
               className="w-full bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => setIsNewAppointmentOpen(true)}
+              onClick={() => {
+                setInitialAppointmentData({
+                  idPaciente: pacienteSeleccionado?.id,
+                  idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+                  idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
+                });
+                setIsNewAppointmentOpen(true);
+              }}
             >
               <CalendarPlus className="w-4 h-4 mr-2" />
               Nuevo evento
             </Button>
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={() => setIsSettingsOpen(true)}
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Configuracin
-            </Button>
+          </div>
+
+          {/* Filtro de Clínicas */}
+          <div className="space-y-3 mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Clínicas</h3>
+            
+            <div className="space-y-2">
+              <Select value={clinicaFiltro || "all"} onValueChange={(value) => setClinicaFiltro(value === "all" ? null : value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todas las clínicas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las clínicas</SelectItem>
+                  {clinicas.map((clinica) => (
+                    <SelectItem key={clinica.id} value={clinica.id.toString()}>
+                      {clinica.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Leyenda de Mdicos */}
@@ -838,25 +929,16 @@ const Calendar: React.FC = () => {
 
           {/* Filtro de Consultorios */}
           <div className="space-y-3 mt-8">
+            {clinicaSeleccionada && (
+              <div className="mb-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                <div className="text-xs text-green-600 dark:text-green-400 font-semibold mb-1">CLÍNICA SELECCIONADA</div>
+                <div className="text-sm text-gray-900 dark:text-white font-medium">
+                  {clinicaSeleccionada.nombre}
+                </div>
+              </div>
+            )}
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Consultorios</h3>
             
-            <div className="space-y-2">
-              <Select value={consultorioFiltro || "all"} onValueChange={(value) => setConsultorioFiltro(value === "all" ? null : value)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Todos los consultorios" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los consultorios</SelectItem>
-                  {consultorios.map((consultorio) => (
-                    <SelectItem key={consultorio.id} value={consultorio.id.toString()}>
-                      {consultorio.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Lista de consultorios */}
             {loadingDoctores ? (
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 Cargando consultorios...
@@ -866,12 +948,34 @@ const Calendar: React.FC = () => {
                 No hay consultorios disponibles
               </div>
             ) : (
-              consultorios.map((consultorio) => (
-                <div key={consultorio.id} className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{consultorio.nombre}</span>
-                </div>
-              ))
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={consultorioFiltro === null ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setConsultorioFiltro(null)}
+                  className={cn(
+                    consultorioFiltro === null && "bg-blue-600 hover:bg-blue-700 text-white"
+                  )}
+                >
+                  Todos
+                </Button>
+                {consultorios.map((consultorio) => (
+                  <Button
+                    key={consultorio.id}
+                    variant={consultorioFiltro === consultorio.id.toString() ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setConsultorioFiltro(consultorio.id.toString())}
+                    className={cn(
+                      consultorioFiltro === consultorio.id.toString() && "bg-blue-600 hover:bg-blue-700 text-white"
+                    )}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      <span>{consultorio.nombre}</span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -993,10 +1097,13 @@ const Calendar: React.FC = () => {
                 <Button variant="outline" size="sm">
                   <Bell className="w-4 h-4" />
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => setIsSettingsOpen(true)}>
+                  <Settings className="w-4 h-4" />
+                </Button>
                 <Button variant="outline" size="sm">
                   <HelpCircle className="w-4 h-4" />
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => setIsPatientSearchOpen(true)}>
                   <User className="w-4 h-4" />
                 </Button>
               </div>
@@ -1032,6 +1139,9 @@ const Calendar: React.FC = () => {
                                 fecha: fechaSeleccionada,
                                 horaInicio: horaFormateada,
                                 horaFin: calcularHoraFin(horaFormateada),
+                                idPaciente: pacienteSeleccionado?.id,
+                                idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+                                idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
                               });
                               setIsNewAppointmentOpen(true);
                             }}
@@ -1072,6 +1182,9 @@ const Calendar: React.FC = () => {
                                 fecha: fechaSeleccionada,
                                 horaInicio: horaFormateada,
                                 horaFin: calcularHoraFin(horaFormateada),
+                                idPaciente: pacienteSeleccionado?.id,
+                                idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+                                idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
                               });
                               setIsNewAppointmentOpen(true);
                             }}
@@ -1235,6 +1348,9 @@ const Calendar: React.FC = () => {
                               fecha: dia,
                               horaInicio: horaActual,
                               horaFin: calcularHoraFin(horaActual),
+                              idPaciente: pacienteSeleccionado?.id,
+                              idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+                              idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
                             });
                             setIsNewAppointmentOpen(true);
                           }}
@@ -1378,6 +1494,9 @@ const Calendar: React.FC = () => {
                                     fecha: fechaActual,
                                     horaInicio: horaFormateada,
                                     horaFin: calcularHoraFin(horaFormateada),
+                                    idPaciente: pacienteSeleccionado?.id,
+                                    idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+                                    idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
                                   });
                                   setIsNewAppointmentOpen(true);
                                 }}
@@ -1416,6 +1535,9 @@ const Calendar: React.FC = () => {
                                         fecha: dia,
                                         horaInicio: horaFormateada,
                                         horaFin: calcularHoraFin(horaFormateada),
+                                        idPaciente: pacienteSeleccionado?.id,
+                                        idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+                                        idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
                                       });
                                       setIsNewAppointmentOpen(true);
                                     }}
@@ -1539,6 +1661,31 @@ const Calendar: React.FC = () => {
         isOpen={isEditAppointmentOpen}
         onClose={handleCloseEditModal}
         onAppointmentUpdated={handleAppointmentUpdated}
+      />
+
+      {/* Modal de Búsqueda de Pacientes */}
+      <PatientSearchModal
+        isOpen={isPatientSearchOpen}
+        onClose={() => setIsPatientSearchOpen(false)}
+        onSelectPatient={(paciente) => {
+          toast.success(`Paciente seleccionado: ${paciente.nombres} ${paciente.apellidos}`);
+          
+          // Guardar paciente seleccionado
+          setPacienteSeleccionado({
+            id: paciente.id_paciente,
+            nombres: paciente.nombres,
+            apellidos: paciente.apellidos,
+          });
+          
+          // Cerrar modal de búsqueda y abrir modal de nueva cita con el paciente preseleccionado
+          setIsPatientSearchOpen(false);
+          setInitialAppointmentData({
+            idPaciente: paciente.id_paciente,
+            idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+            idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
+          });
+          setIsNewAppointmentOpen(true);
+        }}
       />
       </div>
     </TooltipProvider>
