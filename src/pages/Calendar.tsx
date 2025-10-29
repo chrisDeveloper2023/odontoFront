@@ -228,6 +228,9 @@ const Calendar: React.FC = () => {
   // Estado para paciente seleccionado
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState<{id: number, nombres: string, apellidos: string} | null>(null);
   
+  // Estados temporales para fecha y hora al hacer doble clic
+  const [tempFechaHora, setTempFechaHora] = useState<{fecha?: Date, hora?: string} | null>(null);
+  
   // Estados para drag and drop
   const [draggedCita, setDraggedCita] = useState<Cita | null>(null);
   const [dragOverSlot, setDragOverSlot] = useState<{fecha: Date, hora: string} | null>(null);
@@ -751,6 +754,26 @@ const Calendar: React.FC = () => {
     return finTotal - inicioTotal;
   };
 
+  // Handler para doble clic en franjas horarias
+  const handleDoubleClickOnTimeSlot = (fecha: Date, hora: string) => {
+    if (pacienteSeleccionado) {
+      // Si hay paciente seleccionado, abrir modal de nueva cita
+      setInitialAppointmentData({
+        fecha,
+        horaInicio: hora,
+        horaFin: calcularHoraFin(hora),
+        idPaciente: pacienteSeleccionado.id,
+        idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+        idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
+      });
+      setIsNewAppointmentOpen(true);
+    } else {
+      // Si no hay paciente seleccionado, guardar fecha y hora temporal y abrir modal de búsqueda
+      setTempFechaHora({ fecha, hora });
+      setIsPatientSearchOpen(true);
+    }
+  };
+
   const horaActual = obtenerHoraActual();
 
   const handleNewAppointment = async (appointment: NewAppointmentPayload) => {
@@ -779,6 +802,7 @@ const Calendar: React.FC = () => {
       setIsNewAppointmentOpen(false);
       setPacienteSeleccionado(null);
       setInitialAppointmentData(null);
+      setTempFechaHora(null);
     } catch (error: any) {
       console.error("Error creando cita:", error);
       toast.error(error?.message || "No se pudo crear la cita");
@@ -850,12 +874,18 @@ const Calendar: React.FC = () => {
             <Button 
               className="w-full bg-green-600 hover:bg-green-700 text-white"
               onClick={() => {
-                setInitialAppointmentData({
-                  idPaciente: pacienteSeleccionado?.id,
-                  idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
-                  idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
-                });
-                setIsNewAppointmentOpen(true);
+                if (pacienteSeleccionado) {
+                  // Si hay paciente seleccionado, abrir modal de nueva cita
+                  setInitialAppointmentData({
+                    idPaciente: pacienteSeleccionado.id,
+                    idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
+                    idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
+                  });
+                  setIsNewAppointmentOpen(true);
+                } else {
+                  // Si no hay paciente seleccionado, abrir modal de búsqueda
+                  setIsPatientSearchOpen(true);
+                }
               }}
             >
               <CalendarPlus className="w-4 h-4 mr-2" />
@@ -1134,17 +1164,7 @@ const Calendar: React.FC = () => {
                               isDragOver && "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-600"
                             )}
                             style={{ height: '60px' }}
-                            onDoubleClick={() => {
-                              setInitialAppointmentData({
-                                fecha: fechaSeleccionada,
-                                horaInicio: horaFormateada,
-                                horaFin: calcularHoraFin(horaFormateada),
-                                idPaciente: pacienteSeleccionado?.id,
-                                idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
-                                idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
-                              });
-                              setIsNewAppointmentOpen(true);
-                            }}
+                            onDoubleClick={() => handleDoubleClickOnTimeSlot(fechaSeleccionada, horaFormateada)}
                             onDragOver={(e) => handleDragOver(e, fechaSeleccionada, horaFormateada)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, fechaSeleccionada, horaFormateada)}
@@ -1177,17 +1197,7 @@ const Calendar: React.FC = () => {
                               isDragOver && "bg-blue-200 dark:bg-blue-800 border-blue-400 dark:border-blue-500"
                             )}
                             style={{ top: `${i * 60}px`, height: '60px' }}
-                            onDoubleClick={() => {
-                              setInitialAppointmentData({
-                                fecha: fechaSeleccionada,
-                                horaInicio: horaFormateada,
-                                horaFin: calcularHoraFin(horaFormateada),
-                                idPaciente: pacienteSeleccionado?.id,
-                                idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
-                                idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
-                              });
-                              setIsNewAppointmentOpen(true);
-                            }}
+                            onDoubleClick={() => handleDoubleClickOnTimeSlot(fechaSeleccionada, horaFormateada)}
                             onDragOver={(e) => handleDragOver(e, fechaSeleccionada, horaFormateada)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, fechaSeleccionada, horaFormateada)}
@@ -1340,15 +1350,7 @@ const Calendar: React.FC = () => {
                           )}
                           onDoubleClick={() => {
                             const horaActual = obtenerHoraActualSistema();
-                            setInitialAppointmentData({
-                              fecha: dia,
-                              horaInicio: horaActual,
-                              horaFin: calcularHoraFin(horaActual),
-                              idPaciente: pacienteSeleccionado?.id,
-                              idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
-                              idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
-                            });
-                            setIsNewAppointmentOpen(true);
+                            handleDoubleClickOnTimeSlot(dia, horaActual);
                           }}
                           onDragOver={(e) => {
                             e.preventDefault();
@@ -1485,17 +1487,7 @@ const Calendar: React.FC = () => {
                                 key={i} 
                                 className="h-15 border-b border-gray-200 dark:border-gray-600 p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                                 style={{ height: '60px' }}
-                                onDoubleClick={() => {
-                                  setInitialAppointmentData({
-                                    fecha: fechaActual,
-                                    horaInicio: horaFormateada,
-                                    horaFin: calcularHoraFin(horaFormateada),
-                                    idPaciente: pacienteSeleccionado?.id,
-                                    idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
-                                    idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
-                                  });
-                                  setIsNewAppointmentOpen(true);
-                                }}
+                                onDoubleClick={() => handleDoubleClickOnTimeSlot(fechaActual, horaFormateada)}
                               >
                                 <div className="text-xs text-gray-500 dark:text-gray-400">
                                   {hora}:00 {hora < 12 ? 'am' : 'pm'}
@@ -1526,17 +1518,7 @@ const Calendar: React.FC = () => {
                                       isDragOver && "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-600"
                                     )}
                                     style={{ height: '60px' }}
-                                    onDoubleClick={() => {
-                                      setInitialAppointmentData({
-                                        fecha: dia,
-                                        horaInicio: horaFormateada,
-                                        horaFin: calcularHoraFin(horaFormateada),
-                                        idPaciente: pacienteSeleccionado?.id,
-                                        idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
-                                        idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
-                                      });
-                                      setIsNewAppointmentOpen(true);
-                                    }}
+                                    onDoubleClick={() => handleDoubleClickOnTimeSlot(dia, horaFormateada)}
                                     onDragOver={(e) => handleDragOver(e, dia, horaFormateada)}
                                     onDragLeave={handleDragLeave}
                                     onDrop={(e) => handleDrop(e, dia, horaFormateada)}
@@ -1636,6 +1618,7 @@ const Calendar: React.FC = () => {
         onClose={() => {
           setIsNewAppointmentOpen(false);
           setInitialAppointmentData(null);
+          setTempFechaHora(null);
         }}
         onSave={handleNewAppointment}
         odontologos={odontologos}
@@ -1662,7 +1645,10 @@ const Calendar: React.FC = () => {
       {/* Modal de Búsqueda de Pacientes */}
       <PatientSearchModal
         isOpen={isPatientSearchOpen}
-        onClose={() => setIsPatientSearchOpen(false)}
+        onClose={() => {
+          setIsPatientSearchOpen(false);
+          setTempFechaHora(null); // Limpiar fecha y hora temporal
+        }}
         onSelectPatient={(paciente) => {
           toast.success(`Paciente seleccionado: ${paciente.nombres} ${paciente.apellidos}`);
           
@@ -1675,12 +1661,23 @@ const Calendar: React.FC = () => {
           
           // Cerrar modal de búsqueda y abrir modal de nueva cita con el paciente preseleccionado
           setIsPatientSearchOpen(false);
-          setInitialAppointmentData({
+          
+          // Si hay fecha y hora temporal (de doble clic), usarlas
+          const initialData: any = {
             idPaciente: paciente.id_paciente,
             idConsultorio: consultorioFiltro ? Number(consultorioFiltro) : undefined,
             idOdontologo: odontologoFiltro ? Number(odontologoFiltro) : undefined,
-          });
+          };
+          
+          if (tempFechaHora?.fecha && tempFechaHora?.hora) {
+            initialData.fecha = tempFechaHora.fecha;
+            initialData.horaInicio = tempFechaHora.hora;
+            initialData.horaFin = calcularHoraFin(tempFechaHora.hora);
+          }
+          
+          setInitialAppointmentData(initialData);
           setIsNewAppointmentOpen(true);
+          setTempFechaHora(null); // Limpiar fecha y hora temporal
         }}
       />
       </div>
