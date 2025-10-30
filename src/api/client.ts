@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from "axios";
 import api from "@/lib/api/axiosInstance";
 import { toast } from "sonner";
 import { notifyUnauthorized } from "@/lib/auth-events";
@@ -109,27 +110,46 @@ api.interceptors.response.use(
   }
 );
 
-export const apiGet = async <T = any>(url: string, params?: any): Promise<T> => {
-  const res = await api.get<T>(url, { params });
+export const apiGet = async <T = any>(
+  url: string,
+  params?: any,
+  config?: AxiosRequestConfig,
+): Promise<T> => {
+  const res = await api.get<T>(url, { params, ...(config ?? {}) });
   return res.data as T;
 };
 
-export const apiPost = async <T = any>(url: string, body?: any): Promise<T> => {
-  const res = await api.post<T>(url, body);
+export const apiPost = async <T = any>(
+  url: string,
+  body?: any,
+  config?: AxiosRequestConfig,
+): Promise<T> => {
+  const res = await api.post<T>(url, body, config);
   return res.data as T;
 };
 
-export const apiPut = async <T = any>(url: string, body?: any): Promise<T> => {
-  const res = await api.put<T>(url, body);
+export const apiPut = async <T = any>(
+  url: string,
+  body?: any,
+  config?: AxiosRequestConfig,
+): Promise<T> => {
+  const res = await api.put<T>(url, body, config);
   return res.data as T;
 };
 
-export const apiPatch = async <T = any>(url: string, body?: any): Promise<T> => {
-  const res = await api.patch<T>(url, body);
+export const apiPatch = async <T = any>(
+  url: string,
+  body?: any,
+  config?: AxiosRequestConfig,
+): Promise<T> => {
+  const res = await api.patch<T>(url, body, config);
   return res.data as T;
 };
 
-export const apiDelete = async <T = any>(url: string): Promise<T> => {
-  const res = await api.delete<T>(url);
+export const apiDelete = async <T = any>(
+  url: string,
+  config?: AxiosRequestConfig,
+): Promise<T> => {
+  const res = await api.delete<T>(url, config);
   return res.data as T;
 };
