@@ -1,7 +1,10 @@
 import { useNotifications } from "../context/NotificationContext";
+import { useHasPermission } from "@/context/AuthContext";
 
 export function NotificationList() {
   const { notificaciones, markAsRead, markAllAsRead } = useNotifications();
+  const hasPermission = useHasPermission();
+  const canManage = hasPermission("notifications:manage");
 
   if (!notificaciones.length) {
     return <p className="p-4 text-gray-500">Sin notificaciones.</p>;
@@ -11,9 +14,11 @@ export function NotificationList() {
     <div className="w-80 rounded-xl bg-white p-3 shadow-lg">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="font-semibold">Notificaciones</h3>
-        <button onClick={markAllAsRead} className="text-xs text-blue-600 hover:underline" type="button">
-          Marcar todas como leidas
-        </button>
+        {canManage ? (
+          <button onClick={markAllAsRead} className="text-xs text-blue-600 hover:underline" type="button">
+            Marcar todas como leidas
+          </button>
+        ) : null}
       </div>
       <ul className="max-h-96 overflow-y-auto">
         {notificaciones.map((n) => (
