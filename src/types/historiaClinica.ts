@@ -16,6 +16,7 @@ export interface HistoriaClinica {
     id_paciente: number;
     nombres?: string;
     apellidos?: string;
+    foto?: string | null;
   } | null;
   cita?: {
     id_cita: number;

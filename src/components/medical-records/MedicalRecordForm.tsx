@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Search } from "lucide-react";
 import type {
   CitaOption,
   FormState,
@@ -39,6 +41,8 @@ interface MedicalRecordFormProps {
   onReset: () => void;
   onCancel?: () => void;
   updateField: (field: keyof FormState, value: string) => void;
+  onOpenPatientSearch?: () => void;
+  selectedPatientName?: string;
 }
 
 export function MedicalRecordForm({
@@ -53,6 +57,8 @@ export function MedicalRecordForm({
   onReset,
   onCancel,
   updateField,
+  onOpenPatientSearch,
+  selectedPatientName = "",
 }: MedicalRecordFormProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-6">
@@ -64,22 +70,25 @@ export function MedicalRecordForm({
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label>Paciente *</Label>
-            <Select
-              value={form.idPaciente}
-              onValueChange={(value) => updateField("idPaciente", value)}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={loading ? "Cargando pacientes..." : "Selecciona paciente"} />
-              </SelectTrigger>
-              <SelectContent className="max-h-64">
-                {patients.map((option) => (
-                  <SelectItem key={option.id} value={option.id.toString()}>
-                    {option.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Selecciona un paciente"
+                value={selectedPatientName}
+                readOnly
+                className="flex-1 cursor-pointer"
+                onClick={onOpenPatientSearch}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onOpenPatientSearch}
+                title="Buscar paciente"
+                disabled={loading}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           <div>
             <Label>Clínica *</Label>

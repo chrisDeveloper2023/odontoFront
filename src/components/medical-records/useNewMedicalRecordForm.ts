@@ -104,6 +104,8 @@ export function useNewMedicalRecordForm({
   const [loadingCitas, setLoadingCitas] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(() => ({ ...BASE_FORM, idPaciente: preselectedPatientId }));
+  const [selectedPatientName, setSelectedPatientName] = useState<string>("");
+  const [showPatientSearchModal, setShowPatientSearchModal] = useState(false);
 
   const activeRef = useRef<boolean>(active);
   activeRef.current = active;
@@ -112,9 +114,22 @@ export function useNewMedicalRecordForm({
     () => {
       setForm({ ...BASE_FORM, idPaciente: preselectedPatientId });
       setCitasDisponibles([]);
+      setSelectedPatientName("");
     },
     [preselectedPatientId],
   );
+
+  const openPatientSearchModal = useCallback(() => {
+    setShowPatientSearchModal(true);
+  }, []);
+
+  const handlePatientSelect = useCallback((paciente: any) => {
+    const patientId = String(paciente.id_paciente);
+    const patientName = `${paciente.nombres} ${paciente.apellidos}`.trim();
+    setForm((prev) => ({ ...prev, idPaciente: patientId }));
+    setSelectedPatientName(patientName);
+    setShowPatientSearchModal(false);
+  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -143,8 +158,22 @@ export function useNewMedicalRecordForm({
   }, [active]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !preselectedPatientId) return;
+    
     setForm((prev) => ({ ...prev, idPaciente: preselectedPatientId }));
+    
+    // Load the preselected patient's name
+    apiGet<any>(`/pacientes/${preselectedPatientId}`)
+      .then((pacRes) => {
+        const paciente = Array.isArray(pacRes) ? pacRes[0] : pacRes;
+        if (paciente) {
+          const patientName = `${paciente.nombres ?? ''} ${paciente.apellidos ?? ''}`.trim();
+          setSelectedPatientName(patientName);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading preselected patient:', err);
+      });
   }, [preselectedPatientId, active]);
 
   useEffect(() => {
@@ -233,6 +262,11 @@ export function useNewMedicalRecordForm({
     updateField,
     submit,
     resetForm,
+    selectedPatientName,
+    showPatientSearchModal,
+    setShowPatientSearchModal,
+    openPatientSearchModal,
+    handlePatientSelect,
   };
 }
 

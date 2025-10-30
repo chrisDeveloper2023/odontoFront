@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useLocation, useNavigate, useSearchParams, type Location } from "react-router-dom";
 import RouteModal from "@/components/RouteModal";
+import PatientSearchModal from "@/components/PatientSearchModal";
 import { MedicalRecordForm } from "@/components/medical-records/MedicalRecordForm";
 import { useNewMedicalRecordForm } from "@/components/medical-records/useNewMedicalRecordForm";
 
@@ -21,6 +22,11 @@ const NewMedicalRecordRoute = () => {
     updateField,
     submit,
     resetForm,
+    selectedPatientName,
+    showPatientSearchModal,
+    setShowPatientSearchModal,
+    openPatientSearchModal,
+    handlePatientSelect,
   } = useNewMedicalRecordForm({
     active: true,
     preselectedPatientId: preselectedPatient,
@@ -59,21 +65,31 @@ const NewMedicalRecordRoute = () => {
   );
 
   return (
-    <RouteModal title="Nueva Historia Clinica" onClose={handleDismiss}>
-      <MedicalRecordForm
-        form={form}
-        patients={patients}
-        clinicas={clinicas}
-        citasDisponibles={citasDisponibles}
-        loading={loading}
-        loadingCitas={loadingCitas}
-        saving={saving}
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-        onReset={resetForm}
-        updateField={updateField}
+    <>
+      <RouteModal title="Nueva Historia Clinica" onClose={handleDismiss}>
+        <MedicalRecordForm
+          form={form}
+          patients={patients}
+          clinicas={clinicas}
+          citasDisponibles={citasDisponibles}
+          loading={loading}
+          loadingCitas={loadingCitas}
+          saving={saving}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          onReset={resetForm}
+          updateField={updateField}
+          onOpenPatientSearch={openPatientSearchModal}
+          selectedPatientName={selectedPatientName}
+        />
+      </RouteModal>
+      
+      <PatientSearchModal
+        isOpen={showPatientSearchModal}
+        onClose={() => setShowPatientSearchModal(false)}
+        onSelectPatient={handlePatientSelect}
       />
-    </RouteModal>
+    </>
   );
 };
 

@@ -79,17 +79,26 @@ const PatientEditModal: React.FC<PatientEditModalProps> = ({
 
     apiGet<any>(`/pacientes/${patientId}`)
       .then((raw) => {
+        // Normalizar el tipo de documento para que coincida con los valores del Select
+        let documentType = raw.tipo_documento || "Cédula";
+        const docTypeLower = documentType.toString().toLowerCase();
+        if (docTypeLower === "cedula" || docTypeLower === "cédula") {
+          documentType = "Cédula";
+        } else if (docTypeLower === "pasaporte") {
+          documentType = "Pasaporte";
+        }
+
         setFormData({
-          documentType: raw.tipo_documento,
+          documentType: documentType,
           documentId: raw.documento_identidad,
           firstName: raw.nombres,
           lastName: raw.apellidos,
-          dateOfBirth: raw.fecha_nacimiento,
-          gender: raw.sexo.toLowerCase(),
+          dateOfBirth: raw.fecha_nacimiento?.substring(0, 10) ?? "",
+          gender: raw.sexo?.toLowerCase() ?? "",
           phone: raw.telefono,
-          email: raw.correo,
-          address: raw.direccion,
-          allergies: raw.observaciones,
+          email: raw.correo ?? "",
+          address: raw.direccion ?? "",
+          allergies: raw.observaciones ?? "",
           clinicId: raw.id_clinica ?? null,
         });
       })

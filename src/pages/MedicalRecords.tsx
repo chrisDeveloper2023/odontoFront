@@ -212,14 +212,14 @@ const MedicalRecords = () => {
           const rid = Number(record?.id_historia ?? 0);
           const ridStr = rid > 0 ? String(rid) : "";
           const clinicName = record.clinica?.nombre || "Sin clínica";
-          const tenantLabel = record.tenant?.nombre || record.tenant?.slug || "Sin tenant";
+          const patientName = record.paciente ? `${record.paciente.nombres || ''} ${record.paciente.apellidos || ''}`.trim() || 'Sin nombre' : `Paciente #${record.id_paciente}`;
           return (
           <Card key={`${rid || "row"}-${idx}`} className="hover:shadow-md transition-shadow">
             <CardContent className="pt-6 space-y-4">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || ""}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">#{ridStr || ""}</h3>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       <span className="font-medium">Creacion:</span> {formatDateTime(record.fecha_creacion)}
@@ -227,9 +227,29 @@ const MedicalRecords = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      <span className="font-medium">Paciente:</span> #{record.id_paciente}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden border border-border flex-shrink-0 relative">
+                        {record.paciente?.foto ? (
+                          <>
+                            <img 
+                              src={record.paciente.foto} 
+                              alt={patientName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                            <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-muted-foreground bg-muted">
+                              {patientName.charAt(0).toUpperCase() || '?'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            {patientName.charAt(0).toUpperCase() || '?'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-foreground font-medium">{patientName}</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-4 w-4" />
@@ -238,10 +258,6 @@ const MedicalRecords = () => {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Building2 className="h-4 w-4" />
                       <span className="font-medium">Clinica:</span> {clinicName}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Building2 className="h-4 w-4" />
-                      <span className="font-medium">Tenant:</span> {tenantLabel || "Sin tenant"}
                     </div>
                   </div>
 

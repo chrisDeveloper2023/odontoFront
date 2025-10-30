@@ -65,6 +65,13 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
   });
   const [clinicas, setClinicas] = useState<ClinicaOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [documentError, setDocumentError] = useState<string>("");
+  const [isValidatingDocument, setIsValidatingDocument] = useState(false);
+  const [originalDocumentId, setOriginalDocumentId] = useState<string>("");
+  const [originalDocumentType, setOriginalDocumentType] = useState<string>("");
+  const [emailError, setEmailError] = useState<string>("");
+  const [isValidatingEmail, setIsValidatingEmail] = useState(false);
+  const [originalEmail, setOriginalEmail] = useState<string>("");
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -85,6 +92,11 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
           occupation: "",
           clinicId: null,
         });
+        setDocumentError("");
+        setOriginalDocumentId("");
+        setOriginalDocumentType("");
+        setEmailError("");
+        setOriginalEmail("");
       }
     }
   }, [isOpen, isEdit]);
@@ -119,15 +131,21 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
     (async () => {
       try {
         const raw = await apiGet<any>(`/pacientes/${patientId}`);
+        const documentId = raw.documento_identidad;
+        const documentType = raw.tipo_documento;
+        const email = raw.correo ?? "";
+        setOriginalDocumentId(documentId);
+        setOriginalDocumentType(documentType);
+        setOriginalEmail(email);
         setFormData({
-          documentType: raw.tipo_documento,
-          documentId: raw.documento_identidad,
+          documentType: documentType,
+          documentId: documentId,
           firstName: raw.nombres,
           lastName: raw.apellidos,
           dateOfBirth: raw.fecha_nacimiento?.substring(0, 10) ?? "",
           gender: raw.sexo?.toLowerCase() ?? "",
           phone: raw.telefono ?? "",
-          email: raw.correo ?? "",
+          email: email,
           address: raw.direccion ?? "",
           allergies: raw.observaciones ?? "",
           occupation: raw.ocupacion ?? "",
@@ -146,6 +164,141 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
 
   const handleInputChange = (field: keyof FormData, value: string | number | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    // Limpiar el error al cambiar el documento o tipo de documento
+    if (field === "documentId" || field === "documentType") {
+      setDocumentError("");
+    }
+    // Limpiar el error al cambiar el email
+    if (field === "email") {
+      setEmailError("");
+    }
+  };
+
+  const validateDocumentExists = async (documentType: string, documentId: string) => {
+    if (!documentId || !documentType) {
+      setDocumentError("");
+      return;
+    }
+
+    setIsValidatingDocument(true);
+    try {
+      const params: any = {
+        page: 1,
+        limit: 100,
+        tipo_documento: documentType,
+      };
+
+      // Usar el parámetro apropiado según el tipo de documento
+      if (documentType.toLowerCase() === "cedula") {  
+        params.numero_cedula = documentId;
+      } else if (documentType.toLowerCase() === "pasaporte") {
+        params.pasaporte = documentId;
+      } else {
+        params.documento_identidad = documentId;
+      }
+
+      const response = await apiGet<any>("/pacientes", params);
+      
+      let pacientes = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      // Verificar que coincida tanto el número como el tipo de documento
+      pacientes = pacientes.filter((p: any) => {
+        const docNum = (p.documento_identidad || p.numero_cedula || "").toString().toLowerCase();
+        const pDocType = (p.tipo_documento || "").toString().toLowerCase();
+        const inputDocNum = documentId.toLowerCase();
+        const inputDocType = documentType.toLowerCase();
+        
+        return docNum === inputDocNum && pDocType === inputDocType;
+      });
+
+      if (pacientes.length > 0) {
+        // En modo edición, ignorar si es el mismo paciente (comparar por documento y tipo)
+        if (isEdit && patientId && pacientes.length === 1) {
+          const foundPatient = pacientes[0];
+          const foundDocType = (foundPatient.tipo_documento || "").toString().toLowerCase();
+          
+          // Verificar si es el mismo paciente por ID Y también por tipo de documento
+          if (String(foundPatient.id_paciente || foundPatient.id) === patientId && 
+              foundDocType === documentType.toLowerCase()) {
+            setDocumentError("");
+            return;
+          }
+        }
+        setDocumentError("Ya existe un paciente registrado con este tipo y número de documento");
+      } else {
+        setDocumentError("");
+      }
+    } catch (err) {
+      console.error("Error validando documento:", err);
+      // No mostrar error si falla la validación, solo registrar en consola
+      setDocumentError("");
+    } finally {
+      setIsValidatingDocument(false);
+    }
+  };
+
+  const validateEmailExists = async (email: string) => {
+    // Solo validar si el email no está vacío
+    if (!email || email.trim() === "") {
+      setEmailError("");
+      return;
+    }
+
+    // Validar formato básico de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError("");
+      return; // No validar si el formato no es válido, dejar que el usuario corrija primero
+    }
+
+    setIsValidatingEmail(true);
+    try {
+      const params: any = {
+        page: 1,
+        limit: 100,
+        email: email.trim(),
+      };
+
+      const response = await apiGet<any>("/pacientes", params);
+      
+      let pacientes = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+
+      // Filtrar por email exacto (case insensitive)
+      pacientes = pacientes.filter((p: any) => {
+        const pEmail = (p.correo || p.email || "").toString().toLowerCase().trim();
+        const inputEmail = email.toLowerCase().trim();
+        
+        return pEmail === inputEmail && pEmail !== "";
+      });
+
+      if (pacientes.length > 0) {
+        // En modo edición, ignorar si es el mismo paciente
+        if (isEdit && patientId && pacientes.length === 1) {
+          const foundPatient = pacientes[0];
+          if (String(foundPatient.id_paciente || foundPatient.id) === patientId) {
+            setEmailError("");
+            return;
+          }
+        }
+        setEmailError("Ya existe un paciente registrado con este correo electrónico");
+      } else {
+        setEmailError("");
+      }
+    } catch (err) {
+      console.error("Error validando email:", err);
+      // No mostrar error si falla la validación, solo registrar en consola
+      setEmailError("");
+    } finally {
+      setIsValidatingEmail(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,6 +309,14 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
     }
     if (!formData.clinicId) {
       notify({ type: "warning", title: "Selecciona una clínica" });
+      return;
+    }
+    if (documentError) {
+      notify({ type: "error", title: "Corrija el error en el número de documento antes de guardar" });
+      return;
+    }
+    if (emailError) {
+      notify({ type: "error", title: "Corrija el error en el correo electrónico antes de guardar" });
       return;
     }
 
@@ -224,7 +385,26 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Tipo de Documento *</Label>
-                <Select value={formData.documentType} onValueChange={(val) => handleInputChange("documentType", val)}>
+                <Select 
+                  value={formData.documentType} 
+                  onValueChange={(val) => {
+                    handleInputChange("documentType", val);
+                    // Validar cuando cambia el tipo de documento si ya hay un número de documento
+                    if (formData.documentId) {
+                      if (!isEdit) {
+                        // Modo creación: siempre validar
+                        validateDocumentExists(val, formData.documentId);
+                      } else if (isEdit) {
+                        // Modo edición: validar si el documento o tipo de documento han cambiado
+                        const documentChanged = formData.documentId !== originalDocumentId;
+                        const typeChanged = val !== originalDocumentType;
+                        if (documentChanged || typeChanged) {
+                          validateDocumentExists(val, formData.documentId);
+                        }
+                      }
+                    }
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Cedula">Cedula</SelectItem>
@@ -237,8 +417,25 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
                 <Input
                   value={formData.documentId}
                   onChange={(e) => handleInputChange("documentId", e.target.value)}
+                  onBlur={() => {
+                    if (!isEdit) {
+                      // Modo creación: siempre validar
+                      validateDocumentExists(formData.documentType, formData.documentId);
+                    } else if (isEdit) {
+                      // Modo edición: validar si el documento o tipo de documento han cambiado
+                      const documentChanged = formData.documentId !== originalDocumentId;
+                      const typeChanged = formData.documentType !== originalDocumentType;
+                      if (documentChanged || typeChanged) {
+                        validateDocumentExists(formData.documentType, formData.documentId);
+                      }
+                    }
+                  }}
                   required
+                  disabled={isValidatingDocument}
                 />
+                {documentError && (
+                  <p className="text-sm text-red-600 mt-1">{documentError}</p>
+                )}
               </div>
             </div>
           </div>
@@ -314,7 +511,29 @@ const NewPatientModal: React.FC<NewPatientModalProps> = ({
               </div>
               <div>
                 <Label>Email</Label>
-                <Input value={formData.email} onChange={(e) => handleInputChange("email", e.target.value)} />
+                <Input 
+                  value={formData.email} 
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  onBlur={() => {
+                    if (!isEdit) {
+                      // Modo creación: siempre validar si hay email
+                      if (formData.email && formData.email.trim() !== "") {
+                        validateEmailExists(formData.email);
+                      }
+                    } else if (isEdit) {
+                      // Modo edición: validar solo si el email ha cambiado
+                      const emailChanged = formData.email !== originalEmail;
+                      if (emailChanged && formData.email && formData.email.trim() !== "") {
+                        validateEmailExists(formData.email);
+                      }
+                    }
+                  }}
+                  type="email"
+                  disabled={isValidatingEmail}
+                />
+                {emailError && (
+                  <p className="text-sm text-red-600 mt-1">{emailError}</p>
+                )}
               </div>
               <div className="md:col-span-2">
                 <Label>Dirección</Label>

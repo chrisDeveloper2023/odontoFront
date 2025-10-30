@@ -248,24 +248,35 @@ const Patients: React.FC = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar pacientes por nombre, teléfono o email..."
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10 pr-10"
-              />
-              {searchTerm && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1 h-8 w-8 p-0"
-                  onClick={() => handleSearchChange("")}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
+            <div className="flex gap-2 items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar pacientes por nombre, teléfono o email..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="pl-10 pr-10"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1 h-8 w-8 p-0"
+                    onClick={() => handleSearchChange("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <Button
+                variant={mostrarInactivos ? "default" : "secondary"}
+                onClick={() => {
+                  setPage(1);
+                  setMostrarInactivos((v) => !v);
+                }}
+              >
+                {mostrarInactivos ? "👁️ Ver Activos" : "🗂️ Ver Inactivos"}
+              </Button>
             </div>
 
             {filtered.length > 0 && (
@@ -318,19 +329,6 @@ const Patients: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Toggle Button */}
-      <div className="flex justify-end">
-        <Button
-          variant={mostrarInactivos ? "default" : "secondary"}
-          onClick={() => {
-            setPage(1);
-            setMostrarInactivos((v) => !v);
-          }}
-        >
-          {mostrarInactivos ? "👁️ Ver Activos" : "🗂️ Ver Inactivos"}
-        </Button>
       </div>
 
       {/* Patients List */}
