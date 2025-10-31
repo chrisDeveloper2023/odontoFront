@@ -36,7 +36,8 @@ const ALTERACION_PRESION_OPTIONS = [
 type Option = { id: number; nombre: string };
 type CitaOption = { 
   id_cita: number; 
-  fecha_hora?: string; 
+  fecha_hora?: string;
+  fecha_creacion?: string;
   estado?: string;
   consultorio?: { nombre?: string } | null;
   odontologo?: { nombres?: string; apellidos?: string; nombre?: string } | null;
@@ -252,7 +253,42 @@ const NewMedicalRecordModal: React.FC<NewMedicalRecordModalProps> = ({
         setLoadingCitas(true);
         const res = await apiGet<any>(`/pacientes/${pacienteId}/citas-disponibles`);
         const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-        setCitasDisponibles(list as CitaOption[]);
+        
+        // Ordenar citas por fecha de creación (más reciente primero)
+        // Usar fecha_hora como fecha principal, o fecha_creacion si está disponible
+        const citasOrdenadas = (list as CitaOption[]).sort((a, b) => {
+          const fechaA = a.fecha_hora || a.fecha_creacion || "";
+          const fechaB = b.fecha_hora || b.fecha_creacion || "";
+          
+          if (!fechaA && !fechaB) return 0;
+          if (!fechaA) return 1;
+          if (!fechaB) return -1;
+          
+          const dateA = new Date(fechaA).getTime();
+          const dateB = new Date(fechaB).getTime();
+          
+          // Orden descendente: más reciente primero
+          return dateB - dateA;
+        });
+        
+        setCitasDisponibles(citasOrdenadas);
+        
+        // Seleccionar automáticamente la primera cita (más reciente) si no hay una ya seleccionada
+        if (citasOrdenadas.length > 0 && selectedHistoriaId === null) {
+          // Usar setTimeout para asegurar que el estado se actualice después de setCitasDisponibles
+          setTimeout(() => {
+            setForm((prev) => {
+              // Solo seleccionar si no hay una cita ya seleccionada
+              if (!prev.idCita || prev.idCita.trim() === "" || prev.idCita === EMPTY_OPTION_VALUE) {
+                return {
+                  ...prev,
+                  idCita: String(citasOrdenadas[0].id_cita),
+                };
+              }
+              return prev;
+            });
+          }, 0);
+        }
       } catch (error) {
         console.error("Error al cargar citas:", error);
         setCitasDisponibles([]);
@@ -282,6 +318,41 @@ const NewMedicalRecordModal: React.FC<NewMedicalRecordModalProps> = ({
     loadCitas();
     loadHistorias();
   }, [form.idPaciente, preselectedPatientId, isOpen]);
+
+  // Seleccionar automáticamente la primera cita (más reciente) cuando se cargan las citas
+  useEffect(() => {
+    // Solo seleccionar automáticamente si:
+    // 1. No hay una cita ya seleccionada en el formulario (o está vacía)
+    // 2. Hay citas disponibles
+    // 3. No estamos visualizando una historia existente (selectedHistoriaId es null)
+    // 4. No estamos en estado de carga
+    // 5. Hay un paciente seleccionado
+    // 6. El modal está abierto
+    if (
+      isOpen &&
+      !loadingCitas &&
+      (!form.idCita || form.idCita.trim() === "" || form.idCita === EMPTY_OPTION_VALUE) &&
+      citasDisponibles.length > 0 &&
+      selectedHistoriaId === null &&
+      form.idPaciente &&
+      form.idPaciente.trim() !== ""
+    ) {
+      // Las citas ya vienen ordenadas de loadCitas (más reciente primero)
+      // Seleccionar la primera cita del array
+      const primeraCitaId = String(citasDisponibles[0].id_cita);
+      
+      // Actualizar el formulario con la primera cita
+      setForm((prev) => {
+        if (prev.idCita !== primeraCitaId) {
+          return {
+            ...prev,
+            idCita: primeraCitaId,
+          };
+        }
+        return prev;
+      });
+    }
+  }, [citasDisponibles, loadingCitas, form.idCita, selectedHistoriaId, form.idPaciente, isOpen]);
 
   const updateField = (field: keyof typeof form, value: string) => {
     const normalizedValue =
