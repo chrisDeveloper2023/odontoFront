@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiGet, apiPost } from "@/api/client";
 import { getClinicas } from "@/lib/api/clinicas";
@@ -97,6 +98,7 @@ export function useNewMedicalRecordForm({
   active,
   preselectedPatientId = "",
 }: UseNewMedicalRecordFormOptions) {
+  const queryClient = useQueryClient();
   const [patients, setPatients] = useState<Option[]>([]);
   const [clinicas, setClinicas] = useState<Option[]>([]);
   const [citasDisponibles, setCitasDisponibles] = useState<CitaOption[]>([]);
@@ -193,6 +195,8 @@ export function useNewMedicalRecordForm({
 
     try {
       setSaving(true);
+      const selectedCitaId =
+        form.idCita && form.idCita !== EMPTY_OPTION_VALUE ? Number(form.idCita) : null;
       const payload = {
         id_clinica: Number(form.idClinica),
         id_cita: form.idCita ? Number(form.idCita) : undefined,
@@ -212,6 +216,10 @@ export function useNewMedicalRecordForm({
       const response = await apiPost<any>(`/pacientes/${form.idPaciente}/historias-clinicas`, payload);
       toast.success("Historia clínica creada correctamente");
       resetForm();
+      if (selectedCitaId && Number.isFinite(selectedCitaId)) {
+        void queryClient.invalidateQueries({ queryKey: ["appointments"] });
+        void queryClient.invalidateQueries({ queryKey: ["cita-historial", selectedCitaId] });
+      }
       return response;
     } catch (error: any) {
       console.error(error);
@@ -220,7 +228,7 @@ export function useNewMedicalRecordForm({
     } finally {
       setSaving(false);
     }
-  }, [form, resetForm]);
+  }, [form, resetForm, queryClient]);
 
   return {
     form,
