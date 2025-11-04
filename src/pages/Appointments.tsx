@@ -7,9 +7,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, CalendarPlus, Eye, RefreshCw, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Search,
+  CalendarPlus,
+  Eye,
+  RefreshCw,
+  Loader2,
+  Check,
+  CalendarClock,
+  XCircle,
+  History,
+} from "lucide-react";
 
 import { apiGet } from "@/api/client";
+import { confirmarCita, reprogramarCita, cancelarCita } from "@/servicios/citas";
 import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
 import { Clinica } from "@/types/clinica";
 import { Tenant } from "@/types/tenant";
@@ -96,6 +117,45 @@ const mapAppointment = (raw: any): Appointment => {
 };
 
 const APPOINTMENTS_PER_PAGE = 10;
+
+type AppointmentMutationType = "confirm" | "reschedule" | "cancel";
+
+const ACTIVE_APPOINTMENT_CONFLICT_TEXT =
+  "Este paciente ya tiene una cita activa. Cancélala o márcala como realizada antes de crear otra.";
+
+const toDateTimeLocalValue = (value: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60000);
+  return localDate.toISOString().slice(0, 16);
+};
+
+const fromDateTimeLocalValue = (value: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+};
+
+const isActiveAppointmentConflict = (error: any) => {
+  const status = error?.status ?? error?.response?.status;
+  const message = String(
+    error?.message ?? error?.payload?.mensaje ?? error?.payload?.error ?? "",
+  ).toLowerCase();
+  return status === 409 && message.includes("cita activa");
+};
+
+const handleAppointmentMutationError = (error: any, fallback: string) => {
+  if (isActiveAppointmentConflict(error)) {
+    toast.warning(ACTIVE_APPOINTMENT_CONFLICT_TEXT);
+    return;
+  }
+  const message =
+    error?.message ?? error?.payload?.mensaje ?? error?.payload?.error ?? fallback;
+  toast.error(message || fallback);
+};
 
 const fetchAppointments = async (filters: AppointmentFilters): Promise<AppointmentListResponse> => {
   const params: Record<string, string> = {
@@ -189,6 +249,56 @@ const Appointments = () => {
   const [clinicsOptions, setClinicsOptions] = useState<ClinicOption[]>([]);
   const [consultoriosOptions, setConsultoriosOptions] = useState<ConsultorioOption[]>([]);
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [historyModalState, setHistoryModalState] = useState<{
+    open: boolean;
+    appointment: Appointment | null;
+  }>({ open: false, appointment: null });
+  const [rescheduleDateTime, setRescheduleDateTime] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [pendingAction, setPendingAction] = useState<{ id: number; type: AppointmentMutationType } | null>(null);
+
+  const isActionPending = (id: number, type: AppointmentMutationType) =>
+    pendingAction?.id === id && pendingAction?.type === type;
+
+  const isAppointmentBusy = (id: number) => pendingAction?.id === id;
+
+  const openRescheduleModal = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setRescheduleDateTime(toDateTimeLocalValue(appointment.fecha_hora));
+    setRescheduleReason("");
+    setRescheduleModalOpen(true);
+  };
+
+  const closeRescheduleModal = () => {
+    setRescheduleModalOpen(false);
+    setRescheduleDateTime("");
+    setRescheduleReason("");
+    setSelectedAppointment(null);
+  };
+
+  const openCancelModal = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setCancelReason("");
+    setCancelModalOpen(true);
+  };
+
+  const closeCancelModal = () => {
+    setCancelModalOpen(false);
+    setCancelReason("");
+    setSelectedAppointment(null);
+  };
+
+  const openHistoryModal = (appointment: Appointment) => {
+    setHistoryModalState({ open: true, appointment });
+  };
+
+  const closeHistoryModal = () => {
+    setHistoryModalState({ open: false, appointment: null });
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -308,6 +418,71 @@ const Appointments = () => {
     staleTime: 30_000,
   });
 
+  const handleConfirmAppointment = async (appointment: Appointment) => {
+    setPendingAction({ id: appointment.id_cita, type: "confirm" });
+    try {
+      await confirmarCita(appointment.id_cita);
+      toast.success("Cita confirmada correctamente.");
+      await refetch();
+    } catch (err: any) {
+      handleAppointmentMutationError(err, "No se pudo confirmar la cita.");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!selectedAppointment) return;
+    if (!rescheduleDateTime) {
+      toast.error("Selecciona una nueva fecha y hora para reprogramar.");
+      return;
+    }
+
+    const appointment = selectedAppointment;
+    const isoDate = fromDateTimeLocalValue(rescheduleDateTime);
+    if (!isoDate) {
+      toast.error("La fecha y hora seleccionadas no son válidas.");
+      return;
+    }
+
+    setPendingAction({ id: appointment.id_cita, type: "reschedule" });
+    try {
+      await reprogramarCita(appointment.id_cita, {
+        fecha_hora: isoDate,
+        motivo: rescheduleReason.trim() || undefined,
+      });
+      toast.success("Cita reprogramada correctamente.");
+      closeRescheduleModal();
+      await refetch();
+    } catch (err: any) {
+      handleAppointmentMutationError(err, "No se pudo reprogramar la cita.");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleCancelSubmit = async () => {
+    if (!selectedAppointment) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      toast.error("Ingresa un motivo para cancelar la cita.");
+      return;
+    }
+
+    const appointment = selectedAppointment;
+    setPendingAction({ id: appointment.id_cita, type: "cancel" });
+    try {
+      await cancelarCita(appointment.id_cita, { motivo: reason });
+      toast.success("Cita cancelada correctamente.");
+      closeCancelModal();
+      await refetch();
+    } catch (err: any) {
+      handleAppointmentMutationError(err, "No se pudo cancelar la cita.");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   const appointments = data?.items ?? [];
   const totalPages = data?.totalPages ?? 1;
   const totalBackend = data?.total ?? appointments.length;
@@ -390,7 +565,8 @@ const Appointments = () => {
   const fetchError = isError ? (error as Error)?.message ?? "No se pudieron cargar las citas" : null;
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Citas médicas</h1>
@@ -442,10 +618,12 @@ const Appointments = () => {
                 <option value="">Todos los estados</option>
                 <option value={APPOINTMENT_STATUS.AGENDADA}>Agendada</option>
                 <option value={APPOINTMENT_STATUS.CONFIRMADA}>Confirmada</option>
+                <option value={APPOINTMENT_STATUS.REPROGRAMADA}>Reprogramada</option>
                 <option value={APPOINTMENT_STATUS.CANCELADA}>Cancelada</option>
-                <option value={APPOINTMENT_STATUS.COMPLETADA}>Completada</option>
-                <option value={APPOINTMENT_STATUS.EN_PROGRESO}>En progreso</option>
+                <option value={APPOINTMENT_STATUS.REALIZADA}>Realizada</option>
                 <option value={APPOINTMENT_STATUS.NO_ASISTIO}>No asistió</option>
+                <option value={APPOINTMENT_STATUS.EN_PROGRESO}>En progreso</option>
+                <option value={APPOINTMENT_STATUS.COMPLETADA}>Completada</option>
               </select>
             </div>
             <div>
@@ -567,6 +745,13 @@ const Appointments = () => {
               appointment.clinica?.tenant?.nombre ||
               appointment.clinica?.tenant?.slug ||
               "";
+            const isLifecycleLocked =
+              appointment.estado === APPOINTMENT_STATUS.REALIZADA ||
+              appointment.estado === APPOINTMENT_STATUS.CANCELADA;
+            const canConfirm =
+              !isLifecycleLocked && appointment.estado !== APPOINTMENT_STATUS.CONFIRMADA;
+            const canReschedule = !isLifecycleLocked;
+            const canCancel = !isLifecycleLocked;
 
             return (
               <Card key={appointment.id_cita} className="transition-shadow hover:shadow-md">
@@ -580,11 +765,13 @@ const Appointments = () => {
                         </h3>
                         <Badge
                           variant={
-                            appointment.estado === APPOINTMENT_STATUS.CONFIRMADA
-                              ? "default"
-                              : appointment.estado === APPOINTMENT_STATUS.AGENDADA
-                                ? "secondary"
-                                : "destructive"
+                            appointment.estado === APPOINTMENT_STATUS.REALIZADA
+                              ? "success"
+                              : appointment.estado === APPOINTMENT_STATUS.CANCELADA
+                                ? "destructive"
+                                : appointment.estado === APPOINTMENT_STATUS.CONFIRMADA
+                                  ? "secondary"
+                                  : "outline"
                           }
                         >
                           {appointment.estado}
@@ -620,7 +807,42 @@ const Appointments = () => {
                         ) : null}
                       </div>
                     </div>
-                    <div className="flex items-center justify-end">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleConfirmAppointment(appointment)}
+                        disabled={!canConfirm || isAppointmentBusy(appointment.id_cita)}
+                      >
+                        {isActionPending(appointment.id_cita, "confirm") ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="mr-2 h-4 w-4" />
+                        )}
+                        Confirmar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openRescheduleModal(appointment)}
+                        disabled={!canReschedule || isAppointmentBusy(appointment.id_cita)}
+                      >
+                        <CalendarClock className="mr-2 h-4 w-4" />
+                        Reprogramar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openCancelModal(appointment)}
+                        disabled={!canCancel || isAppointmentBusy(appointment.id_cita)}
+                      >
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Cancelar
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openHistoryModal(appointment)}>
+                        <History className="mr-2 h-4 w-4" />
+                        Historial
+                      </Button>
                       <Link to={`/appointments/${appointment.id_cita}`} state={{ background: location }}>
                         <Button variant="outline" size="sm">
                           <Eye className="mr-1 h-4 w-4" />
@@ -661,6 +883,114 @@ const Appointments = () => {
         </div>
       ) : null}
     </div>
+
+    <Dialog open={rescheduleModalOpen} onOpenChange={(open) => (open ? setRescheduleModalOpen(true) : closeRescheduleModal())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reprogramar cita</DialogTitle>
+          <DialogDescription>
+            Selecciona una nueva fecha y hora para la cita{selectedAppointment ? ` de ${selectedAppointment.paciente?.nombres ?? ""} ${selectedAppointment.paciente?.apellidos ?? ""}`.trim() : ""}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="reschedule-datetime">Fecha y hora</Label>
+            <Input
+              id="reschedule-datetime"
+              type="datetime-local"
+              value={rescheduleDateTime}
+              onChange={(event) => setRescheduleDateTime(event.target.value)}
+              disabled={isActionPending(selectedAppointment?.id_cita ?? 0, "reschedule")}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="reschedule-reason">Motivo (opcional)</Label>
+            <Textarea
+              id="reschedule-reason"
+              value={rescheduleReason}
+              onChange={(event) => setRescheduleReason(event.target.value)}
+              placeholder="Describe brevemente el motivo del cambio"
+              disabled={isActionPending(selectedAppointment?.id_cita ?? 0, "reschedule")}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={closeRescheduleModal}
+            disabled={isActionPending(selectedAppointment?.id_cita ?? 0, "reschedule")}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={handleRescheduleSubmit} disabled={isActionPending(selectedAppointment?.id_cita ?? 0, "reschedule")}>
+            {isActionPending(selectedAppointment?.id_cita ?? 0, "reschedule") ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            Guardar cambios
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={cancelModalOpen} onOpenChange={(open) => (open ? setCancelModalOpen(true) : closeCancelModal())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancelar cita</DialogTitle>
+          <DialogDescription>
+            Indica el motivo de la cancelación para mantener el historial completo.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="cancel-reason">Motivo</Label>
+            <Textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              placeholder="Ej. El paciente no podrá asistir"
+              disabled={isActionPending(selectedAppointment?.id_cita ?? 0, "cancel")}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={closeCancelModal}
+            disabled={isActionPending(selectedAppointment?.id_cita ?? 0, "cancel")}
+          >
+            Volver
+          </Button>
+          <Button variant="destructive" onClick={handleCancelSubmit} disabled={isActionPending(selectedAppointment?.id_cita ?? 0, "cancel")}>
+            {isActionPending(selectedAppointment?.id_cita ?? 0, "cancel") ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="mr-2 h-4 w-4" />
+            )}
+            Confirmar cancelación
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={historyModalState.open} onOpenChange={(open) => (open ? setHistoryModalState((prev) => ({ ...prev, open })) : closeHistoryModal())}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Historial de la cita</DialogTitle>
+          <DialogDescription>
+            Consulta los cambios de estado de la cita seleccionada.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-6 text-center text-sm text-muted-foreground">
+          El detalle del historial estará disponible en la siguiente integración.
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={closeHistoryModal}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
