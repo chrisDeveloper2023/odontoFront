@@ -1,4 +1,4 @@
-import { apiGet } from "@/api/client";
+import { apiGet, apiPost } from "@/api/client";
 
 // src/services/citas.ts
 export interface DisponibilidadResponse {
@@ -20,3 +20,40 @@ export async function getDisponibilidad(
     duracion: String(duracionMinutos),
   });
 }
+
+export interface ReprogramarCitaPayload {
+  fecha_hora: string;
+  motivo?: string;
+}
+
+export interface CancelarCitaPayload {
+  motivo: string;
+}
+
+export interface CitaHistorialEntry {
+  id: number;
+  id_cita: number;
+  estado_anterior: string;
+  estado_nuevo: string;
+  motivo: string | null;
+  fecha_cambio: string;
+  usuario: string | null;
+}
+
+export const confirmarCita = async (id: number) => {
+  return apiPost<void>(`/citas/${id}/confirmar`);
+};
+
+export const reprogramarCita = async (id: number, data: ReprogramarCitaPayload) => {
+  return apiPost<void>(`/citas/${id}/reprogramar`, data);
+};
+
+export const cancelarCita = async (id: number, data: CancelarCitaPayload) => {
+  return apiPost<void>(`/citas/${id}/cancelar`, data);
+};
+
+export const obtenerHistorialCita = async (id: number) => {
+  return apiGet<CitaHistorialEntry[]>("/citas-historial", {
+    id_cita: String(id),
+  });
+};
