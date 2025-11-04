@@ -31,13 +31,14 @@ export interface CancelarCitaPayload {
 }
 
 export interface CitaHistorialEntry {
-  id: number;
-  id_cita: number;
-  estado_anterior: string;
-  estado_nuevo: string;
-  motivo: string | null;
-  fecha_cambio: string;
-  usuario: string | null;
+  id?: number | string;
+  id_cita?: number;
+  estado_anterior?: string | null;
+  estado_nuevo?: string | null;
+  motivo?: string | null;
+  fecha_cambio?: string | null;
+  usuario?: string | null | Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export const confirmarCita = async (id: number) => {

@@ -39,6 +39,7 @@ import { APPOINTMENT_STATUS } from "@/constants/status";
 import { API_ENDPOINTS } from "@/constants/api";
 import { PLACEHOLDERS, INFO_MESSAGES } from "@/constants/messages";
 import { getClinicas } from "@/lib/api/clinicas";
+import CitaHistorialModal from "@/components/CitaHistorialModal";
 
 interface Appointment {
   id_cita: number;
@@ -563,6 +564,11 @@ const Appointments = () => {
   const showLoadingState = isLoading && !isFetching;
   const showEmptyState = !showLoadingState && !isError && appointments.length === 0;
   const fetchError = isError ? (error as Error)?.message ?? "No se pudieron cargar las citas" : null;
+  const historyAppointmentId = historyModalState.appointment?.id_cita ?? null;
+  const historyPatientName = historyModalState.appointment
+    ? `${historyModalState.appointment.paciente?.nombres ?? ""} ${historyModalState.appointment.paciente?.apellidos ?? ""}`.trim()
+    : "";
+  const historyCurrentStatus = historyModalState.appointment?.estado ?? "";
 
   return (
     <>
@@ -972,24 +978,13 @@ const Appointments = () => {
       </DialogContent>
     </Dialog>
 
-    <Dialog open={historyModalState.open} onOpenChange={(open) => (open ? setHistoryModalState((prev) => ({ ...prev, open })) : closeHistoryModal())}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Historial de la cita</DialogTitle>
-          <DialogDescription>
-            Consulta los cambios de estado de la cita seleccionada.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-6 text-center text-sm text-muted-foreground">
-          El detalle del historial estará disponible en la siguiente integración.
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={closeHistoryModal}>
-            Cerrar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <CitaHistorialModal
+      open={historyModalState.open}
+      citaId={historyAppointmentId}
+      patientName={historyPatientName || undefined}
+      currentStatus={historyCurrentStatus || undefined}
+      onClose={closeHistoryModal}
+    />
     </>
   );
 };
