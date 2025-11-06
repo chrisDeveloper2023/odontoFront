@@ -1,5 +1,5 @@
 // src/pages/NewAppointment.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardHeader,
@@ -174,7 +174,11 @@ const NewAppointmentForm = () => {
   }, [formData.id_consultorio, formData.fecha, duracion]);
 
   const handleSelectChange = (field: keyof typeof formData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === "id_clinica" ? { id_consultorio: "" } : {}),
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -212,6 +216,17 @@ const NewAppointmentForm = () => {
     !formData.id_clinica ||
     !formData.fecha ||
     !formData.hora;
+
+  const consultoriosFiltrados = useMemo(() => {
+    if (!formData.id_clinica) {
+      return consultorios;
+    }
+    const clinicaId = formData.id_clinica;
+    return consultorios.filter((consultorio) => {
+      const rawId = consultorio?.id_clinica ?? (consultorio as any)?.clinica_id ?? null;
+      return String(rawId ?? "") === clinicaId;
+    });
+  }, [consultorios, formData.id_clinica]);
 
   if (loading) return <div className="p-4">Cargando datos...</div>;
 
@@ -334,15 +349,17 @@ const NewAppointmentForm = () => {
                   <SelectTrigger className="w-full">
                     {formData.id_consultorio
                       ? (() => {
-                        const c = consultorios.find(
-                          (x) => String(x.id_consultorio) === formData.id_consultorio
-                        );
-                        return c ? c.nombre : "Seleccionar consultorio";
-                      })()
-                      : "Seleccionar consultorio"}
+                          const c = consultoriosFiltrados.find(
+                            (x) => String(x.id_consultorio) === formData.id_consultorio
+                          );
+                          return c ? c.nombre : "Seleccionar consultorio";
+                        })()
+                      : consultoriosFiltrados.length
+                        ? "Seleccionar consultorio"
+                        : "No hay consultorios disponibles"}
                   </SelectTrigger>
                   <SelectContent>
-                    {consultorios.map((c) => (
+                    {consultoriosFiltrados.map((c) => (
                       <SelectItem key={c.id_consultorio} value={String(c.id_consultorio)}>
                         {c.nombre}
                       </SelectItem>
