@@ -73,7 +73,8 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/tenants" element={<TenantsAdmin />} />
         <Route element={<RequireAuth />}>
-          <Route path="/" element={<Layout><Dashboard /></Layout>} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
           <Route path="/patients" element={<Layout><ProtectedRoute requiredPermissions="patients:view"><Patients /></ProtectedRoute></Layout>} />
           <Route path="/patients/:id" element={<Layout><PatientDetail /></Layout>} />
           <Route path="/patients/new" element={<Layout><ProtectedRoute requiredPermissions="patients:create"><NewPatient /></ProtectedRoute></Layout>} />
