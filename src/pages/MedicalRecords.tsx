@@ -1,40 +1,69 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, Plus, Eye, Edit, Calendar, User, Building2 } from "lucide-react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { fetchHistoriasClinicas } from "@/lib/api/historiasClinicas";
-import type { HistoriaClinica } from "@/types/historiaClinica";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } from "@/lib/api/odontograma";
+import {
+  Calendar,
+  FileText,
+  Loader2,
+  Plus,
+  Search,
+  User,
+  Building2,
+  AlertCircle,
+} from "lucide-react";
+import PatientSearchModal from "@/components/PatientSearchModal";
+import { fetchHistoriasPorPaciente } from "@/lib/api/historiasClinicas";
+import type { HistoriaClinica } from "@/types/historiaClinica";
+import { apiGet } from "@/api/client";
+import {
+  abrirDraftOdontograma,
+  getOdontogramaByHistoria,
+  OdontogramaResponse,
+} from "@/lib/api/odontograma";
 import OdontogramaModal from "@/components/OdontogramaModal";
 
+type SelectedPatient = {
+  id_paciente: number;
+  nombres?: string;
+  apellidos?: string;
+  numero_cedula?: string;
+  numero_celular?: string;
+  email?: string;
+};
+
+const formatDateTime = (dateString: string | null | undefined): string => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString("es-ES", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return dateString;
+  }
+};
+
 const MedicalRecords = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [historias, setHistorias] = useState<HistoriaClinica[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
-  // Función para formatear fecha y hora
-  const formatDateTime = (dateString: string | null | undefined): string => {
-    if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString('es-ES', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-    } catch (error) {
-      return dateString;
-    }
-  };
+  const [patientModalOpen, setPatientModalOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<SelectedPatient | null>(null);
+  const [histories, setHistories] = useState<HistoriaClinica[]>([]);
+  const [activeHistoryId, setActiveHistoryId] = useState<number | null>(null);
+  const [historiesLoading, setHistoriesLoading] = useState(false);
+  const [historiesError, setHistoriesError] = useState<string | null>(null);
 
-  // Estado para odontograma embebido
+  // Odontograma modal state
   const [selectedHistoriaId, setSelectedHistoriaId] = useState<number | null>(null);
   const [ogData, setOgData] = useState<OdontogramaResponse | null>(null);
   const [ogLoading, setOgLoading] = useState(false);
@@ -54,7 +83,9 @@ const MedicalRecords = () => {
       } catch (e: any) {
         const message =
           e?.message ||
-          (mode === "from_last" ? "Error al abrir odontograma (desde último)" : "Error al abrir odontograma");
+          (mode === "from_last"
+            ? "Error al abrir odontograma (desde último)"
+            : "Error al abrir odontograma");
         setOgError(message);
         toast.error(message);
       } finally {
@@ -81,262 +112,369 @@ const MedicalRecords = () => {
     }
   }, [selectedHistoriaId]);
 
-  const reloadOdontograma = useCallback(async (showToast = false) => {
-    if (!selectedHistoriaId) return;
-    setOgError(null);
-    setOgLoading(true);
-    try {
-      const snapshot = await getOdontogramaByHistoria(selectedHistoriaId);
-      setOgData(snapshot);
-    } catch (e: any) {
-      const message = e?.message || "No se pudo recargar el odontograma";
-      setOgError(message);
-      if (showToast) toast.error(message);
-    } finally {
-      setOgLoading(false);
-    }
-  }, [selectedHistoriaId]);
+  const reloadOdontograma = useCallback(
+    async (showToast = false) => {
+      if (!selectedHistoriaId) return;
+      setOgError(null);
+      setOgLoading(true);
+      try {
+        const snapshot = await getOdontogramaByHistoria(selectedHistoriaId);
+        setOgData(snapshot);
+      } catch (e: any) {
+        const message = e?.message || "No se pudo recargar el odontograma";
+        setOgError(message);
+        if (showToast) toast.error(message);
+      } finally {
+        setOgLoading(false);
+      }
+    },
+    [selectedHistoriaId],
+  );
 
-  // Paginacion
-  const [page, setPage] = useState(1);
-  const limit = 10;
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalBackend, setTotalBackend] = useState(0);
-  const [searchParams] = useSearchParams();
-  const idPacienteParam = searchParams.get("id_paciente") || "";
+  const handlePatientSelected = useCallback((patient: SelectedPatient) => {
+    setSelectedPatient(patient);
+    setPatientModalOpen(false);
+  }, []);
+
+  const idPacienteParam = searchParams.get("id_paciente");
 
   useEffect(() => {
+    if (selectedPatient || !idPacienteParam) return;
+    const parsedId = Number(idPacienteParam);
+    if (!Number.isFinite(parsedId) || parsedId <= 0) return;
+
     let cancelled = false;
-    setLoadingList(true);
-    setListError(null);
-
-    const query: Record<string, string | number> = {
-      page,
-      limit,
-    };
-    if (idPacienteParam) {
-      query.id_paciente = idPacienteParam;
-    }
-
-    fetchHistoriasClinicas(query)
-      .then(({ items, total, totalPages: totalPagesMeta }) => {
-        if (cancelled) return;
-        setHistorias(items);
-        const resolvedTotal = total ?? items.length;
-        const resolvedTotalPages = totalPagesMeta ?? (resolvedTotal ? Math.max(1, Math.ceil(resolvedTotal / limit)) : 1);
-        setTotalBackend(resolvedTotal);
-        setTotalPages(resolvedTotalPages);
-      })
-      .catch((e: any) => {
-        if (cancelled) return;
-        const message = e?.status === 403
-          ? "Acceso denegado: la historia pertenece a otro tenant"
-          : e?.message || "Error cargando historias clinicas";
-        setListError(message);
-        toast.error(message);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoadingList(false);
-      });
+    (async () => {
+      try {
+        const data = await apiGet<any>(`/pacientes/${parsedId}`);
+        if (cancelled || !data) return;
+        const patient: SelectedPatient = {
+          id_paciente: Number(data.id_paciente ?? data.id ?? parsedId),
+          nombres: data.nombres ?? data.nombre ?? "",
+          apellidos: data.apellidos ?? data.apellido ?? "",
+          numero_cedula: data.numero_cedula ?? data.identificacion ?? data.documento_identidad,
+          numero_celular: data.numero_celular ?? data.telefono ?? data.celular,
+          email: data.email ?? data.correo ?? "",
+        };
+        setSelectedPatient(patient);
+      } catch (error: any) {
+        toast.error(
+          error?.message || "No se pudo obtener la información del paciente seleccionado",
+        );
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [idPacienteParam, limit, page]);
+  }, [idPacienteParam, selectedPatient]);
 
-  const filteredRecords = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return historias;
-    return historias.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
-  }, [historias, searchTerm]);
+const activeHistory = useMemo(
+  () => histories.find((history) => history.id_historia === activeHistoryId) ?? null,
+  [histories, activeHistoryId],
+);
 
-  // limpiado: helpers de badges ya no usados
+  const handleClearSelection = useCallback(() => {
+    setSelectedPatient(null);
+    setHistories([]);
+    setActiveHistoryId(null);
+    setHistoriesError(null);
+    setHistoriesLoading(false);
+  }, []);
 
-  const location = useLocation();
+const loadHistories = useCallback(async () => {
+  if (!selectedPatient) return;
+  setHistoriesLoading(true);
+  setHistoriesError(null);
+  try {
+      const items = await fetchHistoriasPorPaciente(selectedPatient.id_paciente);
+      setHistories(items);
+      setActiveHistoryId(items[0]?.id_historia ?? null);
+    } catch (error: any) {
+      const message =
+        error?.status === 403
+          ? "Acceso denegado: el paciente pertenece a otro tenant"
+          : error?.message || "No se pudieron cargar las historias clínicas del paciente";
+      setHistoriesError(message);
+      toast.error(message);
+    } finally {
+      setHistoriesLoading(false);
+    }
+  }, [selectedPatient]);
+
+  useEffect(() => {
+    if (!selectedPatient) {
+      setHistories([]);
+      setActiveHistoryId(null);
+      setHistoriesLoading(false);
+      setHistoriesError(null);
+      return;
+    }
+    void loadHistories();
+  }, [selectedPatient, loadHistories]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Historias Clinicas</h1>
+          <h1 className="text-3xl font-bold text-foreground">Historias Clínicas</h1>
           <p className="text-muted-foreground">
-            Gestiona todas las historias clinicas y registros medicos
+            Busca pacientes y gestiona sus historias médicas en un solo lugar.
           </p>
         </div>
-        <Link to="/medical-records/new" state={{ background: location }}>
-          <Button className="flex items-center gap-2">
+        <Link
+          to={
+            selectedPatient
+              ? `/medical-records/new?patientId=${selectedPatient.id_paciente}`
+              : "/medical-records/new"
+          }
+          state={{ background: location }}
+        >
+          <Button className="flex items-center gap-2" disabled={!selectedPatient}>
             <Plus className="h-4 w-4" />
-            Historia Clinica
+            Nueva historia
           </Button>
         </Link>
       </div>
 
-      {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por cualquier campo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="rounded-md border p-2 bg-muted/40">
+                <Search className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Paciente seleccionado
+                </p>
+                {selectedPatient ? (
+                  <div className="space-y-1">
+                    <p className="text-lg font-semibold text-foreground">
+                      {selectedPatient.nombres} {selectedPatient.apellidos}
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {selectedPatient.numero_cedula && (
+                        <Badge variant="secondary">
+                          Cédula: {selectedPatient.numero_cedula}
+                        </Badge>
+                      )}
+                      {selectedPatient.numero_celular && (
+                        <Badge variant="secondary">
+                          Teléfono: {selectedPatient.numero_celular}
+                        </Badge>
+                      )}
+                      {selectedPatient.email && (
+                        <Badge variant="secondary">Correo: {selectedPatient.email}</Badge>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Selecciona un paciente para revisar su historial clínico.
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-medium">Total Historias:</span>
-              <span className="font-bold text-primary">{totalBackend || filteredRecords.length}</span>
+            <div className="flex gap-2">
+              {selectedPatient && (
+                <Button variant="ghost" onClick={handleClearSelection}>
+                  Limpiar selección
+                </Button>
+              )}
+              <Button onClick={() => setPatientModalOpen(true)}>Buscar paciente</Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-
-      {/* Medical Records List */}
-      {loadingList && (
-        <Card>
-          <CardContent className="pt-6">Cargando historias clinicas...</CardContent>
-        </Card>
-      )}
-      {listError && (
-        <Card className="border-red-300 bg-red-50">
-          <CardContent className="pt-6 text-red-700">{listError}</CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-4">
-        {filteredRecords.map((record, idx) => {
-          const rid = Number(record?.id_historia ?? 0);
-          const ridStr = rid > 0 ? String(rid) : "";
-          const clinicName = record.clinica?.nombre || "Sin clínica";
-          const tenantLabel = record.tenant?.nombre || record.tenant?.slug || "Sin tenant";
-          return (
-          <Card key={`${rid || "row"}-${idx}`} className="hover:shadow-md transition-shadow">
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h3 className="text-lg font-semibold text-foreground">Historia #{ridStr || ""}</h3>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span className="font-medium">Creacion:</span> {formatDateTime(record.fecha_creacion)}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      <span className="font-medium">Paciente:</span> #{record.id_paciente}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span className="font-medium">Actualizacion:</span> {formatDateTime(record.fecha_modificacion)}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Building2 className="h-4 w-4" />
-                      <span className="font-medium">Clinica:</span> {clinicName}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Building2 className="h-4 w-4" />
-                      <span className="font-medium">Tenant:</span> {tenantLabel || "Sin tenant"}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-sm">
-                      <span className="font-medium text-foreground">Detalles:</span>
-                      <span className="text-muted-foreground ml-2">{record.detalles_generales || ""}</span>
-                    </div>
-                  </div>
+      {selectedPatient ? (
+        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="text-base">
+                Historias ({histories.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {historiesLoading && (
+                <div className="flex items-center justify-center py-6 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Cargando historias...
                 </div>
-                <div className="flex gap-2">
-                  {rid > 0 ? (
-                    <Link to={`/medical-records/${ridStr}`} state={{ background: location }}>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4 mr-1" />
-                        Ver
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button variant="outline" size="sm" disabled>
-                      <Eye className="h-4 w-4 mr-1" />
-                      Ver
-                    </Button>
-                  )}
-                  {rid > 0 ? (
-                    <Link to={`/medical-records/${ridStr}`} state={{ background: location }}>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button variant="outline" size="sm" disabled>
-                      <Edit className="h-4 w-4 mr-1" />
-                      Editar
-                    </Button>
-                  )}
-                  <Link to={`/patients/${record.id_paciente}`} state={{ background: location }}>
-                    <Button size="sm">
-                      <User className="h-4 w-4 mr-1" />
-                      Paciente
-                    </Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (!rid) {
-                        toast.error("ID de historia invalido");
-                        return;
-                      }
-                      void openOdontogramaModal(rid, "empty");
-                    }}
-                  >
-                    Odontograma
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (!rid) {
-                        toast.error("ID de historia invalido");
-                        return;
-                      }
-                      void openOdontogramaModal(rid, "from_last");
-                    }}
-                  >
-                    consolidado
-                  </Button>
+              )}
+              {historiesError && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                  <span>{historiesError}</span>
                 </div>
+              )}
+              {!historiesLoading && histories.length === 0 && (
+                <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  Este paciente aún no tiene historias clínicas registradas.
+                </div>
+              )}
+              <div className="space-y-2">
+                {histories.map((history) => {
+                  const isActive = history.id_historia === activeHistoryId;
+                  return (
+                    <button
+                      key={history.id_historia}
+                      type="button"
+                      onClick={() => setActiveHistoryId(history.id_historia)}
+                      className={`w-full rounded-md border p-3 text-left transition ${
+                        isActive
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:border-primary/60 hover:bg-muted"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">Historia #{history.id_historia}</span>
+                        {history.fecha_creacion && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatDateTime(history.fecha_creacion)}
+                          </span>
+                        )}
+                      </div>
+                      {history.clinica?.nombre && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {history.clinica.nombre}
+                        </p>
+                      )}
+                      {history.detalles_generales && (
+                        <p className="text-xs line-clamp-2 mt-1 text-muted-foreground">
+                          {history.detalles_generales}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
-        )})}
-      </div>
 
-      {/* Paginacion */}
-      <div className="flex justify-center items-center space-x-4 mt-6">
-        <Button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-          Anterior
-        </Button>
-        <span className="text-sm">Pagina {page} de {totalPages}</span>
-        <Button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
-          Siguiente
-        </Button>
-      </div>
+          <div className="space-y-4">
+            {activeHistory ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <FileText className="h-5 w-5" />
+                    Historia #{activeHistory.id_historia}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      <span className="font-medium text-foreground">Paciente:</span>
+                      <span>
+                        {selectedPatient.nombres} {selectedPatient.apellidos} (#
+                        {activeHistory.id_paciente})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      <span className="font-medium text-foreground">Clínica:</span>
+                      <span>{activeHistory.clinica?.nombre ?? "Sin clínica"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span className="font-medium text-foreground">Creación:</span>
+                      <span>{formatDateTime(activeHistory.fecha_creacion)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span className="font-medium text-foreground">Última actualización:</span>
+                      <span>{formatDateTime(activeHistory.fecha_modificacion)}</span>
+                    </div>
+                  </div>
 
-      {!loadingList && filteredRecords.length === 0 && (
+                  {activeHistory.detalles_generales && (
+                    <>
+                      <Separator />
+                      <div>
+                        <p className="text-sm font-medium text-foreground mb-1">Detalles</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-line">
+                          {activeHistory.detalles_generales}
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      to={`/medical-records/${activeHistory.id_historia}`}
+                      state={{ background: location }}
+                    >
+                      <Button size="sm" variant="outline">
+                        Ver historia
+                      </Button>
+                    </Link>
+                    <Link
+                      to={`/medical-records/${activeHistory.id_historia}`}
+                      state={{ background: location }}
+                    >
+                      <Button size="sm" variant="outline">
+                        Editar
+                      </Button>
+                    </Link>
+                    <Link
+                      to={`/patients/${activeHistory.id_paciente}`}
+                      state={{ background: location }}
+                    >
+                      <Button size="sm" variant="outline">
+                        Paciente
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      onClick={() => openOdontogramaModal(activeHistory.id_historia, "empty")}
+                    >
+                      Abrir odontograma
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        openOdontogramaModal(activeHistory.id_historia, "from_last")
+                      }
+                    >
+                      Consolidado
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void loadHistories()}
+                    >
+                      Refrescar panel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  Selecciona una historia del panel izquierdo para ver el detalle.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      ) : (
         <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground">
-              No se encontraron historias clinicas que coincidan con la busqueda.
+          <CardContent className="py-12 text-center text-muted-foreground">
+            <p className="text-sm">
+              Usa el buscador para seleccionar un paciente y revisar sus historias clínicas.
             </p>
           </CardContent>
         </Card>
       )}
+
+      <PatientSearchModal
+        isOpen={patientModalOpen}
+        onClose={() => setPatientModalOpen(false)}
+        onSelectPatient={(paciente) => handlePatientSelected(paciente)}
+      />
 
       <OdontogramaModal
         open={ogModalOpen}

@@ -64,3 +64,10 @@ export async function fetchHistoriasClinicas(query?: HistoriasClinicasQuery): Pr
     totalPages,
   };
 }
+
+export async function fetchHistoriasPorPaciente(pacienteId: number): Promise<HistoriaClinica[]> {
+  if (!pacienteId) return [];
+  const payload = await apiGet<any>(`/pacientes/${pacienteId}/historias-clinicas`);
+  const source = Array.isArray(payload?.data) ? payload.data : payload;
+  return ensureArray(source).map(mapHistoriaClinica);
+}
