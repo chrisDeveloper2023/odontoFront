@@ -54,8 +54,11 @@ export default function ToothSidePanel({
   useEffect(() => {
     setPresente(pieza?.esta_presente !== false);
     setEstado(pieza?.estado_general ?? "SANO");
+  }, [pieza?.numero_fdi, pieza?.esta_presente, pieza?.estado_general]);
+
+  useEffect(() => {
     setNotas(pieza?.notas ?? "");
-  }, [pieza]);
+  }, [pieza?.numero_fdi, pieza?.notas]);
 
   const refreshEventos = useCallback(
     async (options?: { silent?: boolean; signal?: { cancelled: boolean } }) => {
