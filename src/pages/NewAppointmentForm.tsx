@@ -1,5 +1,6 @@
 // src/pages/NewAppointment.tsx
 import { useState, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardHeader,
@@ -49,6 +50,7 @@ const NewAppointmentForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const backgroundLocation = (location.state as { background?: Location } | undefined)?.background;
+  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
     id_paciente: "",
@@ -196,6 +198,7 @@ const NewAppointmentForm = () => {
       };
 
       await apiPost("/citas", payload);
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.success("Cita agendada correctamente");
       if (backgroundLocation) {
         navigate(-1);
