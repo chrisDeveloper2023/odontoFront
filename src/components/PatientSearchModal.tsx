@@ -12,14 +12,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { apiGet } from "@/api/client";
-import { Search, User, Phone, IdCard, Mail } from "lucide-react";
+import { Search, User, IdCard, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 interface Paciente {
   id_paciente: number;
   nombres: string;
   apellidos: string;
-  numero_celular?: string;
   numero_cedula?: string;
   email?: string;
   fecha_nacimiento?: string;
@@ -36,13 +35,12 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
   onClose,
   onSelectPatient,
 }) => {
-  const [filtros, setFiltros] = useState({
-    nombres: "",
-    apellidos: "",
-    numero_celular: "",
-    numero_cedula: "",
-    email: "",
-  });
+const [filtros, setFiltros] = useState({
+  nombres: "",
+  apellidos: "",
+  numero_cedula: "",
+  email: "",
+});
   
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,22 +55,33 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
     setHasSearched(true);
     try {
       // Construir los parámetros de búsqueda
-      const params: any = { page: 1, limit: 100 };
-      
-      if (filtros.nombres.trim()) {
+      const params: Record<string, string | number> = { page: 1, limit: 100 };
+      const searchTokens: string[] = [];
+
+      const addToken = (value: string) => {
+        const trimmed = value.trim();
+        if (trimmed) {
+          searchTokens.push(trimmed);
+          return trimmed;
+        }
+        return "";
+      };
+
+      if (addToken(filtros.nombres)) {
         params.nombres = filtros.nombres.trim();
       }
-      if (filtros.apellidos.trim()) {
+      if (addToken(filtros.apellidos)) {
         params.apellidos = filtros.apellidos.trim();
       }
-      if (filtros.numero_celular.trim()) {
-        params.numero_celular = filtros.numero_celular.trim();
-      }
-      if (filtros.numero_cedula.trim()) {
+      if (addToken(filtros.numero_cedula)) {
         params.numero_cedula = filtros.numero_cedula.trim();
       }
-      if (filtros.email.trim()) {
+      if (addToken(filtros.email)) {
         params.email = filtros.email.trim();
+      }
+
+      if (searchTokens.length > 0) {
+        params.search = searchTokens.join(" ");
       }
 
       const response = await apiGet<any>("/pacientes", params);
@@ -83,20 +92,64 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
           ? response
           : [];
 
+      pacientesList = pacientesList.map((paciente: any) => {
+        const numero_cedula =
+          paciente.numero_cedula ??
+          paciente.documento_identidad ??
+          paciente.identificacion ??
+          paciente.cedula ??
+          paciente.documento ??
+          null;
+        const email =
+          paciente.email ??
+          paciente.correo ??
+          paciente.email_contacto ??
+          paciente.mail ??
+          null;
+        return {
+          ...paciente,
+          numero_cedula,
+          email,
+        };
+      });
+
       // Filtrado local adicional para asegurar que solo se muestren coincidencias exactas
-      pacientesList = pacientesList.filter((paciente: Paciente) => {
-        const matchNombres = !filtros.nombres.trim() || 
-          paciente.nombres?.toLowerCase().includes(filtros.nombres.trim().toLowerCase());
-        const matchApellidos = !filtros.apellidos.trim() || 
-          paciente.apellidos?.toLowerCase().includes(filtros.apellidos.trim().toLowerCase());
-        const matchCelular = !filtros.numero_celular.trim() || 
-          paciente.numero_celular?.includes(filtros.numero_celular.trim());
-        const matchCedula = !filtros.numero_cedula.trim() || 
-          paciente.numero_cedula?.includes(filtros.numero_cedula.trim());
-        const matchEmail = !filtros.email.trim() || 
-          paciente.email?.toLowerCase().includes(filtros.email.trim().toLowerCase());
-        
-        return matchNombres && matchApellidos && matchCelular && matchCedula && matchEmail;
+      const filtroNombre = filtros.nombres.trim().toLowerCase();
+      const filtroApellido = filtros.apellidos.trim().toLowerCase();
+      const filtroCedula = filtros.numero_cedula.trim();
+      const filtroEmail = filtros.email.trim().toLowerCase();
+
+      pacientesList = pacientesList.filter((paciente: Paciente & Record<string, any>) => {
+        const matchNombres =
+          !filtroNombre ||
+          paciente.nombres?.toLowerCase().includes(filtroNombre);
+        const matchApellidos =
+          !filtroApellido ||
+          paciente.apellidos?.toLowerCase().includes(filtroApellido);
+        const cedulaValor =
+          paciente.numero_cedula ??
+          paciente.documento_identidad ??
+          paciente.identificacion ??
+          paciente.cedula ??
+          paciente.documento ??
+          "";
+        const matchCedula =
+          !filtroCedula || String(cedulaValor).includes(filtroCedula);
+        const emailValor =
+          paciente.email ??
+          paciente.correo ??
+          paciente.email_contacto ??
+          "";
+        const matchEmail =
+          !filtroEmail ||
+          String(emailValor).toLowerCase().includes(filtroEmail);
+
+        return (
+          matchNombres &&
+          matchApellidos &&
+          matchCedula &&
+          matchEmail
+        );
       });
 
       setPacientes(pacientesList);
@@ -117,7 +170,6 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
     setFiltros({
       nombres: "",
       apellidos: "",
-      numero_celular: "",
       numero_cedula: "",
       email: "",
     });
@@ -181,19 +233,6 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="numero_celular" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Número de Celular
-              </Label>
-              <Input
-                id="numero_celular"
-                placeholder="Ej: 0987654321"
-                value={filtros.numero_celular}
-                onChange={(e) => handleFilterChange("numero_celular", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="numero_cedula" className="flex items-center gap-2">
                 <IdCard className="h-4 w-4" />
                 Número de Cédula
@@ -248,7 +287,6 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
                     <TableHead>Cédula</TableHead>
                     <TableHead>Nombres</TableHead>
                     <TableHead>Apellidos</TableHead>
-                    <TableHead>Celular</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
@@ -277,7 +315,6 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
                         <TableCell>{paciente.numero_cedula || "N/A"}</TableCell>
                         <TableCell>{paciente.nombres}</TableCell>
                         <TableCell>{paciente.apellidos}</TableCell>
-                        <TableCell>{paciente.numero_celular || "N/A"}</TableCell>
                         <TableCell>{paciente.email || "N/A"}</TableCell>
                         <TableCell className="text-right">
                           <Button
