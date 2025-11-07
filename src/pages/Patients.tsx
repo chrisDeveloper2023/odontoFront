@@ -62,6 +62,9 @@ const Patients: React.FC = () => {
   const [isNewAppointmentModalOpen, setIsNewAppointmentModalOpen] = useState(false);
   const [selectedPatientForAppointment, setSelectedPatientForAppointment] = useState<string | null>(null);
   const [isSubmittingAppointment, setIsSubmittingAppointment] = useState(false);
+  const [reloadFlag, setReloadFlag] = useState(0);
+
+  const triggerPatientsReload = () => setReloadFlag((prev) => prev + 1);
 
   useEffect(() => {
     async function fetchPacientes() {
@@ -117,7 +120,7 @@ const Patients: React.FC = () => {
       }
     }
     fetchPacientes();
-  }, [page, mostrarInactivos]);
+  }, [page, mostrarInactivos, reloadFlag]);
 
   // Actualizar la URL cuando cambia la búsqueda
   useEffect(() => {
@@ -170,10 +173,8 @@ const Patients: React.FC = () => {
   };
 
   const handleNewPatientCreated = (newPatient: any) => {
-    // Recargar la lista de pacientes
     setPage(1);
-    // También podrías agregar el nuevo paciente directamente a la lista
-    // pero es más seguro recargar desde el servidor
+    triggerPatientsReload();
   };
 
   const openMedicalRecordModal = (patientId: string) => {
@@ -187,8 +188,8 @@ const Patients: React.FC = () => {
   };
 
   const handleMedicalRecordCreated = (medicalRecord: any) => {
-    // Recargar la lista de pacientes para actualizar el contador de historias clínicas
     setPage(1);
+    triggerPatientsReload();
   };
 
   const openAppointmentModal = (patientId: string) => {
@@ -208,8 +209,8 @@ const Patients: React.FC = () => {
       // Aquí podrías hacer una llamada a la API para crear la cita
       // await apiPost('/citas', payload);
       console.log('Cita creada:', payload);
-      // Recargar la lista de pacientes si es necesario
       setPage(1);
+      triggerPatientsReload();
     } catch (error) {
       console.error('Error creando cita:', error);
       throw error; // Re-lanzar para que el modal maneje el error
