@@ -1,4 +1,4 @@
-import { apiGet } from "@/api/client";
+import { apiGet, apiPost } from "@/api/client";
 import { ensureArray, mapHistoriaClinica } from "@/lib/api/mappers";
 import type { HistoriaClinica, HistoriaClinicaList } from "@/types/historiaClinica";
 
@@ -70,4 +70,16 @@ export async function fetchHistoriasPorPaciente(pacienteId: number): Promise<His
   const payload = await apiGet<any>(`/pacientes/${pacienteId}/historias-clinicas`);
   const source = Array.isArray(payload?.data) ? payload.data : payload;
   return ensureArray(source).map(mapHistoriaClinica);
+}
+
+export async function abrirHistoriaDesdeCita(citaId: number): Promise<HistoriaClinica> {
+  const payload = await apiPost<any>(`/historias/abrir-desde-cita/${citaId}`);
+  const source = payload?.historia ?? payload;
+  return mapHistoriaClinica(source);
+}
+
+export async function cerrarHistoria(historiaId: number): Promise<HistoriaClinica | null> {
+  const payload = await apiPost<any>(`/historias/cerrar/${historiaId}`);
+  const source = payload?.historia ?? payload;
+  return source ? mapHistoriaClinica(source) : null;
 }

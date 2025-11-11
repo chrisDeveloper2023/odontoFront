@@ -1,18 +1,19 @@
 
 // src/pages/AppointmentDetail.tsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate, useLocation, type Location } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Edit2 } from "lucide-react";
-import { apiGet, apiPatch, apiPost } from "@/api/client";
+import { apiGet, apiPatch } from "@/api/client";
 import { toast } from "sonner";
-import { API_BASE } from "@/lib/http";
 import { formatGuayaquilDate, formatGuayaquilTimeHM } from "@/lib/timezone";
+import CitaTimeline from "@/components/CitaTimeline";
 
-const ESTADOS_CITA = ["AGENDADA", "CONFIRMADA", "CANCELADA", "COMPLETADA"] as const;
+const ESTADOS_CITA = ["AGENDADA", "CONFIRMADA", "REALIZADA", "CANCELADA"] as const;
 
 type Appointment = {
   id_cita: number;
@@ -59,33 +60,42 @@ export default function AppointmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const backgroundLocation = (location.state as { background?: Location } | undefined)?.background;
-  const [cita, setCita] = useState<Appointment | null>(null);
-  const [loading, setLoading] = useState(true);
+  const citaId = Number(id);
   const [error, setError] = useState<string | null>(null);
   const [updatingEstado, setUpdatingEstado] = useState(false);
 
-  useEffect(() => {
-    apiGet<Appointment>(`/citas/${id}`)
-      .then((data) => setCita(data))
-      .catch((err: any) => {
-        if (err?.status === 403) {
-          const message = "No tienes acceso a esta cita (403)";
-          setError(message);
-          toast.error(message);
-        } else {
-          setError(err?.message || "Error al cargar la cita");
-        }
-      })
-      .finally(() => setLoading(false));
-  }, [id]);
+  const citaQuery = useQuery({
+    queryKey: ["cita", citaId],
+    enabled: Number.isFinite(citaId),
+    queryFn: async () => {
+      const data = await apiGet<Appointment>(`/citas/${citaId}`);
+      setError(null);
+      return data;
+    },
+    onError: (err: any) => {
+      const message =
+        err?.status === 403
+          ? "No tienes acceso a esta cita (403)"
+          : err?.message || "Error al cargar la cita";
+      setError(message);
+      if (err?.status === 403) {
+        toast.error(message);
+      }
+    },
+    staleTime: 15_000,
+  });
+
+  const cita = citaQuery.data ?? null;
+  const loading = citaQuery.isLoading;
 
   const handleEstadoChange = async (nuevoEstado: string) => {
     if (!cita || nuevoEstado === cita.estado) return;
     try {
       setUpdatingEstado(true);
       await apiPatch(`/citas/${cita.id_cita}/estado`, { estado: nuevoEstado });
-      setCita((prev) => (prev ? { ...prev, estado: nuevoEstado } : prev));
+      await queryClient.invalidateQueries({ queryKey: ["cita", cita.id_cita] });
       toast.success(`Estado actualizado a ${nuevoEstado}`);
     } catch (err: any) {
       console.error(err);
@@ -111,29 +121,6 @@ export default function AppointmentDetail() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Cita #{cita.id_cita}</h1>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              try {
-                const hist = await apiPost<any>(`/citas/${cita.id_cita}/historias-clinicas/abrir`);
-                const idHistoria = hist?.id_historia || hist?.id || hist?.historia?.id_historia;
-                if (idHistoria) {
-                  navigate(`/medical-records/${idHistoria}`, {
-                    state: { background: location.state?.background ?? location },
-                  });
-                }
-              } catch (e: any) {
-                console.error("No se pudo abrir la historia clinica desde la cita:", e);
-                const message = e?.status === 403
-                  ? "No tienes acceso a la historia clinica de esta cita (403)"
-                  : e?.message || "No se pudo abrir la historia clinica";
-                toast.error(message);
-              }
-            }}
-          >
-            Abrir historia clinica
-          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -208,6 +195,22 @@ export default function AppointmentDetail() {
           </div>
         </CardContent>
       </Card>
+
+      {cita && (
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Linea de tiempo clinica</h2>
+          <CitaTimeline
+            citaId={cita.id_cita}
+            pacienteId={cita.paciente.id_paciente}
+            onOpenHistoria={(historiaId) => {
+              const nextBackground = backgroundLocation ?? location;
+              navigate(`/medical-records/${historiaId}`, {
+                state: { background: nextBackground },
+              });
+            }}
+          />
+        </section>
+      )}
     </div>
   );
 }

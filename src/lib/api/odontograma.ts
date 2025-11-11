@@ -35,6 +35,7 @@ export type OdontogramaEntity = {
   id_historia: number;
   is_draft: boolean;
   version: number;
+  version_token?: string | null;
 };
 
 export type OdontogramaResponse = {
@@ -82,8 +83,26 @@ export async function abrirDraftOdontograma(
   );
 }
 
-export async function consolidarOdontograma(idOdontograma: number): Promise<any> {
-  return apiPost(`/odontogramas/${idOdontograma}/consolidar`);
+export async function consolidarOdontograma(
+  idOdontograma: number,
+  opts?: { versionToken?: string | null },
+): Promise<any> {
+  const headers =
+    opts?.versionToken && opts.versionToken !== ""
+      ? { "If-Match": opts.versionToken }
+      : undefined;
+  return apiPost(`/odontogramas/${idOdontograma}/consolidar`, undefined, headers ? { headers } : undefined);
+}
+
+export async function descartarOdontograma(
+  idOdontograma: number,
+  opts?: { versionToken?: string | null },
+): Promise<any> {
+  const headers =
+    opts?.versionToken && opts.versionToken !== ""
+      ? { "If-Match": opts.versionToken }
+      : undefined;
+  return apiPost(`/odontogramas/${idOdontograma}/descartar`, undefined, headers ? { headers } : undefined);
 }
 
 export async function patchPiezaEstado(params: {
