@@ -9,6 +9,7 @@ export interface HistoriaClinica {
   estado?: string | null;
   fecha_cierre?: string | null;
   cerrada_por?: number | null;
+  motivo_cierre?: string | null;
   detalles_generales?: string | null;
   motivo_consulta?: string | null;
   fecha_creacion?: string | null;

@@ -173,6 +173,7 @@ export const mapHistoriaClinica = (raw: any): HistoriaClinica => {
     estado: raw.estado ?? raw.estado_historia ?? null,
     fecha_cierre: raw.fecha_cierre ?? raw.fechaCierre ?? null,
     cerrada_por: toNumber(raw.cerrada_por ?? raw.cerradaPor ?? raw.cerrada_por_usuario) ?? null,
+    motivo_cierre: raw.motivo_cierre ?? raw.motivoCierre ?? null,
     detalles_generales: raw.detalles_generales ?? raw.detallesGenerales ?? raw.detalles ?? null,
     motivo_consulta: raw.motivo_consulta ?? raw.motivoConsulta ?? raw.motivo ?? null,
     fecha_creacion: raw.fecha_creacion ?? raw.fechaCreacion ?? raw.created_at ?? raw.createdAt ?? null,

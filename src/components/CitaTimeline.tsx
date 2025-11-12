@@ -47,6 +47,7 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
   const historia = historiaList.find((hist) => hist.id_cita === citaId) ?? null;
   const historiaId = historia?.id_historia ?? null;
   const historiaCerrada = historia?.estado === "CERRADA" || Boolean(historia?.fecha_cierre);
+  const historiaEditBlockedMessage = "La historia esta cerrada y no admite nuevas ediciones.";
 
   const odontogramaQuery = useQuery({
     queryKey: ["odontograma", historiaId],
@@ -98,9 +99,22 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
 
   const handleCerrarHistoria = async () => {
     if (!historiaId) return;
+    let motivoValue: string | undefined;
+    if (typeof window !== "undefined") {
+      const promptValue = window.prompt(
+        "Motivo de cierre (opcional)",
+        historia?.motivo_cierre ?? "Atencion completada",
+      );
+      if (promptValue === null) {
+        return;
+      }
+      motivoValue = promptValue.trim() || undefined;
+    } else {
+      motivoValue = historia?.motivo_cierre ?? undefined;
+    }
     try {
       setHistoriaAction("close");
-      await cerrarHistoria(historiaId);
+      await cerrarHistoria(historiaId, motivoValue);
       toast.success("Historia cerrada");
       invalidateHistoria();
       invalidateOdontograma();
@@ -108,7 +122,9 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
       const message =
         error?.status === 403
           ? "No tienes permisos para cerrar la historia"
-          : error?.message || "No se pudo cerrar la historia";
+          : error?.status === 409
+            ? "La historia ya esta cerrada"
+            : error?.message || "No se pudo cerrar la historia";
       toast.error(message);
     } finally {
       setHistoriaAction(null);
@@ -117,13 +133,22 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
 
   const handleOpenOdontoDraft = async () => {
     if (!historiaId) return;
+    if (historiaCerrada) {
+      toast.error(historiaEditBlockedMessage);
+      return;
+    }
     try {
       setOdoAction("open-draft");
       await abrirDraftOdontograma(historiaId, "from_last");
       toast.success("Borrador de odontograma listo");
       invalidateOdontograma();
     } catch (error: any) {
-      toast.error(error?.message || "No se pudo abrir el odontograma");
+      const status = error?.status ?? error?.response?.status;
+      if (status === 409) {
+        toast.error(historiaEditBlockedMessage);
+      } else {
+        toast.error(error?.message || "No se pudo abrir el odontograma");
+      }
     } finally {
       setOdoAction(null);
     }
@@ -131,6 +156,10 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
 
   const handlePublishDraft = async () => {
     if (!ogDraft) return;
+    if (historiaCerrada) {
+      toast.error(historiaEditBlockedMessage);
+      return;
+    }
     try {
       setOdoAction("publish");
       await withDraftRetry(
@@ -144,7 +173,12 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
       toast.success("Odontograma publicado");
       invalidateOdontograma();
     } catch (error: any) {
-      toast.error(error?.message || "No se pudo publicar el odontograma");
+      const status = error?.status ?? error?.response?.status;
+      if (status === 409) {
+        toast.error(historiaEditBlockedMessage);
+      } else {
+        toast.error(error?.message || "No se pudo publicar el odontograma");
+      }
     } finally {
       setOdoAction(null);
     }
@@ -152,6 +186,10 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
 
   const handleDiscardDraft = async () => {
     if (!ogDraft) return;
+    if (historiaCerrada) {
+      toast.error(historiaEditBlockedMessage);
+      return;
+    }
     try {
       setOdoAction("discard");
       await withDraftRetry(
@@ -165,7 +203,12 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
       toast.success("Borrador descartado");
       invalidateOdontograma();
     } catch (error: any) {
-      toast.error(error?.message || "No se pudo descartar el borrador");
+      const status = error?.status ?? error?.response?.status;
+      if (status === 409) {
+        toast.error(historiaEditBlockedMessage);
+      } else {
+        toast.error(error?.message || "No se pudo descartar el borrador");
+      }
     } finally {
       setOdoAction(null);
     }
@@ -190,13 +233,23 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
           <div className="flex flex-col gap-3 text-sm">
             {historia ? (
               <>
-                <div>
+                <div className="space-y-1">
                   <p className="text-muted-foreground">
                     ID historia: {historia.id_historia} {historia.fecha_creacion && `· ${new Date(historia.fecha_creacion).toLocaleString()}`}
                   </p>
                   {historiaCerrada && historia.fecha_cierre && (
                     <p className="text-xs text-emerald-700">
                       Cerrada el {new Date(historia.fecha_cierre).toLocaleString()}
+                    </p>
+                  )}
+                  {historiaCerrada && historia.cerrada_por && (
+                    <p className="text-xs text-muted-foreground">
+                      Por usuario #{historia.cerrada_por}
+                    </p>
+                  )}
+                  {historiaCerrada && historia.motivo_cierre && (
+                    <p className="text-xs text-muted-foreground">
+                      Motivo: {historia.motivo_cierre}
                     </p>
                   )}
                 </div>
@@ -243,9 +296,11 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
         title="Odontograma"
         loading={historiaId != null && historia && odontogramaQuery.isLoading && !odontogramaData}
         badge={
-          hasDraft
-            ? <Badge className="bg-amber-100 text-amber-800">BORRADOR</Badge>
-            : <Badge variant="outline">{historia ? "Sin borrador" : "Historia requerida"}</Badge>
+          historiaCerrada
+            ? <Badge className="bg-slate-100 text-slate-700">SOLO LECTURA</Badge>
+            : hasDraft
+              ? <Badge className="bg-amber-100 text-amber-800">BORRADOR</Badge>
+              : <Badge variant="outline">{historia ? "Sin borrador" : "Historia requerida"}</Badge>
         }
         content={
           <div className="flex flex-col gap-3 text-sm">
@@ -268,35 +323,41 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
                     <p>No hay borradores activos.</p>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleOpenOdontoDraft}
-                    disabled={!historiaId || odoAction === "open-draft"}
-                  >
-                    {odoAction === "open-draft" ? "Preparando..." : "Abrir borrador"}
-                  </Button>
-                  {hasDraft && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={handlePublishDraft}
-                        disabled={odoAction === "publish"}
-                      >
-                        {odoAction === "publish" ? "Publicando..." : "Publicar"}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleDiscardDraft}
-                        disabled={odoAction === "discard"}
-                      >
-                        {odoAction === "discard" ? "Descartando..." : "Descartar"}
-                      </Button>
-                    </>
-                  )}
-                </div>
+                {historiaCerrada ? (
+                  <p className="text-xs text-muted-foreground">
+                    Historia cerrada: el odontograma se muestra en solo lectura y no admite nuevos borradores.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleOpenOdontoDraft}
+                      disabled={!historiaId || odoAction === "open-draft"}
+                    >
+                      {odoAction === "open-draft" ? "Preparando..." : "Abrir borrador"}
+                    </Button>
+                    {hasDraft && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={handlePublishDraft}
+                          disabled={odoAction === "publish"}
+                        >
+                          {odoAction === "publish" ? "Publicando..." : "Publicar"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleDiscardDraft}
+                          disabled={odoAction === "discard"}
+                        >
+                          {odoAction === "discard" ? "Descartando..." : "Descartar"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -330,28 +391,46 @@ export function CitaTimeline({ citaId, pacienteId, onOpenHistoria }: CitaTimelin
         title="Cerrar atencion"
         badge={
           historiaCerrada
-            ? <Badge className="bg-emerald-100 text-emerald-800">Atencion cerrada</Badge>
+            ? <Badge className="bg-emerald-100 text-emerald-800">CERRADA</Badge>
             : <Badge variant="outline">Pendiente</Badge>
         }
         content={
           <div className="flex flex-col gap-3 text-sm">
-            <p className="text-muted-foreground">
-              Cierra la atencion cuando toda la documentacion clinica este completa.
-            </p>
-            {!historiaCerrada && (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={handleCerrarHistoria}
-                disabled={!historiaId || historiaAction === "close"}
-              >
-                {historiaAction === "close" ? "Cerrando..." : "Cerrar atencion"}
-              </Button>
-            )}
-            {historiaCerrada && historia?.fecha_cierre && (
-              <p className="text-xs text-emerald-700">
-                Historia cerrada el {new Date(historia.fecha_cierre).toLocaleString()}
-              </p>
+            {historiaCerrada ? (
+              <>
+                <p className="text-emerald-700">
+                  Atencion cerrada. No se permiten nuevas ediciones sobre la historia ni el odontograma.
+                </p>
+                {historia?.fecha_cierre && (
+                  <p className="text-xs text-muted-foreground">
+                    Fecha: {new Date(historia.fecha_cierre).toLocaleString()}
+                  </p>
+                )}
+                {historia?.cerrada_por && (
+                  <p className="text-xs text-muted-foreground">
+                    Usuario: #{historia.cerrada_por}
+                  </p>
+                )}
+                {historia?.motivo_cierre && (
+                  <p className="text-xs text-muted-foreground">
+                    Motivo: {historia.motivo_cierre}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground">
+                  Cierra la atencion cuando toda la documentacion clinica este completa.
+                </p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleCerrarHistoria}
+                  disabled={!historiaId || historiaAction === "close"}
+                >
+                  {historiaAction === "close" ? "Cerrando..." : "Cerrar atencion"}
+                </Button>
+              </>
             )}
           </div>
         }

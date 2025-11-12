@@ -78,8 +78,9 @@ export async function abrirHistoriaDesdeCita(citaId: number): Promise<HistoriaCl
   return mapHistoriaClinica(source);
 }
 
-export async function cerrarHistoria(historiaId: number): Promise<HistoriaClinica | null> {
-  const payload = await apiPost<any>(`/historias/cerrar/${historiaId}`);
+export async function cerrarHistoria(historiaId: number, motivo?: string | null): Promise<HistoriaClinica | null> {
+  const body = motivo && motivo.trim() !== "" ? { motivo: motivo.trim() } : {};
+  const payload = await apiPost<any>(`/historias-clinicas/${historiaId}/cerrar`, body);
   const source = payload?.historia ?? payload;
   return source ? mapHistoriaClinica(source) : null;
 }
