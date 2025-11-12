@@ -849,7 +849,10 @@ const Appointments = () => {
                         <History className="mr-2 h-4 w-4" />
                         Historial
                       </Button>
-                      <Link to={`/appointments/${appointment.id_cita}`} state={{ background: location }}>
+                      <Link
+                        to={`/appointments/${appointment.id_cita}`}
+                        state={{ background: (location.state as any)?.background ?? location }}
+                      >
                         <Button variant="outline" size="sm">
                           <Eye className="mr-1 h-4 w-4" />
                           Ver

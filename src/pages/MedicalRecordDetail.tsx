@@ -1,6 +1,6 @@
 
 // src/pages/MedicalRecordDetail.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { abrirDraftOdontograma, getOdontogramaByHistoria, OdontogramaResponse } 
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import OdontogramaModal from "@/components/OdontogramaModal";
+import { AlertCircle, Lock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type RespuestaBinaria = "SI" | "NO" | "DESCONOCE";
 type AlteracionPresion = "ALTA" | "BAJA" | "NORMAL" | "DESCONOCIDA";
@@ -22,6 +24,10 @@ type Historia = {
   id_paciente: number;
   id_clinica: number;
   id_cita?: number | null;
+  estado?: string | null;
+  fecha_cierre?: string | null;
+  cerrada_por?: number | null;
+  motivo_cierre?: string | null;
   fecha_creacion?: string;
   fecha_modificacion?: string;
   detalles_generales?: string | null;
@@ -129,6 +135,10 @@ const normalizeHistoria = (raw: any): Historia => {
     id_paciente: Number(raw?.id_paciente ?? raw?.paciente?.id_paciente ?? 0),
     id_clinica: Number(raw?.id_clinica ?? raw?.clinica?.id_clinica ?? 0),
     id_cita: raw?.id_cita ?? raw?.cita?.id_cita ?? null,
+    estado: raw?.estado ?? raw?.estado_historia ?? null,
+    fecha_cierre: raw?.fecha_cierre ?? raw?.fechaCierre ?? null,
+    cerrada_por: raw?.cerrada_por ?? raw?.cerradaPor ?? raw?.cerrada_por_usuario ?? null,
+    motivo_cierre: raw?.motivo_cierre ?? raw?.motivoCierre ?? null,
     fecha_creacion: raw?.fecha_creacion ?? raw?.fechaCreacion ?? null,
     fecha_modificacion: raw?.fecha_modificacion ?? raw?.fechaModificacion ?? null,
     detalles_generales: base.detalles_generales ?? null,
@@ -174,11 +184,11 @@ export default function MedicalRecordDetail() {
   const { hasPermission } = useAuth();
   const canEdit = hasPermission("medical-records:edit");
   const canDelete = hasPermission("medical-records:delete");
-  const readOnly = !canEdit;
   const [data, setData] = useState<Historia | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const [form, setForm] = useState<Partial<Historia>>({});
 
@@ -189,13 +199,21 @@ export default function MedicalRecordDetail() {
 
   const [openCita, setOpenCita] = useState(false);
 
+  const isClosed = useMemo(() => {
+    const estado = (data?.estado ?? form.estado ?? null)?.toString().toUpperCase();
+    const cierre = data?.fecha_cierre ?? (form.fecha_cierre as string | null) ?? null;
+    return estado === "CERRADA" || Boolean(cierre);
+  }, [data?.estado, data?.fecha_cierre, form.estado, form.fecha_cierre]);
+
+  const readOnly = !canEdit || isClosed;
+
   useEffect(() => {
     if (!hasValidId) {
-      setError("ID de historia invalido");
+      setPageError("ID de historia invalido");
       return;
     }
     setLoading(true);
-    setError(null);
+    setPageError(null);
     apiGet<Historia>(`/historias-clinicas/${id}`)
       .then((raw) => {
         const normalized = normalizeHistoria(raw);
@@ -204,7 +222,7 @@ export default function MedicalRecordDetail() {
       })
       .catch((e: any) => {
         const message = e?.status === 403 ? "No tienes acceso a esta historia clinica (403)" : e?.message || "Error al cargar historia";
-        setError(message);
+        setPageError(message);
         toast.error(message);
       })
       .finally(() => setLoading(false));
@@ -216,8 +234,14 @@ export default function MedicalRecordDetail() {
 
   const save = async () => {
     if (!canEdit || !id) return;
+    if (isClosed) {
+      const message = "La historia esta cerrada y no admite nuevas ediciones.";
+      setActionError(message);
+      toast.error(message);
+      return;
+    }
     setSaving(true);
-    setError(null);
+    setActionError(null);
     try {
       const payload: Record<string, any> = {};
       for (const field of TEXT_FIELDS) {
@@ -236,8 +260,12 @@ export default function MedicalRecordDetail() {
       toast.success("Historia clinica guardada correctamente");
       navigate(-1);
     } catch (e: any) {
-      setError(e?.message || "No se pudo guardar");
-      toast.error(e?.message || "No se pudo guardar");
+      const message =
+        e?.status === 409
+          ? "La historia esta cerrada y no admite nuevas ediciones."
+          : e?.message || "No se pudo guardar";
+      setActionError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -248,10 +276,13 @@ export default function MedicalRecordDetail() {
     if (!id) return;
     if (!window.confirm("Eliminar esta historia clinica?")) return;
     try {
+      setActionError(null);
       await apiDelete(`/historias-clinicas/${id}`);
       window.history.back();
     } catch (e: any) {
-      setError(e?.message || "No se pudo eliminar");
+      const message = e?.message || "No se pudo eliminar";
+      setActionError(message);
+      toast.error(message);
     }
   };
 
@@ -315,7 +346,7 @@ export default function MedicalRecordDetail() {
   };
 
   if (loading) return <div className="p-4">Cargando...</div>;
-  if (error) return <div className="p-4 text-red-600">{error}</div>;
+  if (pageError) return <div className="p-4 text-red-600">{pageError}</div>;
   if (!hasValidId) return <div className="p-4 text-red-600">ID de historia invalido</div>;
   if (!data) return <div className="p-4">No se encontro la historia clinica</div>;
 
@@ -324,9 +355,21 @@ export default function MedicalRecordDetail() {
 
   return (
     <div className="space-y-4 p-2">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Historia #{data.id_historia} - Paciente #{data.id_paciente} - Clinica #{data.id_clinica} - Cita {data.id_cita ?? "Sin vincular"}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-muted-foreground space-y-1">
+          <div>
+            Historia #{data.id_historia} - Paciente #{data.id_paciente} - Clinica #{data.id_clinica} - Cita {data.id_cita ?? "Sin vincular"}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className={isClosed ? "bg-emerald-100 text-emerald-800" : "bg-blue-100 text-blue-800"}>
+              {isClosed ? "CERRADA" : "ABIERTA"}
+            </Badge>
+            {data.fecha_cierre && (
+              <span className="text-xs">
+                Cerrada el {new Date(data.fecha_cierre).toLocaleString()}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -339,10 +382,27 @@ export default function MedicalRecordDetail() {
           >
             Ver tratamientos
           </Button>
-          <Button variant="outline" onClick={() => setOpenCita(true)} disabled={!!data.id_cita}>Vincular a cita</Button>
+          <Button variant="outline" onClick={() => setOpenCita(true)} disabled={!!data.id_cita || readOnly}>Vincular a cita</Button>
           <Button variant="destructive" onClick={remove}>Eliminar</Button>
         </div>
       </div>
+
+      {isClosed && (
+        <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          <Lock className="h-4 w-4 mt-0.5" />
+          <div>
+            <p>Esta historia esta cerrada y solo puede visualizarse.</p>
+            {data.motivo_cierre && <p className="text-xs mt-1">Motivo: {data.motivo_cierre}</p>}
+          </div>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <span>{actionError}</span>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -533,9 +593,9 @@ export default function MedicalRecordDetail() {
       </Card>
 
       <div className="flex justify-end gap-2 sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4">
-        <Button variant="outline" onClick={() => abrirOg("from_last")} disabled={ogLoading}>Odontograma desde ultimo</Button>
-        <Button variant="outline" onClick={() => abrirOg("empty")} disabled={ogLoading}>Odontograma vacio</Button>
-        <Button onClick={save} disabled={saving}>Guardar</Button>
+        <Button variant="outline" onClick={() => abrirOg("from_last")} disabled={ogLoading || readOnly}>Odontograma desde ultimo</Button>
+        <Button variant="outline" onClick={() => abrirOg("empty")} disabled={ogLoading || readOnly}>Odontograma vacio</Button>
+        <Button onClick={save} disabled={saving || readOnly}>Guardar</Button>
       </div>
 
       <OdontogramaModal

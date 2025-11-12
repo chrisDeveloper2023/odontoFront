@@ -64,12 +64,16 @@ function RequireAuth() {
 function AppRoutes() {
   const location = useLocation();
   const state = location.state as { background?: Location } | undefined;
+  const background =
+    state?.background && state.background.pathname !== location.pathname
+      ? state.background
+      : undefined;
   const modalMatches = ["/medical-records/new", "/medical-records/:id"];
   const isModalLocation = modalMatches.some((path) => matchPath(path, location.pathname));
 
   return (
     <>
-      <Routes location={state?.background || location}>
+      <Routes location={background || location}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/tenants" element={<TenantsAdmin />} />
         <Route element={<RequireAuth />}>
@@ -112,7 +116,7 @@ function AppRoutes() {
         <Route path="*" element={<NotFound />} />
       </Routes>
 
-      {(state?.background || isModalLocation) && (
+      {(background || isModalLocation) && (
         <Routes>
           <Route element={<RequireAuth />}>
             <Route
