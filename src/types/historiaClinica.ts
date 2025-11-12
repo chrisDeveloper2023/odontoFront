@@ -6,6 +6,9 @@ export interface HistoriaClinica {
   id_paciente: number;
   id_clinica: number | null;
   id_cita: number | null;
+  estado?: string | null;
+  fecha_cierre?: string | null;
+  cerrada_por?: number | null;
   detalles_generales?: string | null;
   motivo_consulta?: string | null;
   fecha_creacion?: string | null;
