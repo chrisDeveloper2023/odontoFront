@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams, type Location } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -219,6 +219,9 @@ const fetchAppointments = async (filters: AppointmentFilters): Promise<Appointme
 
 const Appointments = () => {
   const location = useLocation();
+  const baseLocation =
+    ((location.state as { background?: Location } | undefined)?.background as Location | undefined) ??
+    location;
   const [searchParams, setSearchParams] = useSearchParams();
 
   const initialPage = (() => {
@@ -588,7 +591,7 @@ const Appointments = () => {
           >
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-          <Link to="/appointments/new" state={{ background: location }}>
+          <Link to="/appointments/new" state={{ background: baseLocation }}>
             <Button>
               <CalendarPlus className="mr-2 h-4 w-4" />
               Nueva cita
@@ -849,10 +852,7 @@ const Appointments = () => {
                         <History className="mr-2 h-4 w-4" />
                         Historial
                       </Button>
-                      <Link
-                        to={`/appointments/${appointment.id_cita}`}
-                        state={{ background: (location.state as any)?.background ?? location }}
-                      >
+                      <Link to={`/appointments/${appointment.id_cita}`} state={{ background: baseLocation }}>
                         <Button variant="outline" size="sm">
                           <Eye className="mr-1 h-4 w-4" />
                           Ver
